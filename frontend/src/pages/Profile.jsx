@@ -3,6 +3,7 @@ import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import { Camera, Save, X, User } from "lucide-react";
 import { format } from "date-fns";
+import logo from "../assets/OrkaVault.png";
 
 const DEPARTMENTS = [
   "IT",
@@ -24,6 +25,10 @@ export default function Profile() {
   const [form, setForm] = useState({ name: "", department: "", startDate: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [passwordForm, setPasswordForm] = useState({ current: "", new: "", confirm: "" });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -87,6 +92,35 @@ export default function Profile() {
     }
   };
 
+  const handlePasswordSave = async (e) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess("");
+    if (passwordForm.new !== passwordForm.confirm) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+    if (passwordForm.new.length < 8) {
+      setPasswordError("New password must be at least 8 characters long.");
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const { data } = await api.patch("/profile/password", {
+        currentPassword: passwordForm.current,
+        newPassword: passwordForm.new,
+      });
+      setPasswordSuccess(data.message);
+      setPasswordForm({ current: "", new: "", confirm: "" });
+      setTimeout(() => setPasswordSuccess(""), 3000);
+    } catch (e) {
+      setPasswordError(e.response?.data?.error || "Failed to update password.");
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   const getInitials = (name) =>
     name
       ?.split(" ")
@@ -143,9 +177,11 @@ export default function Profile() {
                 className="w-24 h-24 rounded-full object-cover ring-4 ring-gray-100"
               />
             ) : (
-              <div className="w-24 h-24 rounded-full bg-navy-900 flex items-center justify-center text-white text-2xl font-bold ring-4 ring-gray-100">
-                {getInitials(profile?.name)}
-              </div>
+              <img
+                src={logo}
+                alt="Default Avatar"
+                className="w-24 h-24 rounded-full object-contain ring-4 ring-gray-100 bg-white"
+              />
             )}
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -322,6 +358,73 @@ export default function Profile() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Change Password Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-6">
+          Security Settings
+        </h2>
+        <form onSubmit={handlePasswordSave} className="space-y-4">
+          {passwordError && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+              <p className="text-sm text-red-700">{passwordError}</p>
+            </div>
+          )}
+          {passwordSuccess && (
+            <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+              <p className="text-sm text-green-700">{passwordSuccess}</p>
+            </div>
+          )}
+          
+          <div className="grid grid-cols-1 gap-4 max-w-sm">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                Current Password
+              </label>
+              <input
+                type="password"
+                required
+                value={passwordForm.current}
+                onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                New Password
+              </label>
+              <input
+                type="password"
+                required
+                value={passwordForm.new}
+                onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                required
+                value={passwordForm.confirm}
+                onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+              />
+            </div>
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={passwordSaving}
+                className="text-sm text-white bg-gray-800 hover:bg-gray-900 px-4 py-2 rounded-md font-medium disabled:opacity-50"
+              >
+                {passwordSaving ? "Updating..." : "Update Password"}
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   );

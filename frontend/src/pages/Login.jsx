@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
+import { GoogleLogin } from "@react-oauth/google";
 import { Eye, EyeOff } from "lucide-react";
 import logo from "../assets/OrkaVault.png";
 
@@ -9,7 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const { login } = useAuth();
+  const { login, continueWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -20,6 +21,21 @@ export default function Login() {
       navigate("/");
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError("");
+    try {
+      const res = await continueWithGoogle(credentialResponse.credential);
+      if (res.action === "login") {
+        navigate("/");
+      } else if (res.action === "register") {
+        // User doesn't exist yet, pass data to register page
+        navigate("/register", { state: { googleData: res.data } });
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || "Google login failed");
     }
   };
 
@@ -94,6 +110,31 @@ export default function Login() {
               >
                 Sign in
               </button>
+            </div>
+
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError("Google login failed")}
+                  useOneTap
+                  theme="outline"
+                  size="large"
+                  text="continue_with"
+                  shape="rectangular"
+                />
+              </div>
             </div>
 
             <div className="mt-6 text-center">

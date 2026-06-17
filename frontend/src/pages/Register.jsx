@@ -1,6 +1,8 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import api from "../lib/api";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
+import { GoogleLogin } from "@react-oauth/google";
 import { Eye, EyeOff } from "lucide-react";
 import logo from "../assets/OrkaVault.png";
 
@@ -15,16 +17,52 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const { register } = useAuth();
+  const { register, continueWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const [googleId, setGoogleId] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+
+  const generateSecurePassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+    let pwd = "";
+    for (let i = 0; i < 16; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pwd;
+  };
+
+  useEffect(() => {
+    if (location.state?.googleData) {
+      const { name, email, avatarUrl, googleId } = location.state.googleData;
+      setName(name || "");
+      setEmail(email || "");
+      setAvatarUrl(avatarUrl || "");
+      setGoogleId(googleId || "");
+      setPassword(generateSecurePassword());
+      setSuccess("Google details loaded. A secure random password has been generated for you. You can change it now or keep it.");
+      setShowPassword(true); // Show the generated password
+      // remove state to avoid re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
     try {
-      const res = await register(name, email, password, department, startDate);
-      if (res.active) {
+      const res = await api.post("/auth/register", {
+        name,
+        email,
+        password,
+        department,
+        startDate,
+        googleId,
+        avatarUrl,
+      });
+      if (res.data.active) {
         setSuccess(
           "Admin account created successfully. Redirecting to login...",
         );
@@ -36,6 +74,27 @@ export default function Register() {
       setTimeout(() => navigate("/login"), 3000);
     } catch (err) {
       setError(err.response?.data?.error || "Registration failed");
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError("");
+    try {
+      const res = await continueWithGoogle(credentialResponse.credential);
+      if (res.action === "login") {
+        navigate("/"); // Already registered, logged them in
+      } else if (res.action === "register") {
+        const { name, email, avatarUrl, googleId } = res.data;
+        setName(name || "");
+        setEmail(email || "");
+        setAvatarUrl(avatarUrl || "");
+        setGoogleId(googleId || "");
+        setPassword(generateSecurePassword());
+        setSuccess("Google details loaded. A secure random password has been generated for you. You can change it now or keep it.");
+        setShowPassword(true);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || "Google auth failed");
     }
   };
 
@@ -168,6 +227,31 @@ export default function Register() {
               >
                 Register
               </button>
+            </div>
+
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError("Google authentication failed")}
+                  useOneTap
+                  theme="outline"
+                  size="large"
+                  text="continue_with"
+                  shape="rectangular"
+                />
+              </div>
             </div>
 
             <div className="mt-6 text-center">

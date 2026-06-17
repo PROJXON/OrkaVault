@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import bcrypt from "bcryptjs";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
@@ -114,5 +115,38 @@ router.post(
     }
   }
 );
+
+// PATCH /api/profile/password — change password
+router.patch("/password", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "Current and new password are required." });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user || !user.passwordHash) {
+      res.status(400).json({ error: "User has no password set (OAuth only?)." });
+      return;
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      res.status(401).json({ error: "Incorrect current password." });
+      return;
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: newHash },
+    });
+
+    res.json({ message: "Password updated successfully." });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update password." });
+  }
+});
 
 export default router;

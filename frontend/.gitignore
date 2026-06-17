@@ -16,3 +16,6 @@ node_modules/
 *.dmg
 *.snap
 release/
+
+.vercel
+.env*

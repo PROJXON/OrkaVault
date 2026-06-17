@@ -123,9 +123,11 @@ export default function Sidebar() {
             className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-navy-800"
           />
         ) : (
-          <div className="w-9 h-9 rounded-full bg-brand-teal flex items-center justify-center text-white text-sm font-bold shrink-0">
-            {getInitials(user.name)}
-          </div>
+          <img
+            src={logo}
+            alt="Default Avatar"
+            className="w-9 h-9 rounded-full object-contain shrink-0 ring-2 ring-navy-800 bg-white"
+          />
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-white truncate">{user.name}</p>
