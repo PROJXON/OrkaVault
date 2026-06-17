@@ -106,7 +106,7 @@ model AccessGrant {
   active      Boolean   @default(true)
 
   account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AccessRequest {
@@ -124,7 +124,7 @@ model AccessRequest {
   submittedAt   DateTime      @default(now())
 
   account       Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  requester     User          @relation(fields: [requesterId], references: [id])
+  requester     User          @relation(fields: [requesterId], references: [id], onDelete: Cascade)
 }
 
 enum RequestType {
@@ -148,7 +148,7 @@ model AuditLog {
   ipAddress   String?
   timestamp   DateTime  @default(now())
 
-  user        User      @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   account     Account?  @relation(fields: [accountId], references: [id], onDelete: Cascade)
 }
 
@@ -172,7 +172,7 @@ model Notification {
   read        Boolean   @default(false)
   createdAt   DateTime  @default(now())
 
-  user        User      @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum NotifType {
