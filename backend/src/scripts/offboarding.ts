@@ -33,8 +33,7 @@ async function runOffboardingCheck() {
       await notifyAdmins(
         "Upcoming Offboarding (7 Days)",
         `${user.name} is offboarding in 7 days. Please review and revoke access.`,
-        "WARNING",
-        `/directory?user=${user.id}`
+        "OFFBOARDING_ALERT"
       );
       notifiedCount++;
       console.log(`Notified 7-day warning for user ${user.email}`);
@@ -45,8 +44,7 @@ async function runOffboardingCheck() {
       await notifyAdmins(
         "Offboarding Today",
         `${user.name} is offboarding today! Revoke access immediately.`,
-        "URGENT",
-        `/directory?user=${user.id}`
+        "OFFBOARDING_ALERT"
       );
       notifiedCount++;
       console.log(`Notified day-of warning for user ${user.email}`);

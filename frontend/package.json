@@ -12,6 +12,7 @@
     "build:electron": "electron-builder build --win --publish never"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.13.5",
     "axios": "^1.16.1",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
@@ -35,6 +36,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "png-to-ico": "^3.0.1",
     "postcss": "^8.5.15",
     "prettier": "^3.8.3",
     "tailwindcss": "^3.4.17",

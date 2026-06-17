@@ -52,7 +52,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    icon: path.join(__dirname, 'src/assets/OrkaVault.png'),
+    icon: path.join(__dirname, process.platform === 'win32' ? 'src/assets/OrkaVault.ico' : 'src/assets/OrkaVault.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
