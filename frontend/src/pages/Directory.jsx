@@ -179,8 +179,8 @@ export default function Directory() {
     }],
   };
 
-  const internationalCount = data.metrics.internationalAccess || 0;
-  const domesticCount = Math.max(0, (data.metrics.totalPersonnel || 0) - internationalCount);
+  const internationalCount = data.metrics.globalRequestsCount || 0;
+  const domesticCount = data.metrics.domesticRequestsCount || 0;
   const pieData = {
     labels: ["Global Access", "Domestic Only"],
     datasets: [{

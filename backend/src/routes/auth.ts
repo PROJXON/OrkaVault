@@ -22,7 +22,7 @@ const router = Router();
 
 // POST /api/auth/register
 router.post("/register", async (req: Request, res: Response) => {
-  const { name, email, password, department, startDate, googleId, avatarUrl, internationalAccess } = req.body;
+  const { name, email, password, department, startDate, googleId, avatarUrl } = req.body;
   if (!name || !email || !password || !department || !startDate) {
     res
       .status(400)
@@ -54,7 +54,6 @@ router.post("/register", async (req: Request, res: Response) => {
         active: isFirstUser, // BUG 8: first user auto-active as ADMIN
         googleId,
         avatarUrl,
-        internationalAccess: internationalAccess || false,
       },
     });
 
