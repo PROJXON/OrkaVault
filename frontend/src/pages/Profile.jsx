@@ -132,9 +132,13 @@ export default function Profile() {
   const apiBaseUrl = api.defaults.baseURL || "";
   const serverOrigin = apiBaseUrl.replace(/\/api\/?$/, "");
 
-  const avatarSrc = profile?.avatarUrl
-    ? `${serverOrigin}${profile.avatarUrl}`
-    : null;
+  const getAvatarSrc = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http")) return url;
+    return `${serverOrigin}${url}`;
+  };
+
+  const avatarSrc = getAvatarSrc(profile?.avatarUrl);
 
   if (loading)
     return (
