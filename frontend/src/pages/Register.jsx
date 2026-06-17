@@ -24,6 +24,7 @@ export default function Register() {
   const [googleId, setGoogleId] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [isFirstUser, setIsFirstUser] = useState(false);
+  const [internationalAccess, setInternationalAccess] = useState(false);
 
   useEffect(() => {
     api.get("/auth/setup-status").then((res) => {
@@ -68,6 +69,7 @@ export default function Register() {
         startDate,
         googleId,
         avatarUrl,
+        internationalAccess,
       });
       if (res.data.active) {
         setSuccess(
@@ -228,6 +230,20 @@ export default function Register() {
                 </div>
               </div>
             )}
+
+            <div className="flex items-center">
+              <input
+                id="internationalAccess"
+                name="internationalAccess"
+                type="checkbox"
+                checked={internationalAccess}
+                onChange={(e) => setInternationalAccess(e.target.checked)}
+                className="h-4 w-4 text-brand-blue focus:ring-brand-blue border-gray-300 rounded"
+              />
+              <label htmlFor="internationalAccess" className="ml-2 block text-sm text-gray-900">
+                Request Global Access
+              </label>
+            </div>
 
             <div>
               <button
