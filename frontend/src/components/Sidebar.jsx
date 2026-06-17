@@ -118,7 +118,7 @@ export default function Sidebar() {
       >
         {user.avatarUrl ? (
           <img
-            src={`http://localhost:5001${user.avatarUrl}`}
+            src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `${import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") || ""}${user.avatarUrl}`}
             alt="Avatar"
             className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-navy-800"
           />
