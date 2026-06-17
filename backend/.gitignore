@@ -1,0 +1,33 @@
+# ─── Environment & Secrets ───────────────────────────────────────────────────
+.env
+local_master.key
+.dev-secret-store.json
+
+# ─── Database Files (local dev only) ─────────────────────────────────────────
+prisma/*.db
+prisma/*.db-journal
+.env.*
+!.env.example
+local_master.key
+.dev-secret-store.json
+
+# ─── Build Output ─────────────────────────────────────────────────────────────
+dist/
+
+# ─── Node Modules ─────────────────────────────────────────────────────────────
+node_modules/
+
+# ─── Uploads (user-generated files - should use cloud storage in prod) ────────
+uploads/
+
+# ─── Prisma Generated Client (re-generated on build) ─────────────────────────
+# The Prisma schema itself IS committed; only the generated client binary is excluded
+node_modules/.prisma/
+
+# ─── Temp / Debug Scripts ─────────────────────────────────────────────────────
+check_db.ts
+get_admin.ts
+reset_admin.ts
+test_api.js
+test_update.ts
+run_tests.ts
