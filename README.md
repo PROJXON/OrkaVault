@@ -1,113 +1,74 @@
-# OrkaVault
+# OrkaVault 🔐
+**The Secure Credential Management OS — PROJXON Internal Platform**
 
-> **OrkaVault** is a secure, enterprise-grade password and credential management platform built for internal teams. It features role-based access control, time-limited secret reveals, audit logging, collection-based access governance, and a desktop Electron client.
-
----
-
-## Tech Stack
-
-| Layer     | Technology                          |
-|-----------|-------------------------------------|
-| Frontend  | React 18 + Vite + Electron          |
-| Backend   | Node.js + Express + TypeScript      |
-| Database  | PostgreSQL (via Prisma ORM)         |
-| Auth      | JWT (Access + Refresh Tokens)       |
-| Storage   | Local Uploads / Cloud-Ready         |
+OrkaVault is a premium enterprise password and credential vault. This repository contains both the web platform and the **Desktop Application**.
 
 ---
 
-## Features
+## ⚡ Team Quick Start (Desktop App)
+If you are joining the team and want to run the **OrkaVault Desktop App** on your machine, follow these 3 steps:
 
-- 🔐 **Role-Based Access Control** — Admin, Manager, Holder roles with enforced permissions
-- ⏱ **Time-Limited Secret Reveals** — Single-view (90s), Temporary (24h), and Ongoing grants
-- 📁 **Collection-Based Governance** — Admins assign specific collections to Managers
-- 📋 **Audit Logging** — Full trail of access requests and approvals
-- 🔔 **In-App Notifications** — Real-time alerts for access requests and approvals
-- 📱 **Google Authenticator QR** — Secure TOTP QR code reveal with screenshot protection
-- 🩺 **Health Audit Dashboard** — Password strength and rotation compliance monitoring
-- 🖥 **Electron Desktop App** — Full-featured cross-platform desktop client
-
----
-
-## Project Structure
-
-```
-OrkaVault/
-├── backend/          # Express + TypeScript API server
-│   ├── prisma/       # Database schema and migrations
-│   ├── src/
-│   │   ├── routes/   # API route handlers
-│   │   ├── middleware/
-│   │   └── services/
-│   └── package.json
-│
-└── frontend/         # React + Vite + Electron client
-    ├── src/
-    │   ├── pages/    # Application pages
-    │   ├── components/
-    │   └── lib/      # API client, auth context
-    └── package.json
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-- Node.js 18+
-- PostgreSQL database (or a free [Neon](https://neon.tech) instance)
-
-### Backend Setup
-
+### 1. Clone & Install
 ```bash
-cd backend
+git clone https://github.com/PROJXON/OrkaVault.git
+cd OrkaVault/frontend
 npm install
-cp .env.example .env   # Fill in your DATABASE_URL, JWT_SECRET, etc.
-npx prisma db push
-npm run dev
 ```
 
-### Frontend Setup
+### 2. Configure (One-time)
+Create a file named `.env` inside the `frontend` folder:
+```env
+VITE_API_URL=PASTE_YOUR_BACKEND_API_URL_HERE
+```
 
+### 3. Launch Desktop App
 ```bash
-cd frontend
-npm install
-cp .env.example .env   # Add VITE_API_URL if deploying to production
-npm run dev            # Web app at http://localhost:3000
-# OR
-npm run electron:dev   # Desktop app via Electron
+npm run electron:dev
 ```
+*Note: You do **not** need to run the backend locally. The app is pre-configured to talk to the live production server!*
 
 ---
 
-## Environment Variables
-
-### Backend (`backend/.env`)
-
-| Variable        | Description                         |
-|-----------------|-------------------------------------|
-| `DATABASE_URL`  | PostgreSQL connection string        |
-| `JWT_SECRET`    | Secret for signing JWT tokens       |
-| `FRONTEND_URL`  | Allowed CORS origin (frontend URL)  |
-| `PORT`          | Port to run on (default: 5001)      |
-
-### Frontend (`frontend/.env`)
-
-| Variable       | Description                                       |
-|----------------|---------------------------------------------------|
-| `VITE_API_URL` | Backend API URL (defaults to `http://localhost:5001/api`) |
+## 📦 How to Build an Installer (.exe)
+If you want to create a standalone installer to share with others:
+1. Go to the `frontend` folder.
+2. Run `npm run build`.
+3. Run `npm run build:electron`.
+4. Your installer will be in `frontend/dist-desktop/`.
 
 ---
 
-## Deployment
-
-See the deployment guide for instructions on hosting via:
-- **Backend** → [Render](https://render.com) (free tier)
-- **Frontend** → [Vercel](https://vercel.com) (free tier)
-- **Database** → [Neon](https://neon.tech) (free tier PostgreSQL)
+## 🛠️ Tech Stack
+| Layer | Technology |
+|---|---|
+| **Frontend** | React 18, Vite, Electron |
+| **Backend** | Node.js, Express, TypeScript |
+| **Database** | PostgreSQL (Production) · SQLite (Local) |
+| **Auth** | JWT Access + Refresh Tokens |
 
 ---
 
-## License
+## 🛡️ Key Features
+- **Role-Based Access Control**: Admin, Manager, and Holder roles with strictly enforced permissions.
+- **Time-Limited Reveals**: Single-view (90s), Temporary (24h), and Ongoing access grants.
+- **Collection Governance**: Admins assign specific credential collections to Managers.
+- **Audit Logging**: Full trail of every access request, approval, and reveal event.
+- **Google Authenticator QR**: Secure TOTP QR code reveals with screenshot protection.
+- **Premium UI**: Dark mode, glassmorphism, and smooth transitions.
 
-Private — © PROJXON. All rights reserved.
+---
+
+## 🏗️ Project Structure
+- `backend/`: Express + TypeScript API, Prisma schema, and all route logic.
+- `frontend/`: React source code and Electron desktop configuration.
+- `frontend/main.cjs`: The desktop app launcher.
+
+---
+
+## 🤝 Contributing
+1. Create a feature branch: `git checkout -b your-name/feature`
+2. Make your changes and commit: `git commit -m "feat: amazing update"`
+3. Push and open a Pull Request!
+
+---
+© 2026 Projxon OrkaVault. All rights reserved.
