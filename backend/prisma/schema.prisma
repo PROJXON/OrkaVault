@@ -1,0 +1,210 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String    @id @default(uuid())
+  name             String
+  email            String    @unique
+  googleId         String?   @unique
+  passwordHash     String?
+  role             Role      @default(HOLDER)
+  startDate        DateTime  @default(now())
+  endDate          DateTime?
+  active           Boolean   @default(false)  // false until admin approves registration
+  revoked          Boolean   @default(false)  // true if registration declined or access revoked
+  notificationsOn  Boolean   @default(true)
+  department       String?
+  clearanceLevel   String?
+  internationalAccess Boolean @default(false)
+  devices          String[]  @default([])
+  avatarUrl        String?
+  favorites        String[]  @default([])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  accessGrants     AccessGrant[]
+  accessRequests   AccessRequest[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  managedCollections Collection[] @relation("ManagedCollections")
+}
+
+enum Role {
+  HOLDER
+  MANAGER
+  ADMIN
+}
+
+model Account {
+  id              String    @id @default(uuid())
+  name            String
+  username        String
+  platformType    PlatformType
+  secretRef       String    // Google Cloud Secret Manager resource ID
+  ownerId         String
+  healthScore     Int       @default(0)    // 0-100
+  healthLabel     HealthLabel @default(WEAK)
+  refreshCycle    RefreshCycle @default(SIX_MONTHS)
+  nextRotationDue DateTime?
+  lastUpdatedBy   String?
+  lastUpdatedAt   DateTime?
+  qaStatus        QAStatus  @default(PENDING)
+  notes           String?
+  passwordHash    String?
+  totpQrBase64    String?
+  createdAt       DateTime  @default(now())
+  createdBy       String
+
+  collectionId    String?
+  collection      Collection? @relation(fields: [collectionId], references: [id])
+
+  accessGrants    AccessGrant[]
+  accessRequests  AccessRequest[]
+  auditLogs       AuditLog[]
+  rotationSchedule RotationSchedule?
+}
+
+enum PlatformType {
+  GOOGLE_WORKSPACE
+  THIRD_PARTY
+  FINANCE
+}
+
+enum HealthLabel {
+  WEAK
+  MEDIUM
+  STRONG
+}
+
+enum RefreshCycle {
+  MONTHLY
+  SIX_MONTHS
+  ANNUALLY
+  MANUAL
+}
+
+enum QAStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AccessGrant {
+  id          String    @id @default(uuid())
+  accountId   String
+  userId      String
+  grantedBy   String
+  grantedAt   DateTime  @default(now())
+  expiresAt   DateTime?
+  accessType  String    @default("ONGOING")
+  active      Boolean   @default(true)
+
+  account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+model AccessRequest {
+  id            String        @id @default(uuid())
+  accountId     String
+  requesterId   String
+  requestType   RequestType
+  reason        String
+  deviceName    String?
+  location      String?
+  internationalAccessRequested Boolean @default(false)
+  status        RequestStatus @default(PENDING)
+  actionedBy    String?
+  actionedAt    DateTime?
+  submittedAt   DateTime      @default(now())
+
+  account       Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  requester     User          @relation(fields: [requesterId], references: [id])
+}
+
+enum RequestType {
+  VIEW_90S
+  TEMP_24H
+  ONGOING
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  userId      String
+  accountId   String?
+  action      String
+  metadata    Json?
+  ipAddress   String?
+  timestamp   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id])
+  account     Account?  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model RotationSchedule {
+  id              String        @id @default(uuid())
+  accountId       String        @unique
+  cycle           RefreshCycle
+  lastRotated     DateTime?
+  nextDue         DateTime
+  alertDaysBefore Int           @default(7)
+
+  account         Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String
+  title       String
+  body        String
+  type        NotifType
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+enum NotifType {
+  ACCESS_REQUEST
+  ACCESS_APPROVED
+  ACCESS_DENIED
+  PASSWORD_WEAK
+  ROTATION_DUE
+  OFFBOARDING_ALERT
+  REGISTRATION_APPROVED
+  NEW_ENTRY_QA
+}
+
+model OrganizationPolicy {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  type        String
+  value       String?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Collection {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  accounts    Account[]
+  managers    User[]   @relation("ManagedCollections")
+}
+
