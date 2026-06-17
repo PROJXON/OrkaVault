@@ -251,4 +251,14 @@ router.post("/logout", (_req: Request, res: Response) => {
   res.json({ message: "Logged out successfully." });
 });
 
+// GET /api/auth/setup-status
+router.get("/setup-status", async (req: Request, res: Response) => {
+  try {
+    const userCount = await prisma.user.count();
+    res.json({ isFirstUser: userCount === 0 });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to check setup status." });
+  }
+});
+
 export default router;

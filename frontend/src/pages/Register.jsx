@@ -23,6 +23,13 @@ export default function Register() {
 
   const [googleId, setGoogleId] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [isFirstUser, setIsFirstUser] = useState(false);
+
+  useEffect(() => {
+    api.get("/auth/setup-status").then((res) => {
+      setIsFirstUser(res.data.isFirstUser);
+    }).catch(() => {});
+  }, []);
 
   const generateSecurePassword = () => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
@@ -205,7 +212,22 @@ export default function Register() {
               </div>
             </div>
 
-
+            {!isFirstUser && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Start Date
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="date"
+                    required
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <button
