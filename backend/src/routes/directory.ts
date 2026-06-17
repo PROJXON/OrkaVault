@@ -31,7 +31,14 @@ router.get("/", requireAuth, async (req, res, next) => {
     });
 
     const totalPersonnel = users.length;
-    const internationalAccess = users.filter((u) => u.internationalAccess).length;
+
+    // Global Access Ratio (based on AccessRequests, not Users)
+    const globalRequestsCount = await prisma.accessRequest.count({
+      where: { internationalAccessRequested: true },
+    });
+    const domesticRequestsCount = await prisma.accessRequest.count({
+      where: { internationalAccessRequested: false },
+    });
 
     // Health Data
     const accounts = await prisma.account.findMany({
@@ -73,7 +80,8 @@ router.get("/", requireAuth, async (req, res, next) => {
     res.json({
       metrics: {
         totalPersonnel,
-        internationalAccess,
+        globalRequestsCount,
+        domesticRequestsCount,
         avgHealthScore,
         sevenDayAuditCount: recentLogs.length,
         healthDistribution,
