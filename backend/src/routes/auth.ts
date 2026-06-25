@@ -50,7 +50,7 @@ router.post("/register", async (req: Request, res: Response) => {
         passwordHash,
         department,
         startDate: new Date(startDate),
-        role: isFirstUser ? "ADMIN" : "HOLDER",
+        role: isFirstUser ? "ADMIN" : "USER",
         active: isFirstUser, // BUG 8: first user auto-active as ADMIN
         googleId,
         avatarUrl,

@@ -52,7 +52,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
     const hasNum = /[0-9]/.test(generated);
     const hasSpec = /[^A-Za-z0-9]/.test(generated);
     if (!hasUpper || !hasLower || !hasNum || !hasSpec) {
-        return handleGeneratePassword(); // recursive retry if it doesn't meet criteria
+      return handleGeneratePassword(); // recursive retry if it doesn't meet criteria
     }
     setFormData({ ...formData, password: generated });
     setShowPassword(true);
@@ -154,7 +154,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
                   <option value="GOOGLE_WORKSPACE">Google Workspace</option>
                 </select>
               </div>
-              
+
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">
                   Collection (Optional)
@@ -262,7 +262,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Authenticator QR Code (Optional)
+                Authenticator QR Code
               </label>
               <div className="flex items-center space-x-3">
                 <input

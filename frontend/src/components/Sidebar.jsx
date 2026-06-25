@@ -26,7 +26,7 @@ export default function Sidebar() {
       name: "Vault",
       href: "/vault",
       icon: Key,
-      roles: ["HOLDER", "MANAGER", "ADMIN"],
+      roles: ["USER", "MANAGER", "ADMIN"],
     },
     {
       name: "Directory",
@@ -38,7 +38,7 @@ export default function Sidebar() {
       name: "My Requests",
       href: "/requests",
       icon: FileText,
-      roles: ["HOLDER", "MANAGER"],
+      roles: ["USER", "MANAGER"],
     },
     {
       name: "Approvals",

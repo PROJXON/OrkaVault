@@ -52,7 +52,7 @@ export async function notifyUser(
  * Notify all users with a specific role.
  */
 export async function notifyByRole(
-  role: "ADMIN" | "MANAGER" | "HOLDER",
+  role: "ADMIN" | "MANAGER" | "USER",
   title: string,
   body: string,
   type: NotifType,

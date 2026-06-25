@@ -200,7 +200,7 @@ export default function Users() {
                       disabled={u.id === currentUser.id}
                       className="text-sm border-gray-300 rounded-md focus:ring-brand-blue focus:border-brand-blue disabled:opacity-50 disabled:bg-gray-100"
                     >
-                      <option value="HOLDER">Holder</option>
+                      <option value="USER">User</option>
                       <option value="MANAGER">Manager</option>
                       {u.role === "ADMIN" && <option value="ADMIN">Admin</option>}
                     </select>
@@ -325,7 +325,7 @@ export default function Users() {
                     }
                     className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   >
-                    <option value="HOLDER">Holder</option>
+                    <option value="USER">User</option>
                     <option value="MANAGER">Manager</option>
                     <option value="ADMIN">Admin</option>
                   </select>

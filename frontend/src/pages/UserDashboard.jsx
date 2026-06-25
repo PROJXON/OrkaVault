@@ -3,7 +3,7 @@ import { apiFetch } from "../App.jsx";
 import PasswordTable from "../components/PasswordTable.jsx";
 import RevealModal from "../components/RevealModal.jsx";
 
-export default function HolderDashboard({ user }) {
+export default function UserDashboard({ user }) {
   const [passwords, setPasswords] = useState([]);
   const [requests, setRequests] = useState([]);
   const [plaintext, setPlaintext] = useState("");
@@ -198,7 +198,7 @@ export default function HolderDashboard({ user }) {
               <textarea
                 className="input-field"
                 required
-                placeholder="Business justification…"
+                placeuser="Business justification…"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 style={{ minHeight: 90, resize: "vertical", marginBottom: 16 }}
