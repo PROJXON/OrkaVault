@@ -290,7 +290,7 @@ router.patch(
   },
 );
 
-// POST /api/accounts/:id/reveal — fetch password from Secret Manager [HOLDER with grant]
+// POST /api/accounts/:id/reveal — fetch password from Secret Manager [USER with grant]
 router.post(
   "/:id/reveal",
   requireAuth,
@@ -302,7 +302,7 @@ router.post(
 
     try {
       // Admins and Managers can reveal any approved account
-      if (req.user!.role === "HOLDER") {
+      if (req.user!.role === "USER") {
         // Check grant exists, is active, and not expired
         validatedGrant = await prisma.accessGrant.findFirst({
           where: {
@@ -349,8 +349,8 @@ router.post(
       let expiresIn: number | null = null;
       let grantExpiresAt: Date | null = null;
 
-      // If HOLDER, check for VIEW_90S or TEMP_24H grant to shrink
-      if (req.user!.role === "HOLDER" && validatedGrant) {
+      // If USER, check for VIEW_90S or TEMP_24H grant to shrink
+      if (req.user!.role === "USER" && validatedGrant) {
         let grant = validatedGrant;
 
         if (grant) {
@@ -389,7 +389,7 @@ router.post(
   },
 );
 
-// POST /api/accounts/:id/reveal-qr — fetch TOTP QR code from Secret Manager [HOLDER with grant]
+// POST /api/accounts/:id/reveal-qr — fetch TOTP QR code from Secret Manager [USER with grant]
 router.post(
   "/:id/reveal-qr",
   requireAuth,
@@ -400,7 +400,7 @@ router.post(
     let validatedGrant: any = null;
 
     try {
-      if (req.user!.role === "HOLDER") {
+      if (req.user!.role === "USER") {
         validatedGrant = await prisma.accessGrant.findFirst({
           where: {
             accountId,
@@ -448,8 +448,8 @@ router.post(
       let expiresIn: number | null = null;
       let grantExpiresAt: Date | null = null;
 
-      // If HOLDER, check for VIEW_90S or TEMP_24H grant to shrink
-      if (req.user!.role === "HOLDER" && validatedGrant) {
+      // If USER, check for VIEW_90S or TEMP_24H grant to shrink
+      if (req.user!.role === "USER" && validatedGrant) {
         let grant = validatedGrant;
 
         if (grant) {

@@ -92,7 +92,7 @@ router.patch(
       res.status(403).json({ error: "Cannot assign ADMIN role. Only one admin is allowed." });
       return;
     }
-    if (!["HOLDER", "MANAGER"].includes(role)) {
+    if (!["USER", "MANAGER"].includes(role)) {
       res.status(400).json({ error: "Invalid role." });
       return;
     }

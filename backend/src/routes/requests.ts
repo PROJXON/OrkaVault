@@ -20,7 +20,7 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const isMyRequests = req.query.type === "my";
-      if (req.user!.role === "HOLDER" || isMyRequests) {
+      if (req.user!.role === "USER" || isMyRequests) {
         const requests = await prisma.accessRequest.findMany({
           where: { requesterId: req.user!.id },
           include: {

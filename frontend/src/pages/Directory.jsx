@@ -278,7 +278,7 @@ export default function Directory() {
           />
         </div>
         <div className="flex gap-2 overflow-x-auto w-full md:w-auto custom-scrollbar">
-          {["All", "ADMIN", "MANAGER", "HOLDER"].map((role) => (
+          {["All", "ADMIN", "MANAGER", "USER"].map((role) => (
             <button
               key={role}
               onClick={() => setFilterRole(role)}
