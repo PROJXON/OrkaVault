@@ -15,11 +15,10 @@ const getNotifRoute = (type) => {
     case "NEW_ENTRY_QA":
       return "/vault";
     case "PASSWORD_WEAK":
-    case "ROTATION_DUE":
       return "/health";
     case "OFFBOARDING_ALERT":
-    case "REGISTRATION_APPROVED": // new registrations pending approval
       return "/users";
+    // ROTATION_DUE and REGISTRATION_APPROVED will return null to trigger the popup modal
     default:
       return null;
   }
@@ -28,6 +27,7 @@ const getNotifRoute = (type) => {
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedNotif, setSelectedNotif] = useState(null);
   const containerRef = useRef(null);
   const navigate = useNavigate();
 
@@ -72,11 +72,13 @@ export default function NotificationBell() {
       console.error("Failed to mark as read", e);
     }
 
-    // Navigate to the relevant page
+    // Navigate to the relevant page OR open modal if no route
     const route = getNotifRoute(notif.type);
+    setIsOpen(false);
     if (route) {
-      setIsOpen(false);
       navigate(route);
+    } else {
+      setSelectedNotif(notif);
     }
   };
 
@@ -155,6 +157,36 @@ export default function NotificationBell() {
                 );
               })
             )}
+          </div>
+        </div>
+      )}
+
+      {selectedNotif && (
+        <div className="fixed inset-0 z-[100] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => setSelectedNotif(null)}
+            />
+            <div className="relative inline-block w-full max-w-md p-6 overflow-hidden text-left align-middle transition-all transform bg-white rounded-lg shadow-xl sm:my-8">
+              <h3 className="text-lg font-medium leading-6 text-gray-900 mb-2">
+                {selectedNotif.title}
+              </h3>
+              <p className="text-xs text-gray-500 mb-4">
+                {format(new Date(selectedNotif.createdAt), "MMMM d, yyyy 'at' h:mm a")}
+              </p>
+              <div className="text-sm text-gray-700 bg-gray-50 p-4 rounded-md border border-gray-100 whitespace-pre-wrap">
+                {selectedNotif.body}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setSelectedNotif(null)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-brand-blue border border-transparent rounded-md hover:bg-blue-700 focus:outline-none"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
