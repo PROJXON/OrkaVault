@@ -142,31 +142,69 @@ async function deleteSecretGCP(secretRef: string): Promise<void> {
   await smClient!.deleteSecret({ name: secretName });
 }
 
-// ─── Local File-backed Implementation ──────────────────────────────────
+import crypto from "crypto";
+
+// ─── Ephemeral-Safe Local Implementation ──────────────────────────────────
+// Instead of saving to a local JSON file (which gets wiped on Render restarts),
+// we encrypt the password and return the encrypted payload as the "secretRef".
+// This allows the database to safely store the password without requiring a persistent disk.
+
+// Use the DATABASE_URL as a deterministic secret key (padded/truncated to 32 bytes)
+const rawKey = process.env.DATABASE_URL || "fallback_default_secret_key_12345678901234567890123456789012";
+const ENCRYPTION_KEY = Buffer.from(rawKey.padEnd(32, '0').slice(0, 32));
+const IV_LENGTH = 16;
+
+function encrypt(text: string): string {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString("hex") + ":" + encrypted.toString("hex");
+}
+
+function decrypt(text: string): string {
+  const textParts = text.split(":");
+  const iv = Buffer.from(textParts.shift()!, "hex");
+  const encryptedText = Buffer.from(textParts.join(":"), "hex");
+  const decipher = crypto.createDecipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
 
 function storeSecretLocal(password: string): string {
-  localCounter++;
-  const ref = `local-secret-ref-${localCounter}-${Date.now()}`;
-  localSecretStore[ref] = password;
-  saveLocalStore(localSecretStore);
-  console.log(`[SecretManager:Local] Stored secret ref: ${ref}`);
+  const ref = "ENC_" + encrypt(password);
+  console.log(`[SecretManager:Local] Encrypted password into ref.`);
   return ref;
 }
 
 function fetchSecretLocal(secretRef: string): string {
-  const password = localSecretStore[secretRef];
-  if (password === undefined) {
-    throw new Error(`Secret not found for ref: ${secretRef}`);
+  if (secretRef.startsWith("ENC_")) {
+    return decrypt(secretRef.slice(4));
   }
-  return password;
+  
+  // Fallback for old file-backed secrets (if the file happens to exist)
+  if (localSecretStore[secretRef]) {
+    return localSecretStore[secretRef];
+  }
+  
+  throw new Error(`Secret not found for ref: ${secretRef}. This is likely because the server restarted and the ephemeral file system wiped the old development secrets. Please delete this vault entry and create a new one.`);
 }
 
 function updateSecretLocal(oldSecretRef: string, newPassword: string): string {
-  delete localSecretStore[oldSecretRef];
+  // We don't need to delete the old one since it's just a string, we just return a new encrypted string
+  if (localSecretStore[oldSecretRef]) {
+    delete localSecretStore[oldSecretRef];
+    saveLocalStore(localSecretStore);
+  }
   return storeSecretLocal(newPassword);
 }
 
 function deleteSecretLocal(secretRef: string): void {
-  delete localSecretStore[secretRef];
-  saveLocalStore(localSecretStore);
+  // If it's an encrypted string, there's nothing to delete from disk
+  if (localSecretStore[secretRef]) {
+    delete localSecretStore[secretRef];
+    saveLocalStore(localSecretStore);
+  }
 }
+
