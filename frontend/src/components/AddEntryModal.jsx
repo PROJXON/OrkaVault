@@ -60,10 +60,13 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (formData.platformType === "GOOGLE_WORKSPACE" && !formData.totpQrBase64) {
+      setError("An Authenticator QR Code is required for Google Workspace accounts.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      // BUG 4 Defense triggers on backend 409
       await api.post("/accounts", formData);
       onSuccess();
       onClose();
@@ -262,7 +265,12 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Authenticator QR Code
+                Authenticator QR Code{" "}
+                {formData.platformType === "GOOGLE_WORKSPACE" ? (
+                  <span className="text-brand-red">(Required)</span>
+                ) : (
+                  <span className="text-gray-400">(Optional)</span>
+                )}
               </label>
               <div className="flex items-center space-x-3">
                 <input

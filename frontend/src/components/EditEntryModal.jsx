@@ -67,6 +67,11 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (formData.platformType === "GOOGLE_WORKSPACE" && !formData.totpQrBase64) {
+      setError("An Authenticator QR Code is required for Google Workspace accounts.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -76,7 +81,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
       delete payload.password;
     }
     if (!payload.totpQrBase64) {
-      delete payload.totpQrBase64; // Do not overwrite with empty unless explicitly cleared, but we didn't add clear button. Let's just delete it if falsy to not update. Wait, if they want to clear it? Let's just send what we have. Actually if it's empty we can just ignore it to avoid deleting. Let's just delete it if empty for now.
+      delete payload.totpQrBase64;
     }
 
     try {
@@ -257,7 +262,12 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Authenticator QR Code <span className="text-gray-400 font-normal">(Upload new to replace)</span>
+                Authenticator QR Code{" "}
+                {formData.platformType === "GOOGLE_WORKSPACE" ? (
+                  <span className="text-brand-red">(Required)</span>
+                ) : (
+                  <span className="text-gray-400">(Upload new to replace)</span>
+                )}
               </label>
               <div className="flex items-center space-x-3">
                 <input
