@@ -382,9 +382,9 @@ router.post(
       }
 
       res.json({ password, expiresIn, grantExpiresAt });
-    } catch (error) {
+    } catch (error: any) {
       console.error("[Reveal]", error);
-      res.status(500).json({ error: "Failed to reveal password." });
+      res.status(500).json({ error: error.message || "Failed to reveal password." });
     }
   },
 );
@@ -481,9 +481,9 @@ router.post(
       }
 
       res.json({ qrCodeBase64: account.totpQrBase64, expiresIn, grantExpiresAt });
-    } catch (error) {
+    } catch (error: any) {
       console.error("[Reveal QR]", error);
-      res.status(500).json({ error: "Failed to reveal QR Code." });
+      res.status(500).json({ error: error.message || "Failed to reveal QR Code." });
     }
   },
 );

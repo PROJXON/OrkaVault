@@ -73,7 +73,7 @@ export default function Sidebar() {
 
   return (
     <div className={clsx(isCollapsed ? "w-20" : "w-64", "bg-navy-900 text-white flex flex-col h-full shadow-lg transition-all duration-300 relative")}>
-      <button 
+      <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="absolute -right-3 top-5 bg-navy-800 rounded-full p-1 border border-navy-700 hover:bg-navy-700 z-10 hidden md:block"
         title="Toggle Sidebar"
@@ -81,14 +81,21 @@ export default function Sidebar() {
         <ChevronLeft className={clsx("w-4 h-4 text-gray-300 transition-transform", isCollapsed && "rotate-180")} />
       </button>
 
-      <div className="flex items-center justify-center h-16 border-b border-navy-800 shrink-0 px-4 overflow-hidden">
-        <Link to="/vault" className="flex items-center justify-center w-full">
-          <img
-            src={logo}
-            alt="OrkaVault"
-            className={clsx("transition-all duration-300 object-contain", isCollapsed ? "h-6 w-auto" : "h-9 w-auto")}
-            style={{ filter: "drop-shadow(0 0 6px rgba(255,255,255,0.25))" }}
-          />
+      <div className="flex items-center h-16 border-b border-navy-800 shrink-0 px-4 overflow-hidden">
+        <Link to="/vault" className={clsx("flex items-center w-full", isCollapsed ? "justify-center" : "justify-start")}>
+          <div className="w-10 h-10 rounded-full bg-white shrink-0 overflow-hidden shadow-md relative">
+            <img
+              src={logo}
+              alt="Orka Logo"
+              className="absolute max-w-none h-[48px] w-auto"
+              style={{ left: "-6px", top: "-4px" }}
+            />
+          </div>
+          {!isCollapsed && (
+            <span className="ml-3 text-xl font-bold text-white tracking-wide truncate">
+              OrkaVault
+            </span>
+          )}
         </Link>
       </div>
       <div className="flex-1 overflow-y-auto py-4">
