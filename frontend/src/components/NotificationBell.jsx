@@ -138,7 +138,7 @@ export default function NotificationBell() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                    <p className="text-sm text-gray-500 mt-1">
                       {notif.body}
                     </p>
                     <p className="text-xs text-gray-400 mt-2">

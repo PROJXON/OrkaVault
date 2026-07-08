@@ -237,8 +237,9 @@ router.post(
         healthScore: score,
         healthLabel: label,
       });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to re-score password." });
+    } catch (error: any) {
+      console.error("[HealthCheck Error]:", error);
+      res.status(500).json({ error: error.message || "Failed to re-score password." });
     }
   },
 );

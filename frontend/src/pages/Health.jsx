@@ -29,7 +29,7 @@ export default function Health() {
       await api.post(`/health/check/${id}`);
       await fetchScores();
     } catch (e) {
-      alert("Failed to re-score password");
+      alert(e.response?.data?.error || "Failed to re-score password");
     } finally {
       setChecking(null);
     }
