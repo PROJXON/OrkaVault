@@ -62,13 +62,15 @@ export default function NotificationBell() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleNotifClick = async (notif) => {
-    // Mark as read
+    // Optimistic UI update
+    setNotifications(
+      notifications.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
+    );
     try {
       await api.patch(`/notifications/${notif.id}/read`);
-      setNotifications(
-        notifications.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
-      );
-    } catch (e) {}
+    } catch (e) {
+      console.error("Failed to mark as read", e);
+    }
 
     // Navigate to the relevant page
     const route = getNotifRoute(notif.type);
@@ -79,10 +81,13 @@ export default function NotificationBell() {
   };
 
   const markAllRead = async () => {
+    // Optimistic UI update
+    setNotifications(notifications.map((n) => ({ ...n, read: true })));
     try {
       await api.patch("/notifications/read-all");
-      setNotifications(notifications.map((n) => ({ ...n, read: true })));
-    } catch (e) {}
+    } catch (e) {
+      console.error("Failed to mark all as read", e);
+    }
   };
 
   return (
