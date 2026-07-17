@@ -86,6 +86,7 @@ enum HealthLabel {
 enum RefreshCycle {
   MONTHLY
   FOUR_MONTHS
+  SIX_MONTHS
   ANNUALLY
   MANUAL
 }
