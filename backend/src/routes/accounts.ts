@@ -182,7 +182,6 @@ router.post(
         const cycleDurations: Record<string, number> = {
           MONTHLY: 30,
           FOUR_MONTHS: 120,
-          SIX_MONTHS: 180,
           ANNUALLY: 365,
           MANUAL: 365 * 10,
         };
@@ -269,7 +268,6 @@ router.patch(
         const cycleDurations: Record<string, number> = {
           MONTHLY: 30,
           FOUR_MONTHS: 120,
-          SIX_MONTHS: 180,
           ANNUALLY: 365,
           MANUAL: 365 * 10,
         };
