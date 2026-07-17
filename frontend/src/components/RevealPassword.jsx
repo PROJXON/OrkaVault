@@ -120,6 +120,30 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
 
   // ── REVEALED ──────────────────────────────────────────────────────────────
   if (phase === "revealed" && password) {
+    if (password === "USE_GOOGLE_SSO") {
+      return (
+        <div
+          className="inline-flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-md border border-brand-blue"
+        >
+          <span className="text-brand-blue text-xs font-medium">
+            Use the Google account in the email field to login
+          </span>
+          {screenTimeLeft !== null && screenTimeLeft > 0 && (
+            <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white border border-brand-blue text-xs font-bold text-brand-blue shadow-sm shrink-0">
+              {formatTime(screenTimeLeft)}
+            </div>
+          )}
+          <button
+            onClick={handleDone}
+            className="flex items-center justify-center w-7 h-7 rounded-full bg-green-100 border border-green-300 text-green-600 hover:bg-green-200 transition-colors shrink-0 ml-2"
+            title="Done — dismiss"
+          >
+            <CheckCircle className="h-4 w-4" />
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div
         className="inline-flex items-center space-x-2 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200"

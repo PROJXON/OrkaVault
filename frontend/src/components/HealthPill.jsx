@@ -5,6 +5,7 @@ export default function HealthPill({ label }) {
     WEAK: "bg-red-100 text-brand-red",
     MEDIUM: "bg-amber-100 text-brand-amber",
     STRONG: "bg-green-100 text-brand-green",
+    SSO: "bg-blue-100 text-brand-blue",
   };
 
   return (
