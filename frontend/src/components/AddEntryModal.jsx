@@ -12,8 +12,9 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
     password: "",
     notes: "",
     collectionId: "",
-    refreshCycle: "SIX_MONTHS",
+    refreshCycle: "FOUR_MONTHS",
     totpQrBase64: "",
+    isGoogleSSO: false,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,8 +29,9 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
         password: "",
         notes: "",
         collectionId: "",
-        refreshCycle: "SIX_MONTHS",
+        refreshCycle: "FOUR_MONTHS",
         totpQrBase64: "",
+        isGoogleSSO: false,
       });
       setError("");
       setShowPassword(false);
@@ -204,49 +206,64 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
                   className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                 >
                   <option value="MONTHLY">Monthly</option>
-                  <option value="SIX_MONTHS">Every 6 Months</option>
+                  <option value="FOUR_MONTHS">Every 4 Months</option>
                   <option value="ANNUALLY">Annually</option>
                   <option value="MANUAL">Manual Only</option>
                 </select>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Password
+            <div className="flex items-center mt-4">
+              <input
+                id="isGoogleSSO"
+                type="checkbox"
+                checked={formData.isGoogleSSO}
+                onChange={(e) => setFormData({ ...formData, isGoogleSSO: e.target.checked, password: "" })}
+                className="h-4 w-4 text-brand-blue focus:ring-brand-blue border-gray-300 rounded"
+              />
+              <label htmlFor="isGoogleSSO" className="ml-2 block text-sm text-gray-900">
+                Sign in via Google Account (No password required)
               </label>
-              <div className="mt-1 flex space-x-2">
-                <div className="relative flex-1">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    className="block w-full border border-gray-300 rounded-md py-2 px-3 pr-10 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
-                  />
+            </div>
+
+            {!formData.isGoogleSSO && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <div className="mt-1 flex space-x-2">
+                  <div className="relative flex-1">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required={!formData.isGoogleSSO}
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      className="block w-full border border-gray-300 rounded-md py-2 px-3 pr-10 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    onClick={handleGeneratePassword}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    Generate
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleGeneratePassword}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
-                >
-                  Generate
-                </button>
               </div>
-            </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700">

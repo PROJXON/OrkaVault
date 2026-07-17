@@ -59,6 +59,7 @@ router.get(
         createdAt: a.createdAt,
         createdBy: a.createdBy,
         hasTotpQr: !!a.totpQrBase64,
+        isGoogleSSO: a.isGoogleSSO,
         hasGrant: a.accessGrants.length > 0,
         grantExpiresAt: a.accessGrants[0]?.expiresAt || null,
       })),
@@ -95,62 +96,83 @@ router.post(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
-    const { name, username, platformType, password, refreshCycle, notes, collectionId, totpQrBase64 } = req.body;
-    if (!name || !username || !platformType || !password) {
+    const { name, username, platformType, password, refreshCycle, notes, collectionId, totpQrBase64, isGoogleSSO } = req.body;
+    
+    if (!name || !username || !platformType) {
       res.status(400).json({
-        error: "Name, username, platform type, and password are required.",
+        error: "Name, username, and platformType are required.",
       });
       return;
     }
 
-    // BUG 4: Check for duplicate
+    if (!isGoogleSSO && !password) {
+      res.status(400).json({ error: "Password is required unless using Google SSO." });
+      return;
+    }
+
+    // Duplicate check
     const existing = await prisma.account.findFirst({
       where: { name, username },
     });
     if (existing) {
-      res
-        .status(409)
-        .json({ error: "This account already exists in the vault." });
+      res.status(409).json({ error: "An account with this name and username already exists." });
       return;
     }
 
-    try {
-      const { score, label } = scorePassword(password);
-      const secretRef = await storeSecret(password);
-      const passwordHash = crypto.createHash("sha256").update(password).digest("hex");
+    // Hash the password for reuse detection (if not SSO)
+    let pHash = null;
+    let sRef = "SSO_ONLY";
 
-      // Password Reuse Detection (#14)
-      const reusedAccount = await prisma.account.findFirst({
-        where: { passwordHash }
-      });
-      if (reusedAccount) {
-        notifyAdmins(
-          "Password Reuse Detected",
-          `The password for "${name}" is identical to an existing account ("${reusedAccount.name}").`,
-          "PASSWORD_WEAK"
-        );
+    if (!isGoogleSSO && password) {
+      pHash = crypto.createHash("sha256").update(password).digest("hex");
+      sRef = await storeSecret(password);
+    }
+
+    try {
+      let score = 100;
+      let label = "STRONG";
+      
+      if (!isGoogleSSO) {
+        const result = scorePassword(password);
+        score = result.score;
+        label = result.label;
+      }
+      
+      // Password Reuse Detection (#14) (Only if not SSO)
+      if (!isGoogleSSO && pHash) {
+        const reusedAccount = await prisma.account.findFirst({
+          where: { passwordHash: pHash }
+        });
+        if (reusedAccount) {
+          notifyAdmins(
+            "Password Reuse Detected",
+            `The password for "${name}" is identical to an existing account ("${reusedAccount.name}").`,
+            "PASSWORD_WEAK"
+          );
+        }
       }
 
       // ADMIN entries are auto-approved; MANAGER entries go through QA
       const isAdmin = req.user!.role === "ADMIN";
       const qaStatus = isAdmin ? "APPROVED" : "PENDING";
-      const cycle = refreshCycle || "SIX_MONTHS";
+      const cycle = refreshCycle || "FOUR_MONTHS";
 
       const account = await prisma.account.create({
         data: {
           name,
           username,
           platformType,
-          secretRef,
+          secretRef: sRef,
           ownerId: req.user!.id,
           healthScore: score,
-          healthLabel: label,
+          healthLabel: label as any,
           refreshCycle: cycle,
           notes,
-          passwordHash,
+          passwordHash: pHash,
           totpQrBase64,
-          collectionId: collectionId === "" ? null : collectionId,
+          isGoogleSSO,
           qaStatus,
+          collectionId: collectionId === "" ? null : collectionId,
           createdBy: req.user!.id,
         },
       });
@@ -159,11 +181,11 @@ router.post(
       if (isAdmin) {
         const cycleDurations: Record<string, number> = {
           MONTHLY: 30,
-          SIX_MONTHS: 180,
+          FOUR_MONTHS: 120,
           ANNUALLY: 365,
           MANUAL: 365 * 10,
         };
-        const daysUntilDue = cycleDurations[cycle] || 180;
+        const daysUntilDue = cycleDurations[cycle] || 120;
         const nextDue = new Date(
           Date.now() + daysUntilDue * 24 * 60 * 60 * 1000,
         );
@@ -245,11 +267,11 @@ router.patch(
         // BUG 10: Auto-create rotation schedule
         const cycleDurations: Record<string, number> = {
           MONTHLY: 30,
-          SIX_MONTHS: 180,
+          FOUR_MONTHS: 120,
           ANNUALLY: 365,
           MANUAL: 365 * 10,
         };
-        const daysUntilDue = cycleDurations[account.refreshCycle] || 180;
+        const daysUntilDue = cycleDurations[account.refreshCycle] || 120;
         const nextDue = new Date(
           Date.now() + daysUntilDue * 24 * 60 * 60 * 1000,
         );
@@ -344,7 +366,9 @@ router.post(
         },
       });
 
-      const password = await fetchSecret(account.secretRef);
+      const password = account.isGoogleSSO 
+        ? "USE_GOOGLE_SSO" 
+        : await fetchSecret(account.secretRef);
 
       let expiresIn: number | null = null;
       let grantExpiresAt: Date | null = null;
@@ -536,7 +560,7 @@ router.patch(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
-    const { name, username, platformType, refreshCycle, password, notes, collectionId, totpQrBase64 } = req.body;
+    const { name, username, platformType, refreshCycle, password, notes, collectionId, totpQrBase64, isGoogleSSO } = req.body;
 
     try {
       const account = await prisma.account.findUnique({
@@ -555,8 +579,21 @@ router.patch(
       if (notes !== undefined) updateData.notes = notes;
       if (totpQrBase64 !== undefined) updateData.totpQrBase64 = totpQrBase64;
       if (collectionId !== undefined) updateData.collectionId = collectionId === "" ? null : collectionId;
+      if (isGoogleSSO !== undefined) updateData.isGoogleSSO = isGoogleSSO;
 
-      if (password) {
+      const isBecomingSSO = isGoogleSSO === true || (isGoogleSSO === undefined && account.isGoogleSSO);
+
+      if (isBecomingSSO) {
+        // If SSO, ensure we have the SSO secretRef, ignore password
+        updateData.secretRef = "SSO_ONLY";
+        updateData.healthScore = 100;
+        updateData.healthLabel = "SSO";
+        updateData.passwordHash = null;
+        if (account.secretRef !== "SSO_ONLY") {
+          deleteSecret(account.secretRef).catch(console.error); // Clean up old secret
+        }
+      } else if (password) {
+        // Not SSO, and user provided a new password
         const { score, label } = scorePassword(password);
         const passwordHash = crypto.createHash("sha256").update(password).digest("hex");
 
@@ -571,11 +608,14 @@ router.patch(
           );
         }
 
-        const newSecretRef = await updateSecret(account.secretRef, password);
+        const newSecretRef = account.secretRef === "SSO_ONLY" 
+          ? await storeSecret(password)
+          : await updateSecret(account.secretRef, password);
+        
         updateData.secretRef = newSecretRef;
         updateData.passwordHash = passwordHash;
         updateData.healthScore = score;
-        updateData.healthLabel = label;
+        updateData.healthLabel = label as any;
       }
 
       const updated = await prisma.account.update({
