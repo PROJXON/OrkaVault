@@ -50,7 +50,7 @@ model Account {
   ownerId         String
   healthScore     Int       @default(0)    // 0-100
   healthLabel     HealthLabel @default(WEAK)
-  refreshCycle    RefreshCycle @default(SIX_MONTHS)
+  refreshCycle    RefreshCycle @default(FOUR_MONTHS)
   nextRotationDue DateTime?
   lastUpdatedBy   String?
   lastUpdatedAt   DateTime?
@@ -58,6 +58,7 @@ model Account {
   notes           String?
   passwordHash    String?
   totpQrBase64    String?
+  isGoogleSSO     Boolean   @default(false)
   createdAt       DateTime  @default(now())
   createdBy       String
 
@@ -84,6 +85,7 @@ enum HealthLabel {
 
 enum RefreshCycle {
   MONTHLY
+  FOUR_MONTHS
   SIX_MONTHS
   ANNUALLY
   MANUAL
