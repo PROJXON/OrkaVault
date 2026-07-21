@@ -12,12 +12,12 @@ import { PrismaClient, Role } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  "orkavault_local_development_jwt_secret_key_64_characters_long_12345";
-const JWT_REFRESH_SECRET =
-  process.env.JWT_REFRESH_SECRET ||
-  "orkavault_local_development_jwt_refresh_secret_key_64_characters_long";
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error("FATAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in the environment.");
+}
 
 export interface JwtPayload {
   userId: string;
