@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import {
   requireAuth,
   requireRole,
+  isAccountInManagerScope,
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { notifyUser, notifyManagersAndAdmins } from "../services/notifications";
@@ -166,6 +167,18 @@ router.patch(
 
         const request = requests[0];
 
+        // Managers may only approve requests for accounts within their
+        // assigned collections; ADMIN is unrestricted.
+        if (req.user!.role === "MANAGER") {
+          const account = await tx.account.findUnique({
+            where: { id: request.accountId },
+            select: { collectionId: true },
+          });
+          if (!isAccountInManagerScope(req.user, account?.collectionId ?? null)) {
+            throw new Error("FORBIDDEN");
+          }
+        }
+
         // All grants start with an infinite activation window.
         // They will be shrunk down to 90s or 24h upon first reveal.
         let expiresAt: Date | null = null;
@@ -249,6 +262,10 @@ router.patch(
         res
           .status(409)
           .json({ error: "This request has already been actioned." });
+      } else if (error.message === "FORBIDDEN") {
+        res.status(403).json({
+          error: "This account is outside your assigned collections.",
+        });
       } else {
         console.error("[Approve]", error);
         res.status(500).json({ error: "Failed to approve request." });
@@ -285,6 +302,18 @@ router.patch(
 
         const request = requests[0];
 
+        // Managers may only deny requests for accounts within their
+        // assigned collections; ADMIN is unrestricted.
+        if (req.user!.role === "MANAGER") {
+          const account = await tx.account.findUnique({
+            where: { id: request.accountId },
+            select: { collectionId: true },
+          });
+          if (!isAccountInManagerScope(req.user, account?.collectionId ?? null)) {
+            throw new Error("FORBIDDEN");
+          }
+        }
+
         await tx.accessRequest.update({
           where: { id: requestId },
           data: {
@@ -317,6 +346,10 @@ router.patch(
     } catch (error: any) {
       if (error.message === "CONFLICT") {
         res.status(409).json({ error: "This request has already been actioned." });
+      } else if (error.message === "FORBIDDEN") {
+        res.status(403).json({
+          error: "This account is outside your assigned collections.",
+        });
       } else {
         console.error("[Deny]", error);
         res.status(500).json({ error: "Failed to deny request." });

@@ -170,3 +170,25 @@ export function requireRole(...roles: Role[]) {
     next();
   };
 }
+
+/**
+ * Collection-scoping check for Manager-reachable routes that act on an
+ * Account (reveal, approve/deny, health re-check, etc).
+ *
+ * ADMIN is unrestricted. MANAGER is limited to accounts whose
+ * `collectionId` is one of their assigned `managedCollections` — an
+ * account with no collection assigned is out of scope for every manager
+ * (only ADMIN can act on unassigned accounts). Any other role is denied;
+ * callers are expected to have already handled USER-role logic (e.g.
+ * AccessGrant checks) separately.
+ */
+export function isAccountInManagerScope(
+  user: AuthenticatedRequest["user"],
+  accountCollectionId: string | null | undefined,
+): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN") return true;
+  if (user.role !== "MANAGER") return false;
+  if (!accountCollectionId) return false;
+  return user.managedCollections.some((c: any) => c.id === accountCollectionId);
+}

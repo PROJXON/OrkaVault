@@ -7,6 +7,7 @@ import crypto from "crypto";
 import {
   requireAuth,
   requireRole,
+  isAccountInManagerScope,
   AuthenticatedRequest,
 } from "../middleware/auth";
 import {
@@ -325,7 +326,9 @@ router.post(
     let validatedGrant: any = null;
 
     try {
-      // Admins and Managers can reveal any approved account
+      // USER requires an active AccessGrant (checked here); MANAGER is
+      // scoped to their assigned collections (checked once the account is
+      // loaded, below); ADMIN can reveal any account.
       if (req.user!.role === "USER") {
         // Check grant exists, is active, and not expired
         validatedGrant = await prisma.accessGrant.findFirst({
@@ -355,6 +358,16 @@ router.post(
       });
       if (!account) {
         res.status(404).json({ error: "Account not found." });
+        return;
+      }
+
+      if (
+        req.user!.role === "MANAGER" &&
+        !isAccountInManagerScope(req.user, account.collectionId)
+      ) {
+        res.status(403).json({
+          error: "This account is outside your assigned collections.",
+        });
         return;
       }
 
@@ -455,7 +468,17 @@ router.post(
         res.status(404).json({ error: "Account not found." });
         return;
       }
-      
+
+      if (
+        req.user!.role === "MANAGER" &&
+        !isAccountInManagerScope(req.user, account.collectionId)
+      ) {
+        res.status(403).json({
+          error: "This account is outside your assigned collections.",
+        });
+        return;
+      }
+
       if (!account.totpQrBase64) {
         res.status(404).json({ error: "No QR Code found for this account." });
         return;

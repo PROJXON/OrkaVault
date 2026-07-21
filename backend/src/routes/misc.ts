@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import {
   requireAuth,
   requireRole,
+  isAccountInManagerScope,
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { scorePassword } from "../services/health";
@@ -220,6 +221,16 @@ router.post(
       });
       if (!account) {
         res.status(404).json({ error: "Account not found." });
+        return;
+      }
+
+      if (
+        req.user!.role === "MANAGER" &&
+        !isAccountInManagerScope(req.user, account.collectionId)
+      ) {
+        res.status(403).json({
+          error: "This account is outside your assigned collections.",
+        });
         return;
       }
 
