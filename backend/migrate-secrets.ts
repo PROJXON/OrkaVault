@@ -66,7 +66,7 @@ async function run() {
         migratedCount++;
         console.log(`Migrated account: ${account.name} (ID: ${account.id})`);
       } catch (err) {
-        console.error(`Failed to migrate account ${account.name} (ID: ${account.id}). Incorrect old key?`, err.message);
+        console.error(`Failed to migrate account ${account.name} (ID: ${account.id}). Incorrect old key?`, (err as Error).message);
       }
     }
   }

@@ -2,17 +2,12 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5001/api",
+  withCredentials: true,
 });
 
-// Request interceptor to attach token
+// Request interceptor
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
+  (config) => config,
   (error) => Promise.reject(error),
 );
 
@@ -26,20 +21,13 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem("refreshToken");
-        if (!refreshToken) throw new Error("No refresh token");
-
         const { data } = await axios.post(
           `${import.meta.env.VITE_API_URL || "http://localhost:5001/api"}/auth/refresh`,
-          { refreshToken },
+          {},
+          { withCredentials: true }
         );
-        localStorage.setItem("accessToken", data.accessToken);
-
-        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
         return api(originalRequest);
       } catch (err) {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
         if (
           window.location.pathname !== "/login" &&
           window.location.pathname !== "/register"
