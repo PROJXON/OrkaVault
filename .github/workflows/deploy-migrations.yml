@@ -3,7 +3,7 @@ name: Deploy Database Migrations
 on:
   push:
     branches:
-      - main  # Runs automatically whenever code is merged to main
+      - Bast_Branch  # Runs automatically whenever code is merged to main
 
 jobs:
   migrate:
