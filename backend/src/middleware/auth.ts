@@ -46,28 +46,28 @@ export interface AuthenticatedRequest extends Request {
  * Generate an access token (8-hour expiry).
  */
 export function generateAccessToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "8h" });
+  return jwt.sign(payload, process.env.JWT_SECRET as string, { expiresIn: "8h" });
 }
 
 /**
  * Generate a refresh token (7-day expiry).
  */
 export function generateRefreshToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET as string, { expiresIn: "7d" });
 }
 
 /**
  * Verify an access token.
  */
 export function verifyAccessToken(token: string): JwtPayload {
-  return jwt.verify(token, JWT_SECRET) as JwtPayload;
+  return jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
 }
 
 /**
  * Verify a refresh token.
  */
 export function verifyRefreshToken(token: string): JwtPayload {
-  return jwt.verify(token, JWT_REFRESH_SECRET) as JwtPayload;
+  return jwt.verify(token, process.env.JWT_REFRESH_SECRET as string) as JwtPayload;
 }
 
 /**
@@ -83,15 +83,14 @@ export async function requireAuth(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const token = req.cookies?.accessToken;
+    if (!token) {
       res
         .status(401)
-        .json({ error: "Authentication required. Provide a Bearer token." });
+        .json({ error: "Authentication required. No access token provided." });
       return;
     }
 
-    const token = authHeader.split(" ")[1];
     let decoded: JwtPayload;
 
     try {

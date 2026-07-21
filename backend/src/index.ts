@@ -5,6 +5,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import path from "path";
+import cookieParser from "cookie-parser";
 import { PrismaClient } from "@prisma/client";
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
@@ -20,7 +21,11 @@ import { errorHandler } from "./middleware/errorHandler";
 
 const prisma = new PrismaClient();
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001; // Updated to 5001 to match default frontend assumption
+
+if (!process.env.SETUP_TOKEN) {
+  console.warn("WARNING: SETUP_TOKEN is not set in the environment. The first registered user will not be able to become an Admin until this is set.");
+}
 
 app.use(
   cors({
@@ -29,6 +34,7 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(cookieParser());
 
 // ─── Serve uploaded avatars as static files ────────────────────────────
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));

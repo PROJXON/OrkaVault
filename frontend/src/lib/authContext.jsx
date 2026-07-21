@@ -24,19 +24,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const { data } = await api.post("/auth/login", { email, password });
-    localStorage.setItem("accessToken", data.accessToken);
-    localStorage.setItem("refreshToken", data.refreshToken);
     await fetchUser();
     return data;
   };
 
-  const register = async (name, email, password, department, startDate) => {
+  const register = async (name, email, password, department, startDate, setupToken) => {
     const { data } = await api.post("/auth/register", {
       name,
       email,
       password,
       department,
       startDate,
+      setupToken,
     });
     return data;
   };
@@ -44,8 +43,6 @@ export const AuthProvider = ({ children }) => {
   const continueWithGoogle = async (credential) => {
     const { data } = await api.post("/auth/google", { credential });
     if (data.action === "login") {
-      localStorage.setItem("accessToken", data.accessToken);
-      localStorage.setItem("refreshToken", data.refreshToken);
       await fetchUser();
     }
     return data; // returns action ('login' | 'register') and data
@@ -55,8 +52,6 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.post("/auth/logout");
     } catch (e) {}
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
     setUser(null);
   };
 

@@ -43,6 +43,17 @@ router.post("/register", async (req: Request, res: Response) => {
     const passwordHash = await bcrypt.hash(password, 12);
     const isFirstUser = (await prisma.user.count()) === 0;
 
+    if (isFirstUser) {
+      if (!process.env.SETUP_TOKEN) {
+        res.status(500).json({ error: "Server misconfiguration: SETUP_TOKEN is not set." });
+        return;
+      }
+      if (req.body.setupToken !== process.env.SETUP_TOKEN) {
+        res.status(403).json({ error: "Invalid setup token for first-time admin registration." });
+        return;
+      }
+    }
+
     const user = await prisma.user.create({
       data: {
         name,
@@ -115,9 +126,20 @@ router.post("/login", async (req: Request, res: Response) => {
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 8 * 60 * 60 * 1000 // 8 hours
+    });
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
     res.json({
-      accessToken,
-      refreshToken,
       user: {
         id: user.id,
         name: user.name,
@@ -133,7 +155,7 @@ router.post("/login", async (req: Request, res: Response) => {
 
 // POST /api/auth/refresh
 router.post("/refresh", async (req: Request, res: Response) => {
-  const { refreshToken } = req.body;
+  const refreshToken = req.cookies?.refreshToken;
   if (!refreshToken) {
     res.status(400).json({ error: "Refresh token required." });
     return;
@@ -153,7 +175,13 @@ router.post("/refresh", async (req: Request, res: Response) => {
       role: user.role,
     };
     const accessToken = generateAccessToken(payload);
-    res.json({ accessToken });
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 8 * 60 * 60 * 1000 // 8 hours
+    });
+    res.json({ message: "Token refreshed successfully" });
   } catch {
     res.status(401).json({ error: "Invalid refresh token." });
   }
@@ -209,10 +237,21 @@ router.post("/google", async (req: Request, res: Response) => {
       const accessToken = generateAccessToken(jwtPayload);
       const refreshToken = generateRefreshToken(jwtPayload);
 
+      res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 8 * 60 * 60 * 1000
+      });
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
+
       res.json({
         action: "login",
-        accessToken,
-        refreshToken,
         user: {
           id: user.id,
           name: user.name,
@@ -247,7 +286,8 @@ router.get("/me", requireAuth, (req: AuthenticatedRequest, res: Response) => {
 
 // POST /api/auth/logout
 router.post("/logout", (_req: Request, res: Response) => {
-  // Client-side: discard tokens. Server-side: stateless JWT, no action needed.
+  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken");
   res.json({ message: "Logged out successfully." });
 });
 
