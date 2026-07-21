@@ -9,7 +9,8 @@ import {
   Activity,
   Settings,
   User,
-  Folder
+  Folder,
+  Globe
 } from "lucide-react";
 import { useAuth } from "../lib/authContext";
 import clsx from "clsx";
@@ -56,6 +57,7 @@ export default function Sidebar() {
     { name: "Collections", href: "/collections", icon: Folder, roles: ["ADMIN"] },
     { name: "Health Audit", href: "/health", icon: Activity, roles: ["ADMIN"] },
     { name: "Audit Log", href: "/audit", icon: Shield, roles: ["ADMIN"] },
+    { name: "Workspace Activity", href: "/workspace-activity", icon: Globe, roles: ["ADMIN"] },
     { name: "Settings", href: "/settings", icon: Settings, roles: ["ADMIN"] },
   ];
 

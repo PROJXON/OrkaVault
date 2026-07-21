@@ -1,6 +1,7 @@
 # ─── Environment & Secrets ───────────────────────────────────────────────────
 .env
 local_master.key
+local_workspace_sa_key.json
 .dev-secret-store.json
 
 # ─── Database Files (local dev only) ─────────────────────────────────────────

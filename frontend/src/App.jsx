@@ -14,6 +14,7 @@ import Requests from "./pages/Requests";
 import Approvals from "./pages/Approvals";
 import Users from "./pages/Users";
 import Audit from "./pages/Audit";
+import WorkspaceActivity from "./pages/WorkspaceActivity";
 import Health from "./pages/Health";
 import Settings from "./pages/Settings";
 import Directory from "./pages/Directory";
@@ -104,6 +105,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["ADMIN"]}>
               <Audit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="workspace-activity"
+          element={
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
+              <WorkspaceActivity />
             </ProtectedRoute>
           }
         />

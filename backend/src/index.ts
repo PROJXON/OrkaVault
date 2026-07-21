@@ -16,7 +16,9 @@ import profileRoutes from "./routes/profile";
 import policiesRoutes from "./routes/policies";
 import collectionsRoutes from "./routes/collections";
 import departmentsRoutes, { seedDefaultDepartments } from "./routes/departments";
+import workspaceActivityRoutes from "./routes/workspaceActivity";
 import { notifyAdmins } from "./services/notifications";
+import { ingestWorkspaceActivity } from "./services/googleWorkspace";
 import { errorHandler } from "./middleware/errorHandler";
 
 const prisma = new PrismaClient();
@@ -55,6 +57,7 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/policies", policiesRoutes);
 app.use("/api/collections", collectionsRoutes);
 app.use("/api/departments", departmentsRoutes);
+app.use("/api/workspace-activity", workspaceActivityRoutes);
 app.use("/api", miscRoutes);
 
 // Error Handler must be the last middleware
@@ -151,8 +154,12 @@ app.listen(PORT, async () => {
   // Run cron checks on startup
   await checkOffboarding();
   await checkRotationDue();
+  await ingestWorkspaceActivity();
 
   // Run daily (every 24 hours)
   setInterval(checkOffboarding, 24 * 60 * 60 * 1000);
   setInterval(checkRotationDue, 24 * 60 * 60 * 1000);
+  // Workspace activity: 30 min, not 24h — see docs/google-workspace-admin-sdk-monitoring.md §1
+  // on Google's own multi-hour ingestion lag (polling faster doesn't help, slower loses freshness).
+  setInterval(ingestWorkspaceActivity, 30 * 60 * 1000);
 });

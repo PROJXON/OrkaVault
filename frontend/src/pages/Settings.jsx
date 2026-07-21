@@ -164,6 +164,158 @@ function PoliciesTab() {
   );
 }
 
+function AlertsTab() {
+  const [urls, setUrls] = useState({
+    DISCORD_WEBHOOK_URL: "",
+    GCHAT_WEBHOOK_URL: "",
+    WORKSPACE_ALLOWED_IPS: "",
+    WORKSPACE_ALLOWED_COUNTRIES: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const { data } = await api.get("/policies");
+        const newUrls = { ...urls };
+        data.forEach((p) => {
+          if (p.name in newUrls && p.value) {
+            newUrls[p.name] = p.value;
+          }
+        });
+        setUrls(newUrls);
+      } catch (e) {
+        console.error("Failed to fetch policies");
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleSave = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      await api.post("/policies/bulk", {
+        policies: [
+          { name: "DISCORD_WEBHOOK_URL", value: urls.DISCORD_WEBHOOK_URL, type: "ALERTS" },
+          { name: "GCHAT_WEBHOOK_URL", value: urls.GCHAT_WEBHOOK_URL, type: "ALERTS" },
+          { name: "WORKSPACE_ALLOWED_IPS", value: urls.WORKSPACE_ALLOWED_IPS, type: "ALERTS" },
+          { name: "WORKSPACE_ALLOWED_COUNTRIES", value: urls.WORKSPACE_ALLOWED_COUNTRIES, type: "ALERTS" },
+        ],
+      });
+      setMessage("Settings saved successfully.");
+    } catch (e) {
+      setMessage("Failed to save settings.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white shadow rounded-lg overflow-hidden border border-gray-200 mb-6">
+      <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center">
+        <h3 className="text-lg leading-6 font-medium text-gray-900">
+          Chat Alerts
+        </h3>
+        {message && (
+          <span className={`text-sm ${message.includes("success") ? "text-brand-green" : "text-brand-red"}`}>
+            {message}
+          </span>
+        )}
+      </div>
+      <div className="px-6 py-5 space-y-6">
+        <div>
+          <label className="text-sm font-medium text-gray-900 block mb-1">
+            Discord Webhook URL
+          </label>
+          <p className="text-sm text-gray-500 mb-3">
+            Access-request activity (new/approved/denied) will be posted to
+            this channel. Create one via Channel Settings &rarr;
+            Integrations &rarr; Webhooks in Discord. Leave blank to disable.
+          </p>
+          <input
+            type="text"
+            placeholder="https://discord.com/api/webhooks/..."
+            value={urls.DISCORD_WEBHOOK_URL}
+            onChange={(e) => setUrls({ ...urls, DISCORD_WEBHOOK_URL: e.target.value })}
+            className="border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
+          />
+        </div>
+
+        <hr className="border-gray-200" />
+
+        <div>
+          <label className="text-sm font-medium text-gray-900 block mb-1">
+            Google Chat Webhook URL
+          </label>
+          <p className="text-sm text-gray-500 mb-3">
+            Same events, posted to a Google Chat space. Create one via
+            Space &rarr; Apps &amp; integrations &rarr; Webhooks. Leave
+            blank to disable.
+          </p>
+          <input
+            type="text"
+            placeholder="https://chat.googleapis.com/v1/spaces/..."
+            value={urls.GCHAT_WEBHOOK_URL}
+            onChange={(e) => setUrls({ ...urls, GCHAT_WEBHOOK_URL: e.target.value })}
+            className="border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
+          />
+        </div>
+
+        <hr className="border-gray-200" />
+
+        <div>
+          <label className="text-sm font-medium text-gray-900 block mb-1">
+            Workspace Login Allow-List (IPs)
+          </label>
+          <p className="text-sm text-gray-500 mb-3">
+            Comma-separated IP addresses/prefixes. Workspace logins from
+            outside this list trigger an alert (Phase 2, Workspace
+            monitoring). Leave blank to disable this check.
+          </p>
+          <input
+            type="text"
+            placeholder="203.0.113.4, 198.51.100.0"
+            value={urls.WORKSPACE_ALLOWED_IPS}
+            onChange={(e) => setUrls({ ...urls, WORKSPACE_ALLOWED_IPS: e.target.value })}
+            className="border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
+          />
+        </div>
+
+        <hr className="border-gray-200" />
+
+        <div>
+          <label className="text-sm font-medium text-gray-900 block mb-1">
+            Workspace Login Allow-List (Countries)
+          </label>
+          <p className="text-sm text-gray-500 mb-3">
+            Comma-separated ISO country codes. Best-effort: only checked
+            when Google's event includes a country field. Leave blank to
+            disable this check.
+          </p>
+          <input
+            type="text"
+            placeholder="US, CA"
+            value={urls.WORKSPACE_ALLOWED_COUNTRIES}
+            onChange={(e) => setUrls({ ...urls, WORKSPACE_ALLOWED_COUNTRIES: e.target.value })}
+            className="border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
+          />
+        </div>
+      </div>
+      <div className="px-6 py-4 bg-gray-50 text-right">
+        <button
+          onClick={handleSave}
+          disabled={loading}
+          className="inline-flex items-center bg-brand-blue text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+        >
+          {loading ? "Saving..." : "Save Alerts"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DepartmentsTab() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -347,6 +499,7 @@ export default function Settings() {
           {[
             { key: "policies", label: "Policies" },
             { key: "departments", label: "Departments" },
+            { key: "alerts", label: "Alerts" },
           ].map((t) => (
             <button
               key={t.key}
@@ -363,7 +516,13 @@ export default function Settings() {
         </nav>
       </div>
 
-      {tab === "policies" ? <PoliciesTab /> : <DepartmentsTab />}
+      {tab === "policies" ? (
+        <PoliciesTab />
+      ) : tab === "departments" ? (
+        <DepartmentsTab />
+      ) : (
+        <AlertsTab />
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -187,6 +188,25 @@ enum NotifType {
   OFFBOARDING_ALERT
   REGISTRATION_APPROVED
   NEW_ENTRY_QA
+  WORKSPACE_SUSPICIOUS_LOGIN
+  WORKSPACE_NEW_OAUTH_APP
+  WORKSPACE_LOGIN_ALLOWLIST_VIOLATION
+}
+
+model WorkspaceActivityEvent {
+  id              String   @id @default(uuid())
+  userEmail       String
+  eventType       String // "login_success" | "login_failure" | "suspicious_login" | "oauth_token_grant" | "oauth_token_revoke"
+  appName         String?
+  ipAddress       String?
+  flagged         Boolean  @default(false)
+  occurredAt      DateTime
+  uniqueQualifier String?
+  raw             Json
+  createdAt       DateTime @default(now())
+
+  @@index([occurredAt])
+  @@index([userEmail])
 }
 
 model OrganizationPolicy {

@@ -11,6 +11,7 @@ import {
 } from "../middleware/auth";
 import { notifyUser, notifyManagersAndAdmins } from "../services/notifications";
 import { meetsClearance } from "../services/clearance";
+import { sendChatAlert } from "../services/webhookAlerts";
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -135,6 +136,11 @@ router.post(
         `${req.user!.name} requested ${label} access to "${account?.name || accountId}".`,
         "ACCESS_REQUEST",
       );
+      sendChatAlert("ACCESS_REQUESTED", {
+        requesterName: req.user!.name,
+        accountName: account?.name || accountId,
+        requestTypeLabel: label,
+      });
 
       res.status(201).json(request);
     } catch (error) {
@@ -259,6 +265,7 @@ router.patch(
         return {
           grant,
           requesterId: request.requesterId,
+          requesterName: requester?.name || request.requesterId,
           accountId: request.accountId,
         };
       });
@@ -273,6 +280,10 @@ router.patch(
         `Your access request for "${account?.name}" has been approved.`,
         "ACCESS_APPROVED",
       );
+      sendChatAlert("ACCESS_APPROVED", {
+        requesterName: result.requesterName,
+        accountName: account?.name || result.accountId,
+      });
 
       res.json({
         message: "Request approved and grant provisioned.",
@@ -358,7 +369,7 @@ router.patch(
           },
         });
 
-        return { requesterId: request.requesterId };
+        return { requesterId: request.requesterId, accountId: request.accountId };
       });
 
       notifyUser(
@@ -367,6 +378,15 @@ router.patch(
         `Your access request has been denied. Reason: ${reason || "Not provided"}`,
         "ACCESS_DENIED",
       );
+      const [requester, account] = await Promise.all([
+        prisma.user.findUnique({ where: { id: result.requesterId } }),
+        prisma.account.findUnique({ where: { id: result.accountId } }),
+      ]);
+      sendChatAlert("ACCESS_DENIED", {
+        requesterName: requester?.name || result.requesterId,
+        accountName: account?.name || result.accountId,
+        reason,
+      });
       res.json({ message: "Request denied." });
     } catch (error: any) {
       if (error.message === "CONFLICT") {
