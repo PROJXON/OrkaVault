@@ -21,6 +21,11 @@ import { errorHandler } from "./middleware/errorHandler";
 const prisma = new PrismaClient();
 const app = express();
 const PORT = process.env.PORT || 5000;
+// Log Events
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
 app.use(
   cors({
