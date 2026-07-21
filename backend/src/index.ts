@@ -39,15 +39,15 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // ─── Mount Routes ──────────────────────────────────────────────────────
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/accounts", accountRoutes);
-app.use("/api/requests", requestRoutes);
-app.use("/api/directory", directoryRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/policies", policiesRoutes);
-app.use("/api/collections", collectionsRoutes);
-app.use("/api", miscRoutes);
+app.use("/auth", authRoutes);
+app.use("/users", userRoutes);
+app.use("/accounts", accountRoutes);
+app.use("/requests", requestRoutes);
+app.use("/directory", directoryRoutes);
+app.use("/profile", profileRoutes);
+app.use("/policies", policiesRoutes);
+app.use("/collections", collectionsRoutes);
+app.use("/", miscRoutes);
 
 // Error Handler must be the last middleware
 app.use(errorHandler);
