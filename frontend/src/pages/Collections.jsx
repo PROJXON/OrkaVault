@@ -4,15 +4,21 @@ import api from "../lib/api";
 
 export default function Collections() {
   const [collections, setCollections] = useState([]);
+  const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [managerIds, setManagerIds] = useState([]);
   const [editingId, setEditingId] = useState(null);
 
   const fetchCollections = async () => {
     try {
-      const { data } = await api.get("/collections");
-      setCollections(data);
+      const [{ data: collectionsData }, { data: usersData }] = await Promise.all([
+        api.get("/collections"),
+        api.get("/users"),
+      ]);
+      setCollections(collectionsData);
+      setManagers(usersData.filter((u) => u.role === "MANAGER"));
     } catch (e) {
       console.error("Failed to load collections");
     } finally {
@@ -24,17 +30,22 @@ export default function Collections() {
     fetchCollections();
   }, []);
 
+  const resetForm = () => {
+    setName("");
+    setDescription("");
+    setManagerIds([]);
+    setEditingId(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editingId) {
-        await api.patch(`/collections/${editingId}`, { name, description });
+        await api.patch(`/collections/${editingId}`, { name, description, managerIds });
       } else {
         await api.post("/collections", { name, description });
       }
-      setName("");
-      setDescription("");
-      setEditingId(null);
+      resetForm();
       fetchCollections();
     } catch (e) {
       alert("Failed to save collection");
@@ -45,6 +56,7 @@ export default function Collections() {
     setEditingId(c.id);
     setName(c.name);
     setDescription(c.description || "");
+    setManagerIds(c.managers?.map((m) => m.id) || []);
   };
 
   const handleDelete = async (id) => {
@@ -92,11 +104,43 @@ export default function Collections() {
                   rows="3"
                 />
               </div>
+
+              {editingId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Managers
+                  </label>
+                  <div className="bg-gray-50 p-3 rounded-md border border-gray-200 max-h-40 overflow-y-auto space-y-2">
+                    {managers.map((m) => (
+                      <label key={m.id} className="flex items-center space-x-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={managerIds.includes(m.id)}
+                          onChange={(e) => {
+                            const newIds = e.target.checked
+                              ? [...managerIds, m.id]
+                              : managerIds.filter((id) => id !== m.id);
+                            setManagerIds(newIds);
+                          }}
+                          className="rounded border-gray-300 text-brand-blue focus:ring-brand-blue"
+                        />
+                        <span>{m.name}</span>
+                      </label>
+                    ))}
+                    {managers.length === 0 && (
+                      <span className="text-gray-500 italic text-xs">
+                        No managers yet — set a user's role to Manager on the Users page first.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end space-x-3">
                 {editingId && (
                   <button
                     type="button"
-                    onClick={() => { setEditingId(null); setName(""); setDescription(""); }}
+                    onClick={resetForm}
                     className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                   >
                     Cancel
@@ -120,17 +164,18 @@ export default function Collections() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Collection</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Managers</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">Loading...</td>
+                    <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">Loading...</td>
                   </tr>
                 ) : collections.length === 0 ? (
                   <tr>
-                    <td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">No collections found.</td>
+                    <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">No collections found.</td>
                   </tr>
                 ) : (
                   collections.map((c) => (
@@ -146,6 +191,11 @@ export default function Collections() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {c._count?.accounts || 0}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {c.managers?.length > 0
+                          ? c.managers.map((m) => m.name).join(", ")
+                          : <span className="text-gray-400 italic">None</span>}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button

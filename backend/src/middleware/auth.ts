@@ -39,6 +39,7 @@ export interface AuthenticatedRequest extends Request {
     avatarUrl: string | null;
     favorites: string[];
     managedCollections: any[];
+    clearanceLevel: string | null;
   };
 }
 
@@ -134,6 +135,7 @@ export async function requireAuth(
       avatarUrl: user.avatarUrl,
       favorites: user.favorites,
       managedCollections: user.managedCollections,
+      clearanceLevel: user.clearanceLevel,
     };
 
     next();

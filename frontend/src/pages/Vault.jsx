@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Search, Plus, Edit2, Trash2, Star, History, RefreshCw } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, Star, History, RefreshCw, UploadCloud, ShieldAlert, Lock } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import RevealPassword from "../components/RevealPassword";
@@ -7,8 +7,11 @@ import RevealQrCode from "../components/RevealQrCode";
 import RequestModal from "../components/RequestModal";
 import AddEntryModal from "../components/AddEntryModal";
 import EditEntryModal from "../components/EditEntryModal";
+import BulkImportModal from "../components/BulkImportModal";
+import QrPendingModal from "../components/QrPendingModal";
 import AccessHistoryModal from "../components/AccessHistoryModal";
 import HealthPill from "../components/HealthPill";
+import { meetsClearance } from "../lib/clearance";
 
 const formatPlatformType = (type) => {
   const map = {
@@ -29,6 +32,8 @@ export default function Vault() {
     account: null,
   });
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [qrPendingOpen, setQrPendingOpen] = useState(false);
   const [editModal, setEditModal] = useState({ isOpen: false, account: null });
   const [historyModal, setHistoryModal] = useState({ isOpen: false, account: null });
   const [favorites, setFavorites] = useState(user?.favorites || []);
@@ -115,10 +120,17 @@ export default function Vault() {
 
   const weakCount = accounts.filter((a) => a.healthLabel === "WEAK").length;
   const avgHealth = accounts.length > 0 ? Math.round(accounts.reduce((sum, a) => sum + a.healthScore, 0) / accounts.length) : 0;
+  const qrPendingAccounts = accounts.filter(
+    (a) => a.platformType === "GOOGLE_WORKSPACE" && !a.isGoogleSSO && !a.hasTotpQr
+  );
 
   // Determine who can see the password directly without a grant
+  const hasSufficientClearance = (account) =>
+    user.role === "ADMIN" || meetsClearance(user.clearanceLevel, account.requiredClearance);
+
   const hasDirectAccess = (account) => {
     if (user.role === "ADMIN") return true;
+    if (!hasSufficientClearance(account)) return false;
     if (user.role === "MANAGER" && account.collectionId) {
       return user.managedCollections?.some((c) => c.id === account.collectionId);
     }
@@ -162,13 +174,31 @@ export default function Vault() {
             />
           </div>
           {user.role === "ADMIN" && (
-            <button
-              onClick={() => setAddModalOpen(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-brand-blue hover:bg-blue-700 focus:outline-none"
-            >
-              <Plus className="-ml-1 mr-2 h-4 w-4" />
-              Add Entry
-            </button>
+            <div className="flex items-center space-x-2">
+              {qrPendingAccounts.length > 0 && (
+                <button
+                  onClick={() => setQrPendingOpen(true)}
+                  className="inline-flex items-center px-4 py-2 border border-yellow-300 shadow-sm text-sm font-medium rounded-md text-yellow-800 bg-yellow-50 hover:bg-yellow-100 focus:outline-none"
+                >
+                  <ShieldAlert className="-ml-1 mr-2 h-4 w-4" />
+                  QR Codes Pending ({qrPendingAccounts.length})
+                </button>
+              )}
+              <button
+                onClick={() => setBulkImportOpen(true)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+              >
+                <UploadCloud className="-ml-1 mr-2 h-4 w-4" />
+                Bulk Import
+              </button>
+              <button
+                onClick={() => setAddModalOpen(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-brand-blue hover:bg-blue-700 focus:outline-none"
+              >
+                <Plus className="-ml-1 mr-2 h-4 w-4" />
+                Add Entry
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -297,7 +327,16 @@ export default function Vault() {
                       onDragStart={(e) => e.preventDefault()}
                     >
                       {/* Password column */}
-                      {!hasDirectAccess(account) && !account.hasGrant ? (
+                      {!hasSufficientClearance(account) ? (
+                        /* Below the account's required clearance tier → no request, no reveal */
+                        <div
+                          className="flex justify-end items-center text-gray-400 text-sm"
+                          title="Your clearance level is insufficient for this account."
+                        >
+                          <Lock className="w-4 h-4 mr-1" />
+                          Insufficient Clearance
+                        </div>
+                      ) : !hasDirectAccess(account) && !account.hasGrant ? (
                         /* User without direct access or active grant → Request Access only */
                         <div className="flex justify-end">
                           <button
@@ -381,6 +420,19 @@ export default function Vault() {
         onClose={() => setAddModalOpen(false)}
         onSuccess={fetchAccounts}
         collections={collections}
+      />
+
+      <BulkImportModal
+        isOpen={bulkImportOpen}
+        onClose={() => setBulkImportOpen(false)}
+        onSuccess={fetchAccounts}
+      />
+
+      <QrPendingModal
+        isOpen={qrPendingOpen}
+        onClose={() => setQrPendingOpen(false)}
+        accounts={qrPendingAccounts}
+        onSuccess={fetchAccounts}
       />
 
       <EditEntryModal

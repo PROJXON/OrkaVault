@@ -3,10 +3,12 @@ import api from "../lib/api";
 import { format } from "date-fns";
 import { Check, Trash2, Edit2, X } from "lucide-react";
 import { useAuth } from "../lib/authContext";
+import { CLEARANCE_TIERS } from "../lib/clearance";
 
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [collections, setCollections] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
@@ -15,12 +17,14 @@ export default function Users() {
 
   const fetchUsersAndCollections = async () => {
     try {
-      const [usersRes, collectionsRes] = await Promise.all([
+      const [usersRes, collectionsRes, departmentsRes] = await Promise.all([
         api.get("/users"),
-        api.get("/collections")
+        api.get("/collections"),
+        api.get("/departments"),
       ]);
       setUsers(usersRes.data);
       setCollections(collectionsRes.data);
+      setDepartments(departmentsRes.data);
     } catch (e) {
       console.error("Failed to load data");
     } finally {
@@ -71,6 +75,15 @@ export default function Users() {
       await fetchUsersAndCollections();
     } catch (e) {
       alert(e.response?.data?.error || "Failed to change role");
+    }
+  };
+
+  const handleDepartmentChange = async (id, newDepartment) => {
+    try {
+      await api.patch(`/users/${id}/profile`, { department: newDepartment });
+      await fetchUsersAndCollections();
+    } catch (e) {
+      alert(e.response?.data?.error || "Failed to change department");
     }
   };
 
@@ -143,8 +156,8 @@ export default function Users() {
             className="border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
           >
             <option value="">All Departments</option>
-            {["IT","HR","Marketing","Business","GAP","Operation","Staff","Executive"].map((d) => (
-              <option key={d} value={d}>{d}</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.name}>{d.name}</option>
             ))}
           </select>
         </div>
@@ -206,8 +219,18 @@ export default function Users() {
                       {u.role === "ADMIN" && <option value="ADMIN">Admin</option>}
                     </select>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {u.department || "-"}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <select
+                      value={u.department || ""}
+                      onChange={(e) => handleDepartmentChange(u.id, e.target.value)}
+                      disabled={u.id === currentUser.id}
+                      className="text-sm border-gray-300 rounded-md focus:ring-brand-blue focus:border-brand-blue disabled:opacity-50 disabled:bg-gray-100"
+                    >
+                      <option value="">-- Not set --</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.name}>{d.name}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {u.revoked ? (
@@ -344,8 +367,8 @@ export default function Users() {
                     className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   >
                     <option value="">-- Not set --</option>
-                    {["IT","HR","Marketing","Business","GAP","Operation","Staff","Executive"].map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
                     ))}
                   </select>
                 </div>
@@ -403,9 +426,9 @@ export default function Users() {
                     className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   >
                     <option value="">-- Not set --</option>
-                    <option value="Tier 1 - Standard">Tier 1 - Standard</option>
-                    <option value="Tier 2 - Elevated">Tier 2 - Elevated</option>
-                    <option value="Tier 3 - Executive">Tier 3 - Executive</option>
+                    {CLEARANCE_TIERS.map((tier) => (
+                      <option key={tier} value={tier}>{tier}</option>
+                    ))}
                   </select>
                 </div>
                 <div>

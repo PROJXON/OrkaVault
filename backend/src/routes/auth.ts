@@ -52,7 +52,7 @@ router.post("/register", async (req: Request, res: Response) => {
         startDate: new Date(startDate),
         role: isFirstUser ? "ADMIN" : "USER",
         active: isFirstUser, // BUG 8: first user auto-active as ADMIN
-        googleId,
+        googleId: googleId || null, // "" (plain signup) must not collide on the @unique constraint
         avatarUrl,
       },
     });

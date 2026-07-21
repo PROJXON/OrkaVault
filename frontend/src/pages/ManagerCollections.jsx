@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Folder, Key } from "lucide-react";
+import { Folder, Key, Lock } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import RevealPassword from "../components/RevealPassword";
 import RevealQrCode from "../components/RevealQrCode";
 import HealthPill from "../components/HealthPill";
+import { meetsClearance } from "../lib/clearance";
 
 const formatPlatformType = (type) => {
   const map = {
@@ -154,18 +155,28 @@ export default function ManagerCollections() {
                       onCopy={(e) => e.preventDefault()}
                       onDragStart={(e) => e.preventDefault()}
                     >
-                      <div className="flex justify-end items-center space-x-3">
-                        {account.hasTotpQr && (
-                          <RevealQrCode
+                      {meetsClearance(user.clearanceLevel, account.requiredClearance) ? (
+                        <div className="flex justify-end items-center space-x-3">
+                          {account.hasTotpQr && (
+                            <RevealQrCode
+                              accountId={account.id}
+                              isAdmin={true} // Managers always have access to their managed collections
+                            />
+                          )}
+                          <RevealPassword
                             accountId={account.id}
                             isAdmin={true} // Managers always have access to their managed collections
                           />
-                        )}
-                        <RevealPassword
-                          accountId={account.id}
-                          isAdmin={true} // Managers always have access to their managed collections
-                        />
-                      </div>
+                        </div>
+                      ) : (
+                        <div
+                          className="flex justify-end items-center text-gray-400 text-sm"
+                          title="Your clearance level is insufficient for this account."
+                        >
+                          <Lock className="w-4 h-4 mr-1" />
+                          Insufficient Clearance
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))

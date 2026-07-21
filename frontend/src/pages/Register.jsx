@@ -10,7 +10,8 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [department, setDepartment] = useState("IT");
+  const [department, setDepartment] = useState("");
+  const [departments, setDepartments] = useState([]);
   const [startDate, setStartDate] = useState(
     new Date().toISOString().split("T")[0],
   );
@@ -28,6 +29,10 @@ export default function Register() {
   useEffect(() => {
     api.get("/auth/setup-status").then((res) => {
       setIsFirstUser(res.data.isFirstUser);
+    }).catch(() => {});
+    api.get("/departments").then((res) => {
+      setDepartments(res.data);
+      if (res.data.length > 0) setDepartment((d) => d || res.data[0].name);
     }).catch(() => {});
   }, []);
 
@@ -200,14 +205,9 @@ export default function Register() {
                   onChange={(e) => setDepartment(e.target.value)}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                 >
-                  <option value="IT">IT</option>
-                  <option value="HR">HR</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="Business">Business</option>
-                  <option value="GAP">GAP</option>
-                  <option value="Operation">Operation</option>
-                  <option value="Staff">Staff</option>
-                  <option value="Executive">Executive</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
                 </select>
               </div>
             </div>

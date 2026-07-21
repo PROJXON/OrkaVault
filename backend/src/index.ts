@@ -15,6 +15,7 @@ import directoryRoutes from "./routes/directory";
 import profileRoutes from "./routes/profile";
 import policiesRoutes from "./routes/policies";
 import collectionsRoutes from "./routes/collections";
+import departmentsRoutes, { seedDefaultDepartments } from "./routes/departments";
 import { notifyAdmins } from "./services/notifications";
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -33,6 +34,12 @@ app.use(
     credentials: true,
   }),
 );
+// Accounts routes carry base64 QR images in JSON bodies (single edits and
+// PATCH /api/accounts/bulk-qr, which batches several at once) — the
+// default 100kb express.json() limit is too small for that and would
+// reject legitimate saves before they reach the route. Scoped to this
+// path only; every other route keeps the default limit.
+app.use("/api/accounts", express.json({ limit: "10mb" }));
 app.use(express.json());
 
 // ─── Serve uploaded avatars as static files ────────────────────────────
@@ -47,6 +54,7 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/policies", policiesRoutes);
 app.use("/api/collections", collectionsRoutes);
+app.use("/api/departments", departmentsRoutes);
 app.use("/api", miscRoutes);
 
 // Error Handler must be the last middleware
@@ -134,6 +142,11 @@ async function checkRotationDue() {
 // ─── Start Server ──────────────────────────────────────────────────────
 app.listen(PORT, async () => {
   console.log(`🚀 OrkaVault API running on http://localhost:${PORT}`);
+
+  // One-time (no-op after the first successful run) — see seedDefaultDepartments jsdoc
+  await seedDefaultDepartments().catch((error) =>
+    console.error("[Startup] Department seeding failed:", error),
+  );
 
   // Run cron checks on startup
   await checkOffboarding();

@@ -4,6 +4,7 @@
 import { Router, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
+import multer from "multer";
 import {
   requireAuth,
   requireRole,
@@ -18,9 +19,47 @@ import {
 } from "../services/secretManager";
 import { scorePassword } from "../services/health";
 import { notifyAdmins, notifyUser } from "../services/notifications";
+import { parseCsv } from "../services/csvImport";
+import { meetsClearance } from "../services/clearance";
 
 const prisma = new PrismaClient();
 const router = Router();
+
+// Bulk-import CSVs are parsed in memory and never written to disk —
+// they carry plaintext passwords, same trust boundary as the single
+// add-entry JSON body.
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === "text/csv" || file.originalname.toLowerCase().endsWith(".csv")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .csv files are allowed"));
+    }
+  },
+});
+
+// FINANCE exists in the Prisma enum but isn't selectable anywhere in the
+// UI (AddEntryModal/EditEntryModal only offer these two) — bulk import
+// is restricted to the same set so it can't create accounts the rest of
+// the app has no way to display or edit correctly.
+const PLATFORM_TYPES = ["GOOGLE_WORKSPACE", "THIRD_PARTY"];
+const REFRESH_CYCLES = ["MONTHLY", "FOUR_MONTHS", "SIX_MONTHS", "ANNUALLY", "MANUAL"];
+const MAX_IMPORT_ROWS = 500;
+const QR_PENDING_NOTE_PREFIX =
+  "[QR PENDING] Authenticator QR code not yet uploaded — add via Edit before granting access.";
+
+// Org policy gate for whether a TOTP QR is mandatory on GOOGLE_WORKSPACE
+// entries. Defaults to required (current behavior) when the policy row
+// doesn't exist or is explicitly enabled.
+async function isTotpQrRequired(): Promise<boolean> {
+  const policy = await prisma.organizationPolicy.findFirst({
+    where: { name: "REQUIRE_TOTP_QR" },
+  });
+  if (!policy) return true;
+  return policy.enabled && policy.value !== "false";
+}
 
 // GET /api/accounts — list all APPROVED accounts [ALL active]
 router.get(
@@ -57,6 +96,7 @@ router.get(
         qaStatus: a.qaStatus,
         notes: a.notes,
         collectionId: a.collectionId,
+        requiredClearance: a.requiredClearance,
         createdAt: a.createdAt,
         createdBy: a.createdBy,
         hasTotpQr: !!a.totpQrBase64,
@@ -97,8 +137,8 @@ router.post(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
-    const { name, username, platformType, password, refreshCycle, notes, collectionId, totpQrBase64, isGoogleSSO } = req.body;
-    
+    const { name, username, platformType, password, refreshCycle, notes, collectionId, totpQrBase64, isGoogleSSO, requiredClearance } = req.body;
+
     if (!name || !username || !platformType) {
       res.status(400).json({
         error: "Name, username, and platformType are required.",
@@ -108,6 +148,11 @@ router.post(
 
     if (!isGoogleSSO && !password) {
       res.status(400).json({ error: "Password is required unless using Google SSO." });
+      return;
+    }
+
+    if (platformType === "GOOGLE_WORKSPACE" && !isGoogleSSO && !totpQrBase64 && (await isTotpQrRequired())) {
+      res.status(400).json({ error: "An Authenticator QR Code is required for Google Workspace accounts." });
       return;
     }
 
@@ -174,6 +219,7 @@ router.post(
           isGoogleSSO,
           qaStatus,
           collectionId: collectionId === "" ? null : collectionId,
+          requiredClearance: requiredClearance || null,
           createdBy: req.user!.id,
         },
       });
@@ -241,6 +287,302 @@ router.post(
       console.error("[Account Create]", error);
       res.status(500).json({ error: "Failed to create account." });
     }
+  },
+);
+
+// POST /api/accounts/bulk-import — CSV bulk creation [ADMIN]
+// GOOGLE_WORKSPACE rows never carry a TOTP QR (can't fit one in a CSV
+// cell sensibly) — they're always created with a note flagging the QR
+// as pending, regardless of the REQUIRE_TOTP_QR policy. Rows are
+// processed sequentially (not in a transaction) so one bad row doesn't
+// abort the rest of the batch; each row gets its own pass/fail result.
+router.post(
+  "/bulk-import",
+  requireAuth,
+  requireRole("ADMIN"),
+  csvUpload.single("file"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ error: "CSV file is required." });
+      return;
+    }
+
+    let rows: Record<string, string>[];
+    try {
+      rows = parseCsv(req.file.buffer.toString("utf-8"));
+    } catch (error) {
+      res.status(400).json({ error: "Could not parse CSV file." });
+      return;
+    }
+
+    if (rows.length === 0) {
+      res.status(400).json({ error: "CSV file has no data rows." });
+      return;
+    }
+    if (rows.length > MAX_IMPORT_ROWS) {
+      res.status(400).json({ error: `CSV exceeds the ${MAX_IMPORT_ROWS}-row import limit.` });
+      return;
+    }
+
+    const results: Array<{
+      row: number;
+      name: string;
+      status: "created" | "error";
+      error?: string;
+      id?: string;
+      qrPending?: boolean;
+    }> = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowNum = i + 2; // header is row 1
+      const r = rows[i];
+      const name = r.name;
+      const username = r.username;
+      const platformType = r.platformType;
+      const password = r.password;
+      const isGoogleSSO = (r.isGoogleSSO || "").toLowerCase() === "true";
+      const refreshCycle = r.refreshCycle || "FOUR_MONTHS";
+      const notesInput = r.notes || "";
+      const collectionName = r.collection || "";
+
+      const fail = (error: string) => {
+        results.push({ row: rowNum, name: name || "(missing name)", status: "error", error });
+      };
+
+      if (!name || !username || !platformType) {
+        fail("Name, username, and platformType are required.");
+        continue;
+      }
+      if (!PLATFORM_TYPES.includes(platformType)) {
+        fail(`platformType must be one of ${PLATFORM_TYPES.join(", ")}.`);
+        continue;
+      }
+      if (!REFRESH_CYCLES.includes(refreshCycle)) {
+        fail(`refreshCycle must be one of ${REFRESH_CYCLES.join(", ")}.`);
+        continue;
+      }
+      if (!isGoogleSSO && !password) {
+        fail("Password is required unless isGoogleSSO is true.");
+        continue;
+      }
+
+      let collectionId: string | null = null;
+      if (collectionName) {
+        try {
+          let collection = await prisma.collection.findFirst({
+            where: { name: { equals: collectionName, mode: "insensitive" } },
+          });
+          if (!collection) {
+            // Auto-create: ADMIN already has standalone power to create
+            // Collections via POST /api/collections, so doing it inline
+            // here isn't a privilege escalation, just a convenience for
+            // first-time imports referencing a not-yet-created group.
+            collection = await prisma.collection.create({ data: { name: collectionName } });
+          }
+          collectionId = collection.id;
+        } catch (error) {
+          // Handles a same-name race between two rows/requests creating
+          // the collection concurrently (unique constraint on name).
+          const existing = await prisma.collection.findFirst({
+            where: { name: { equals: collectionName, mode: "insensitive" } },
+          });
+          if (!existing) {
+            fail(`Failed to resolve or create collection "${collectionName}".`);
+            continue;
+          }
+          collectionId = existing.id;
+        }
+      }
+
+      const existing = await prisma.account.findFirst({ where: { name, username } });
+      if (existing) {
+        fail(`An account with this name and username already exists.`);
+        continue;
+      }
+
+      const qrPending = platformType === "GOOGLE_WORKSPACE" && !isGoogleSSO;
+      const notes = qrPending
+        ? `${QR_PENDING_NOTE_PREFIX}${notesInput ? "\n" + notesInput : ""}`
+        : notesInput || undefined;
+
+      try {
+        let pHash: string | null = null;
+        let sRef = "SSO_ONLY";
+        let score = 100;
+        let label = "STRONG";
+
+        if (!isGoogleSSO) {
+          pHash = crypto.createHash("sha256").update(password).digest("hex");
+          sRef = await storeSecret(password);
+          const scored = scorePassword(password);
+          score = scored.score;
+          label = scored.label;
+
+          const reusedAccount = await prisma.account.findFirst({ where: { passwordHash: pHash } });
+          if (reusedAccount) {
+            notifyAdmins(
+              "Password Reuse Detected",
+              `The password for "${name}" (bulk import) is identical to an existing account ("${reusedAccount.name}").`,
+              "PASSWORD_WEAK",
+            );
+          }
+        }
+
+        const account = await prisma.account.create({
+          data: {
+            name,
+            username,
+            platformType: platformType as any,
+            secretRef: sRef,
+            ownerId: req.user!.id,
+            healthScore: score,
+            healthLabel: label as any,
+            refreshCycle: refreshCycle as any,
+            notes,
+            passwordHash: pHash,
+            isGoogleSSO,
+            qaStatus: "APPROVED",
+            collectionId,
+            createdBy: req.user!.id,
+          },
+        });
+
+        const cycleDurations: Record<string, number> = {
+          MONTHLY: 30,
+          FOUR_MONTHS: 120,
+          SIX_MONTHS: 180,
+          ANNUALLY: 365,
+          MANUAL: 365 * 10,
+        };
+        const daysUntilDue = cycleDurations[refreshCycle] || 120;
+        await prisma.rotationSchedule.create({
+          data: {
+            accountId: account.id,
+            cycle: refreshCycle as any,
+            nextDue: new Date(Date.now() + daysUntilDue * 24 * 60 * 60 * 1000),
+          },
+        });
+
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user!.id,
+            accountId: account.id,
+            action: "ACCOUNT_CREATED",
+            metadata: { source: "bulk_import", row: rowNum },
+            ipAddress: req.ip,
+          },
+        });
+
+        if (!isGoogleSSO && score < 40) {
+          notifyUser(
+            req.user!.id,
+            "Weak Password Alert",
+            `The password for "${name}" (bulk import) scored ${score}/100. Consider using a stronger password.`,
+            "PASSWORD_WEAK",
+          );
+        }
+
+        results.push({ row: rowNum, name, status: "created", id: account.id, qrPending });
+      } catch (error) {
+        console.error("[Bulk Import Row]", error);
+        fail("Failed to create account.");
+      }
+    }
+
+    const created = results.filter((r) => r.status === "created").length;
+    const failed = results.filter((r) => r.status === "error").length;
+    const qrPendingCount = results.filter((r) => r.status === "created" && r.qrPending).length;
+
+    if (created > 0) {
+      notifyAdmins(
+        "Bulk Import Completed",
+        `${req.user!.name} bulk-imported ${created} vault ${created === 1 ? "entry" : "entries"}${failed ? ` (${failed} row${failed === 1 ? "" : "s"} failed)` : ""}${qrPendingCount ? `; ${qrPendingCount} Google Workspace ${qrPendingCount === 1 ? "entry needs" : "entries need"} a QR code added.` : "."}`,
+        "NEW_ENTRY_QA",
+      );
+    }
+
+    // Always 2xx here: the request itself was well-formed and fully
+    // processed, even if every row failed validation — that's row-level
+    // feedback for the client to render, not an HTTP-level client error
+    // (which would make axios reject and drop `results` in the catch
+    // branch before the UI ever sees the per-row reasons).
+    res.status(created > 0 ? 201 : 200).json({ created, failed, results });
+  },
+);
+
+// PATCH /api/accounts/bulk-qr — attach TOTP QR codes to multiple accounts
+// in one request [ADMIN]. Companion to bulk-import: rows imported as
+// GOOGLE_WORKSPACE without a QR get flagged with the QR_PENDING_NOTE_PREFIX
+// note; this is how an admin clears that backlog without opening
+// EditEntryModal once per account. Same base64-data-URI-in-JSON shape
+// EditEntryModal already uses for a single QR upload — no multipart here.
+router.patch(
+  "/bulk-qr",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const updates = req.body.updates;
+    if (!Array.isArray(updates) || updates.length === 0) {
+      res.status(400).json({ error: "updates array is required." });
+      return;
+    }
+    if (updates.length > MAX_IMPORT_ROWS) {
+      res.status(400).json({ error: `Cannot update more than ${MAX_IMPORT_ROWS} accounts at once.` });
+      return;
+    }
+
+    const results: Array<{ accountId: string; status: "updated" | "error"; error?: string }> = [];
+
+    for (const u of updates) {
+      const accountId = u?.accountId;
+      const totpQrBase64 = u?.totpQrBase64;
+
+      if (!accountId || !totpQrBase64) {
+        results.push({
+          accountId: accountId || "(missing)",
+          status: "error",
+          error: "accountId and totpQrBase64 are required.",
+        });
+        continue;
+      }
+
+      try {
+        const account = await prisma.account.findUnique({ where: { id: accountId } });
+        if (!account) {
+          results.push({ accountId, status: "error", error: "Account not found." });
+          continue;
+        }
+
+        let notes = account.notes;
+        if (notes && notes.startsWith(QR_PENDING_NOTE_PREFIX)) {
+          notes = notes.slice(QR_PENDING_NOTE_PREFIX.length).replace(/^\n/, "") || null;
+        }
+
+        await prisma.account.update({
+          where: { id: accountId },
+          data: { totpQrBase64, notes },
+        });
+
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user!.id,
+            accountId,
+            action: "ACCOUNT_UPDATED",
+            metadata: { source: "bulk_qr_upload" },
+            ipAddress: req.ip,
+          },
+        });
+
+        results.push({ accountId, status: "updated" });
+      } catch (error) {
+        console.error("[Bulk QR Upload]", error);
+        results.push({ accountId, status: "error", error: "Failed to update account." });
+      }
+    }
+
+    const updated = results.filter((r) => r.status === "updated").length;
+    const failed = results.length - updated;
+    res.status(200).json({ updated, failed, results });
   },
 );
 
@@ -371,6 +713,16 @@ router.post(
         return;
       }
 
+      if (
+        req.user!.role !== "ADMIN" &&
+        !meetsClearance(req.user!.clearanceLevel, account.requiredClearance)
+      ) {
+        res.status(403).json({
+          error: "Your clearance level is insufficient for this account.",
+        });
+        return;
+      }
+
       // Write audit BEFORE returning secret
       await prisma.auditLog.create({
         data: {
@@ -381,7 +733,7 @@ router.post(
         },
       });
 
-      const password = account.isGoogleSSO 
+      const password = account.isGoogleSSO
         ? "USE_GOOGLE_SSO" 
         : await fetchSecret(account.secretRef);
 
@@ -481,6 +833,16 @@ router.post(
 
       if (!account.totpQrBase64) {
         res.status(404).json({ error: "No QR Code found for this account." });
+        return;
+      }
+
+      if (
+        req.user!.role !== "ADMIN" &&
+        !meetsClearance(req.user!.clearanceLevel, account.requiredClearance)
+      ) {
+        res.status(403).json({
+          error: "Your clearance level is insufficient for this account.",
+        });
         return;
       }
 
@@ -585,7 +947,7 @@ router.patch(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
-    const { name, username, platformType, refreshCycle, password, notes, collectionId, totpQrBase64, isGoogleSSO } = req.body;
+    const { name, username, platformType, refreshCycle, password, notes, collectionId, totpQrBase64, isGoogleSSO, requiredClearance } = req.body;
 
     try {
       const account = await prisma.account.findUnique({
@@ -593,6 +955,19 @@ router.patch(
       });
       if (!account) {
         res.status(404).json({ error: "Account not found." });
+        return;
+      }
+
+      const resultingPlatformType = platformType || account.platformType;
+      const resultingIsGoogleSSO = isGoogleSSO !== undefined ? isGoogleSSO : account.isGoogleSSO;
+      const resultingHasQr = totpQrBase64 !== undefined ? !!totpQrBase64 : !!account.totpQrBase64;
+      if (
+        resultingPlatformType === "GOOGLE_WORKSPACE" &&
+        !resultingIsGoogleSSO &&
+        !resultingHasQr &&
+        (await isTotpQrRequired())
+      ) {
+        res.status(400).json({ error: "An Authenticator QR Code is required for Google Workspace accounts." });
         return;
       }
 
@@ -605,6 +980,7 @@ router.patch(
       if (totpQrBase64 !== undefined) updateData.totpQrBase64 = totpQrBase64;
       if (collectionId !== undefined) updateData.collectionId = collectionId === "" ? null : collectionId;
       if (isGoogleSSO !== undefined) updateData.isGoogleSSO = isGoogleSSO;
+      if (requiredClearance !== undefined) updateData.requiredClearance = requiredClearance || null;
 
       const isBecomingSSO = isGoogleSSO === true || (isGoogleSSO === undefined && account.isGoogleSSO);
 

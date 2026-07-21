@@ -5,20 +5,10 @@ import { Camera, Save, X, User } from "lucide-react";
 import { format } from "date-fns";
 import logo from "../assets/OrkaVault.png";
 
-const DEPARTMENTS = [
-  "IT",
-  "HR",
-  "Marketing",
-  "Business",
-  "GAP",
-  "Operation",
-  "Staff",
-  "Executive",
-];
-
 export default function Profile() {
   const { user: authUser, fetchUser } = useAuth();
   const [profile, setProfile] = useState(null);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -52,6 +42,10 @@ export default function Profile() {
 
   useEffect(() => {
     fetchProfile();
+    api
+      .get("/departments")
+      .then(({ data }) => setDepartments(data))
+      .catch(() => {});
   }, []);
 
   const handleSave = async () => {
@@ -304,9 +298,10 @@ export default function Profile() {
                 }
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
               >
-                {DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
+                {!form.department && <option value="">-- Select --</option>}
+                {departments.map((d) => (
+                  <option key={d.id} value={d.name}>
+                    {d.name}
                   </option>
                 ))}
               </select>

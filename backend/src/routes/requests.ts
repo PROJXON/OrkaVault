@@ -10,6 +10,7 @@ import {
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { notifyUser, notifyManagersAndAdmins } from "../services/notifications";
+import { meetsClearance } from "../services/clearance";
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -74,6 +75,22 @@ router.post(
     }
 
     try {
+      const account = await prisma.account.findUnique({ where: { id: accountId } });
+      if (!account) {
+        res.status(404).json({ error: "Account not found." });
+        return;
+      }
+
+      if (
+        req.user!.role !== "ADMIN" &&
+        !meetsClearance(req.user!.clearanceLevel, account.requiredClearance)
+      ) {
+        res.status(403).json({
+          error: "Your clearance level is insufficient to request this account.",
+        });
+        return;
+      }
+
       // Check if pending request already exists
       const existing = await prisma.accessRequest.findFirst({
         where: { accountId, requesterId: req.user!.id, status: "PENDING" },
@@ -106,10 +123,7 @@ router.post(
         },
       });
 
-      // Notify managers and admins
-      const account = await prisma.account.findUnique({
-        where: { id: accountId },
-      });
+      // Notify managers and admins (account already loaded above)
       const requestTypeLabels: Record<string, string> = {
         VIEW_90S: "Single View (90s)",
         TEMP_24H: "Temporary (24h)",
@@ -167,16 +181,26 @@ router.patch(
 
         const request = requests[0];
 
+        const account = await tx.account.findUnique({
+          where: { id: request.accountId },
+          select: { collectionId: true, requiredClearance: true },
+        });
+
         // Managers may only approve requests for accounts within their
         // assigned collections; ADMIN is unrestricted.
         if (req.user!.role === "MANAGER") {
-          const account = await tx.account.findUnique({
-            where: { id: request.accountId },
-            select: { collectionId: true },
-          });
           if (!isAccountInManagerScope(req.user, account?.collectionId ?? null)) {
             throw new Error("FORBIDDEN");
           }
+        }
+
+        // Approving a request the requester's clearance can't actually use
+        // would create a grant that reveal-time enforcement (accounts.ts)
+        // always rejects — reject it here too so the approver gets a clear
+        // reason instead of a confused requester later.
+        const requester = await tx.user.findUnique({ where: { id: request.requesterId } });
+        if (!meetsClearance(requester?.clearanceLevel, account?.requiredClearance)) {
+          throw new Error("CLEARANCE");
         }
 
         // All grants start with an infinite activation window.
@@ -195,22 +219,19 @@ router.patch(
         });
 
         // Update user if deviceName or internationalAccessRequested is present
-        if (request.deviceName || request.internationalAccessRequested) {
-          const user = await tx.user.findUnique({ where: { id: request.requesterId } });
-          if (user) {
-            const updateData: any = {};
-            if (request.internationalAccessRequested && !user.internationalAccess) {
-              updateData.internationalAccess = true;
-            }
-            if (request.deviceName && !user.devices.includes(request.deviceName)) {
-              updateData.devices = { push: request.deviceName };
-            }
-            if (Object.keys(updateData).length > 0) {
-              await tx.user.update({
-                where: { id: request.requesterId },
-                data: updateData
-              });
-            }
+        if ((request.deviceName || request.internationalAccessRequested) && requester) {
+          const updateData: any = {};
+          if (request.internationalAccessRequested && !requester.internationalAccess) {
+            updateData.internationalAccess = true;
+          }
+          if (request.deviceName && !requester.devices.includes(request.deviceName)) {
+            updateData.devices = { push: request.deviceName };
+          }
+          if (Object.keys(updateData).length > 0) {
+            await tx.user.update({
+              where: { id: request.requesterId },
+              data: updateData
+            });
           }
         }
 
@@ -265,6 +286,10 @@ router.patch(
       } else if (error.message === "FORBIDDEN") {
         res.status(403).json({
           error: "This account is outside your assigned collections.",
+        });
+      } else if (error.message === "CLEARANCE") {
+        res.status(403).json({
+          error: "The requester's clearance level is insufficient for this account.",
         });
       } else {
         console.error("[Approve]", error);

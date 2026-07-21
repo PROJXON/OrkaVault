@@ -1,0 +1,6 @@
+- we need a way to configure what departments there are. Currently departments are hard coded, we need to have a tab in settings, that lets us configure the departments.
+- we need department assignment to be editable like how roles are in the Users & Roles section, we should be able to dropdown select department.
+- we want to eventually utilize google workspace admin sdk api to monitor logins/connected apps etc, could you please write up a .md file explaining how we would achieve this with the current set up and the architecture, and any questions you need us to answer before we implement something like this
+- we need to add some way to get alerts via webhooks for discord, /google chat for access requests, and we need a way to set this, we may need to create a bot to handle this. Please write up a .md file explaining the best way to achieve this, the architecture and steps, basically same thing as the last thing.
+- we need to set up a plan to initiate this fully.
+- with the discord / google app/bot, we want admins to be able to /orkavault approve user, etc or something like this, but we will need a way to authenticate admins and managers.

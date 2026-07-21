@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, ShieldAlert, Eye, EyeOff } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
+import { CLEARANCE_TIERS } from "../lib/clearance";
 
 export default function AddEntryModal({ isOpen, onClose, onSuccess, collections }) {
   const { user } = useAuth();
@@ -15,10 +16,12 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
     refreshCycle: "FOUR_MONTHS",
     totpQrBase64: "",
     isGoogleSSO: false,
+    requiredClearance: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [requireTotpQr, setRequireTotpQr] = useState(true);
 
   useEffect(() => {
     if (isOpen) {
@@ -32,9 +35,17 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
         refreshCycle: "FOUR_MONTHS",
         totpQrBase64: "",
         isGoogleSSO: false,
+        requiredClearance: "",
       });
       setError("");
       setShowPassword(false);
+      api
+        .get("/policies")
+        .then(({ data }) => {
+          const policy = data.find((p) => p.name === "REQUIRE_TOTP_QR");
+          setRequireTotpQr(!policy || policy.value !== "false");
+        })
+        .catch(() => setRequireTotpQr(true));
     }
   }, [isOpen]);
 
@@ -62,7 +73,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.platformType === "GOOGLE_WORKSPACE" && !formData.totpQrBase64) {
+    if (requireTotpQr && formData.platformType === "GOOGLE_WORKSPACE" && !formData.totpQrBase64) {
       setError("An Authenticator QR Code is required for Google Workspace accounts.");
       return;
     }
@@ -213,6 +224,25 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
               </div>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Required Clearance{" "}
+                <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <select
+                value={formData.requiredClearance}
+                onChange={(e) =>
+                  setFormData({ ...formData, requiredClearance: e.target.value })
+                }
+                className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+              >
+                <option value="">-- No requirement --</option>
+                {CLEARANCE_TIERS.map((tier) => (
+                  <option key={tier} value={tier}>{tier}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex items-center mt-4">
               <input
                 id="isGoogleSSO"
@@ -283,7 +313,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Authenticator QR Code{" "}
-                {formData.platformType === "GOOGLE_WORKSPACE" ? (
+                {formData.platformType === "GOOGLE_WORKSPACE" && requireTotpQr ? (
                   <span className="text-brand-red">(Required)</span>
                 ) : (
                   <span className="text-gray-400">(Optional)</span>
