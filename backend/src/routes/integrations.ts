@@ -156,6 +156,12 @@ router.post("/discord/interactions", async (req: Request, res: Response) => {
 // ─── Google Chat ────────────────────────────────────────────────────────
 
 async function verifyGoogleChatRequest(req: Request): Promise<boolean> {
+  const bypassSecret = process.env.GCHAT_BYPASS_SECRET;
+  const clientSecret = req.header("X-OrkaVault-Secret");
+  if (bypassSecret && clientSecret === bypassSecret) {
+    return true; // Bypass standard Google token check for our Apps Script proxy
+  }
+
   const audience = process.env.GCHAT_PROJECT_NUMBER;
   const authHeader = req.header("Authorization");
   if (!audience) {
