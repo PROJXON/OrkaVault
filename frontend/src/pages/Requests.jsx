@@ -55,39 +55,40 @@ export default function Requests() {
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">My Access Requests</h1>
-        <p className="mt-2 text-sm text-gray-700">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-[var(--text-primary)]">My Access Requests</h1>
+        <p className="mt-2 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
           Track the status of your vault access requests.
         </p>
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
+        <div className="overflow-x-auto custom-scrollbar">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
+          <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
                 Account
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
                 Duration
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
                 Reason
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
                 Submitted
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
                 Status
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-[var(--bg-surface)] divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
             {loading ? (
               <tr>
                 <td
                   colSpan="5"
-                  className="px-6 py-4 text-center text-sm text-gray-500"
+                  className="px-6 py-4 text-center text-sm text-gray-500 dark:text-[var(--text-tertiary)]"
                 >
                   Loading...
                 </td>
@@ -96,7 +97,7 @@ export default function Requests() {
               <tr>
                 <td
                   colSpan="5"
-                  className="px-6 py-4 text-center text-sm text-gray-500"
+                  className="px-6 py-4 text-center text-sm text-gray-500 dark:text-[var(--text-tertiary)]"
                 >
                   No requests found
                 </td>
@@ -104,16 +105,16 @@ export default function Requests() {
             ) : (
               requests.map((req) => (
                 <tr key={req.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-[var(--text-primary)]">
                     {req.account.name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
                     {formatRequestType(req.requestType)}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-[var(--text-tertiary)] max-w-xs truncate">
                     {req.reason}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
                     {format(new Date(req.submittedAt), "MMM d, yyyy, h:mm a")}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -124,6 +125,7 @@ export default function Requests() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

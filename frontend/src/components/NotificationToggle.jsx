@@ -23,7 +23,7 @@ export default function NotificationToggle() {
 
   return (
     <div className="flex items-center space-x-2">
-      <span className="text-sm text-gray-500">Email Alerts</span>
+      <span className="text-sm text-gray-500 dark:text-[var(--text-tertiary)]">Email Alerts</span>
       <button
         type="button"
         onClick={toggle}
@@ -35,7 +35,7 @@ export default function NotificationToggle() {
         <span
           className={`${
             user.notificationsOn ? "translate-x-4" : "translate-x-0"
-          } pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+          } pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-[var(--bg-surface)] shadow ring-0 transition duration-200 ease-in-out`}
         />
       </button>
     </div>

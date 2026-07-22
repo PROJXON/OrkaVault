@@ -111,7 +111,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-[var(--bg-canvas)] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center items-center mb-4">
           <img
@@ -120,13 +120,13 @@ export default function Register() {
             className="h-20 w-auto object-contain"
           />
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-[var(--text-primary)]">
           Create a new account
         </h2>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white dark:bg-[var(--bg-surface)] py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border-l-4 border-brand-red p-4">
@@ -139,7 +139,7 @@ export default function Register() {
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)]">
                 Full Name
               </label>
               <div className="mt-1">
@@ -148,13 +148,13 @@ export default function Register() {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)]">
                 Email address
               </label>
               <div className="mt-1">
@@ -163,13 +163,13 @@ export default function Register() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)]">
                 Password
               </label>
               <div className="mt-1 relative">
@@ -178,12 +178,12 @@ export default function Register() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-[var(--text-tertiary)] hover:text-gray-600 dark:text-[var(--text-secondary)]"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -195,7 +195,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)]">
                 Department
               </label>
               <div className="mt-1">
@@ -203,7 +203,7 @@ export default function Register() {
                   required
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                 >
                   {departments.map((d) => (
                     <option key={d.id} value={d.name}>{d.name}</option>
@@ -214,7 +214,7 @@ export default function Register() {
 
             {!isFirstUser && (
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)]">
                   Start Date
                 </label>
                 <div className="mt-1">
@@ -223,7 +223,7 @@ export default function Register() {
                     required
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   />
                 </div>
               </div>
@@ -241,10 +241,10 @@ export default function Register() {
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
+                  <div className="w-full border-t border-gray-300 dark:border-[var(--border-default)]" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">
+                  <span className="px-2 bg-white dark:bg-[var(--bg-surface)] text-gray-500 dark:text-[var(--text-tertiary)]">
                     Or continue with
                   </span>
                 </div>

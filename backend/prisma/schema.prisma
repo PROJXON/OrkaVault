@@ -26,6 +26,7 @@ model User {
   devices          String[]  @default([])
   avatarUrl        String?
   favorites        String[]  @default([])
+  discordUserId    String?   @unique // linked via Profile "Link Discord" flow; enables /orkavault approve|deny from Discord
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

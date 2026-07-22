@@ -8,51 +8,29 @@ import {
   Users,
   Activity,
   Settings,
-  User,
   Folder,
-  Globe
+  Globe,
+  ChevronLeft,
+  LayoutGrid,
 } from "lucide-react";
 import { useAuth } from "../lib/authContext";
 import clsx from "clsx";
-import logo from "../assets/OrkaVault.png";
-import { ChevronLeft } from "lucide-react";
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen, onClose }) {
   const { user } = useAuth();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
 
-  const navigation = [
-    {
-      name: "Vault",
-      href: "/vault",
-      icon: Key,
-      roles: ["USER", "MANAGER", "ADMIN"],
-    },
-    {
-      name: "Directory",
-      href: "/directory",
-      icon: Users,
-      roles: ["ADMIN"],
-    },
-    {
-      name: "My Requests",
-      href: "/requests",
-      icon: FileText,
-      roles: ["USER", "MANAGER"],
-    },
-    {
-      name: "Approvals",
-      href: "/approvals",
-      icon: CheckSquare,
-      roles: ["MANAGER", "ADMIN"],
-    },
-    {
-      name: "My Collections",
-      href: "/my-collections",
-      icon: Folder,
-      roles: ["MANAGER"],
-    },
+  const workspaceNav = [
+    { name: "Vault", href: "/vault", icon: Key, roles: ["USER", "MANAGER", "ADMIN"] },
+    { name: "My Requests", href: "/requests", icon: FileText, roles: ["USER", "MANAGER"] },
+  ];
+
+  const manageNav = [
+    { name: "Manage Console", href: "/manage", icon: LayoutGrid, roles: ["MANAGER", "ADMIN"] },
+    { name: "Approvals", href: "/approvals", icon: CheckSquare, roles: ["MANAGER", "ADMIN"] },
+    { name: "My Collections", href: "/my-collections", icon: Folder, roles: ["MANAGER"] },
+    { name: "Directory", href: "/directory", icon: Users, roles: ["ADMIN"] },
     { name: "Users & Roles", href: "/users", icon: Users, roles: ["ADMIN"] },
     { name: "Collections", href: "/collections", icon: Folder, roles: ["ADMIN"] },
     { name: "Health Audit", href: "/health", icon: Activity, roles: ["ADMIN"] },
@@ -61,113 +39,50 @@ export default function Sidebar() {
     { name: "Settings", href: "/settings", icon: Settings, roles: ["ADMIN"] },
   ];
 
-  const allowedNav = navigation.filter((item) =>
-    item.roles.includes(user.role),
+  const allowed = (items) => items.filter((item) => item.roles.includes(user.role));
+  const allowedWorkspace = allowed(workspaceNav);
+  const allowedManage = allowed(manageNav);
+
+  const renderGroup = (label, items) => (
+    <div className="nav-group mb-2">
+      <div className="nav-grouphead"><span className="gtxt">{label}</span></div>
+      <div className="flex flex-col">
+        {items.map((item) => {
+          const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + "/");
+          return (
+            <Link
+              key={item.name}
+              to={item.href}
+              className={clsx("navitem", isActive && "active")}
+              data-tip={item.name}
+              onClick={onClose}
+            >
+              <item.icon width={18} height={18} className="shrink-0" />
+              <span className="label truncate">{item.name}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 
-  const getInitials = (name) =>
-    name
-      ?.split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .substring(0, 2) || "?";
-
   return (
-    <div className={clsx(isCollapsed ? "w-20" : "w-64", "bg-navy-900 text-white flex flex-col h-full shadow-lg transition-all duration-300 relative")}>
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-5 bg-navy-800 rounded-full p-1 border border-navy-700 hover:bg-navy-700 z-10 hidden md:block"
-        title="Toggle Sidebar"
-      >
-        <ChevronLeft className={clsx("w-4 h-4 text-gray-300 transition-transform", isCollapsed && "rotate-180")} />
-      </button>
-
-      <div className="flex items-center h-16 border-b border-navy-800 shrink-0 px-4 overflow-hidden">
-        <Link to="/vault" className={clsx("flex items-center w-full", isCollapsed ? "justify-center" : "justify-start")}>
-          <div className="w-10 h-10 rounded-full bg-white shrink-0 overflow-hidden shadow-md relative">
-            <img
-              src={logo}
-              alt="Orka Logo"
-              className="absolute max-w-none h-[48px] w-auto"
-              style={{ left: "-6px", top: "-4px" }}
-            />
-          </div>
-          {!isCollapsed && (
-            <span className="ml-3 text-xl font-bold text-white tracking-wide truncate">
-              OrkaVault
-            </span>
-          )}
-        </Link>
-      </div>
-      <div className="flex-1 overflow-y-auto py-4">
-        <nav className="space-y-1 px-2">
-          {allowedNav.map((item) => {
-            const isActive = location.pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={clsx(
-                  isActive
-                    ? "bg-brand-teal text-white"
-                    : "text-gray-300 hover:bg-navy-800 hover:text-white",
-                  "group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors",
-                  isCollapsed && "justify-center"
-                )}
-                title={isCollapsed ? item.name : undefined}
-              >
-                <item.icon
-                  className={clsx(
-                    isActive
-                      ? "text-white"
-                      : "text-gray-400 group-hover:text-gray-300",
-                    isCollapsed ? "mr-0" : "mr-3",
-                    "flex-shrink-0 h-5 w-5",
-                  )}
-                  aria-hidden="true"
-                />
-                {!isCollapsed && <span className="truncate">{item.name}</span>}
-              </Link>
-            );
-          })}
-        </nav>
+    <div className={clsx("sidenav shrink-0 relative", isCollapsed && "collapsed", mobileOpen && "mobile-open")}>
+      <div className="sidenav-scroll scroll-area flex-1 overflow-y-auto py-3 px-3">
+        {renderGroup("Workspace", allowedWorkspace)}
+        {allowedManage.length > 0 && renderGroup("Manage", allowedManage)}
       </div>
 
-      {/* Clickable profile area at bottom */}
-      <Link
-        to="/profile"
-        className={clsx(
-          "p-4 border-t border-navy-800 bg-navy-900 shrink-0 flex items-center hover:bg-navy-800 transition-colors group",
-          isCollapsed ? "justify-center" : "space-x-3"
-        )}
-        title={isCollapsed ? "Edit my profile" : undefined}
-      >
-        {user.avatarUrl ? (
-          <img
-            src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `${import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") || ""}${user.avatarUrl}`}
-            alt="Avatar"
-            className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-navy-800"
-          />
-        ) : (
-          <img
-            src={logo}
-            alt="Default Avatar"
-            className="w-9 h-9 rounded-full object-contain shrink-0 ring-2 ring-navy-800 bg-white"
-          />
-        )}
-        {!isCollapsed && (
-          <>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user.name}</p>
-              <p className="text-xs text-gray-400 capitalize">
-                {user.role.toLowerCase()}
-              </p>
-            </div>
-            <span className="text-gray-500 group-hover:text-gray-300 text-xs">→</span>
-          </>
-        )}
-      </Link>
+      <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "10px 12px" }}>
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="navitem hidden md:flex"
+          style={{ color: "var(--text-tertiary)" }}
+        >
+          <ChevronLeft width={17} height={17} className={clsx("shrink-0 transition-transform", isCollapsed && "rotate-180")} />
+          <span className="label">Collapse</span>
+        </button>
+      </div>
     </div>
   );
 }

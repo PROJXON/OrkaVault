@@ -175,7 +175,7 @@ router.get(
     const logs = await prisma.auditLog.findMany({
       where,
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, department: true } },
         account: { select: { id: true, name: true } },
       },
       orderBy: { timestamp: "desc" },
@@ -202,6 +202,8 @@ router.get(
         healthScore: true,
         healthLabel: true,
         nextRotationDue: true,
+        lastUpdatedAt: true,
+        createdAt: true,
       },
       orderBy: { healthScore: "asc" },
     });

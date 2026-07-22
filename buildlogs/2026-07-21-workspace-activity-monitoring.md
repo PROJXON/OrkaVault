@@ -57,6 +57,11 @@ Decisions from the user for this phase's previously-open questions:
   to their respective tables/sections.
 
 ## Notes / gotchas
+
+- Step-by-step credential setup (GCP service account, domain-wide
+  delegation, Workspace Admin Console authorization) is now written up in
+  `docs/google-workspace-service-account-setup.md` — follow that when
+  ready to actually activate this feature.
 - **This feature is inert until manually activated.** It needs: (1) a GCP
   service account with domain-wide delegation, set up in the Workspace
   Admin Console by a super-admin (not something doable from this repo);

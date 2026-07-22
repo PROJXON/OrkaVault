@@ -21,6 +21,8 @@ export default function Profile() {
   const [passwordSuccess, setPasswordSuccess] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [discordCode, setDiscordCode] = useState(null);
+  const [discordCodeLoading, setDiscordCodeLoading] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -115,6 +117,18 @@ export default function Profile() {
     }
   };
 
+  const handleGenerateDiscordCode = async () => {
+    setDiscordCodeLoading(true);
+    try {
+      const { data } = await api.post("/integrations/discord/link-code");
+      setDiscordCode(data.code);
+    } catch (e) {
+      setError("Failed to generate a Discord link code.");
+    } finally {
+      setDiscordCodeLoading(false);
+    }
+  };
+
   const getInitials = (name) =>
     name
       ?.split(" ")
@@ -136,7 +150,7 @@ export default function Profile() {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
+      <div className="flex items-center justify-center h-64 text-gray-500 dark:text-[var(--text-tertiary)]">
         Loading profile...
       </div>
     );
@@ -144,8 +158,8 @@ export default function Profile() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-[var(--text-primary)]">My Profile</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
           Manage your personal information and preferences.
         </p>
       </div>
@@ -162,8 +176,8 @@ export default function Profile() {
       )}
 
       {/* Avatar Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">
+      <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-sm border border-gray-200 dark:border-[var(--border-subtle)] p-6">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--text-secondary)] uppercase tracking-wider mb-4">
           Profile Photo
         </h2>
         <div className="flex items-center space-x-6">
@@ -178,7 +192,7 @@ export default function Profile() {
               <img
                 src={logo}
                 alt="Default Avatar"
-                className="w-24 h-24 rounded-full object-contain ring-4 ring-gray-100 bg-white"
+                className="w-24 h-24 rounded-full object-contain ring-4 ring-gray-100 bg-white dark:bg-[var(--bg-surface)]"
               />
             )}
             <button
@@ -198,11 +212,11 @@ export default function Profile() {
             />
           </div>
           <div>
-            <p className="text-lg font-semibold text-gray-900">
+            <p className="text-lg font-semibold text-gray-900 dark:text-[var(--text-primary)]">
               {profile?.name}
             </p>
-            <p className="text-sm text-gray-500">{profile?.email}</p>
-            <span className="mt-1 inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded capitalize">
+            <p className="text-sm text-gray-500 dark:text-[var(--text-tertiary)]">{profile?.email}</p>
+            <span className="mt-1 inline-block bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-700 dark:text-[var(--text-secondary)] text-xs px-2 py-1 rounded capitalize">
               {profile?.role?.toLowerCase()}
             </span>
             {avatarUploading && (
@@ -213,9 +227,9 @@ export default function Profile() {
       </div>
 
       {/* Profile Info Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-sm border border-gray-200 dark:border-[var(--border-subtle)] p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--text-secondary)] uppercase tracking-wider">
             Personal Information
           </h2>
           {!editing ? (
@@ -240,7 +254,7 @@ export default function Profile() {
                       : "",
                   });
                 }}
-                className="text-sm text-gray-500 hover:text-gray-700 font-medium flex items-center"
+                className="text-sm text-gray-500 dark:text-[var(--text-tertiary)] hover:text-gray-700 dark:text-[var(--text-secondary)] font-medium flex items-center"
               >
                 <X className="w-4 h-4 mr-1" /> Cancel
               </button>
@@ -259,7 +273,7 @@ export default function Profile() {
         <div className="grid grid-cols-2 gap-6">
           {/* Name */}
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+            <label className="block text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase mb-1">
               Full Name
             </label>
             {editing ? (
@@ -267,27 +281,27 @@ export default function Profile() {
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
               />
             ) : (
-              <p className="text-sm text-gray-900">{profile?.name}</p>
+              <p className="text-sm text-gray-900 dark:text-[var(--text-primary)]">{profile?.name}</p>
             )}
           </div>
 
           {/* Email — read only always */}
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+            <label className="block text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase mb-1">
               Email Address
             </label>
-            <p className="text-sm text-gray-900">{profile?.email}</p>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-sm text-gray-900 dark:text-[var(--text-primary)]">{profile?.email}</p>
+            <p className="text-xs text-gray-400 dark:text-[var(--text-tertiary)] mt-0.5">
               Email cannot be changed. Contact an admin if needed.
             </p>
           </div>
 
           {/* Department */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+            <label className="block text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase mb-1">
               Department
             </label>
             {editing ? (
@@ -296,7 +310,7 @@ export default function Profile() {
                 onChange={(e) =>
                   setForm({ ...form, department: e.target.value })
                 }
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
               >
                 {!form.department && <option value="">-- Select --</option>}
                 {departments.map((d) => (
@@ -306,7 +320,7 @@ export default function Profile() {
                 ))}
               </select>
             ) : (
-              <p className="text-sm text-gray-900">
+              <p className="text-sm text-gray-900 dark:text-[var(--text-primary)]">
                 {profile?.department || "Not set"}
               </p>
             )}
@@ -314,7 +328,7 @@ export default function Profile() {
 
           {/* Start Date */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+            <label className="block text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase mb-1">
               Start Date
             </label>
             {editing ? (
@@ -324,10 +338,10 @@ export default function Profile() {
                 onChange={(e) =>
                   setForm({ ...form, startDate: e.target.value })
                 }
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
               />
             ) : (
-              <p className="text-sm text-gray-900">
+              <p className="text-sm text-gray-900 dark:text-[var(--text-primary)]">
                 {profile?.startDate
                   ? format(new Date(profile.startDate), "MMM d, yyyy")
                   : "Not set"}
@@ -337,31 +351,31 @@ export default function Profile() {
 
           {/* Read-only fields */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+            <label className="block text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase mb-1">
               System Role
             </label>
-            <p className="text-sm text-gray-900 capitalize">
+            <p className="text-sm text-gray-900 dark:text-[var(--text-primary)] capitalize">
               {profile?.role?.toLowerCase()}
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-400 dark:text-[var(--text-tertiary)] mt-0.5">
               Assigned by admin.
             </p>
           </div>
 
           {profile?.clearanceLevel && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+              <label className="block text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase mb-1">
                 Clearance Level
               </label>
-              <p className="text-sm text-gray-900">{profile.clearanceLevel}</p>
+              <p className="text-sm text-gray-900 dark:text-[var(--text-primary)]">{profile.clearanceLevel}</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Change Password Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-6">
+      <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-sm border border-gray-200 dark:border-[var(--border-subtle)] p-6">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--text-secondary)] uppercase tracking-wider mb-6">
           Security Settings
         </h2>
         <form onSubmit={handlePasswordSave} className="space-y-4">
@@ -378,7 +392,7 @@ export default function Profile() {
           
           <div className="grid grid-cols-1 gap-4 max-w-sm">
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+              <label className="block text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase mb-1">
                 Current Password
               </label>
               <input
@@ -386,11 +400,11 @@ export default function Profile() {
                 required
                 value={passwordForm.current}
                 onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+              <label className="block text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase mb-1">
                 New Password
               </label>
               <input
@@ -398,11 +412,11 @@ export default function Profile() {
                 required
                 value={passwordForm.new}
                 onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+              <label className="block text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase mb-1">
                 Confirm New Password
               </label>
               <input
@@ -410,7 +424,7 @@ export default function Profile() {
                 required
                 value={passwordForm.confirm}
                 onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
               />
             </div>
             <div className="pt-2">
@@ -425,6 +439,37 @@ export default function Profile() {
           </div>
         </form>
       </div>
+
+      {(authUser?.role === "MANAGER" || authUser?.role === "ADMIN") && (
+        <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-sm border border-gray-200 dark:border-[var(--border-subtle)] p-6 mt-6">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--text-secondary)] uppercase tracking-wider mb-2">
+            Link Discord
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-[var(--text-tertiary)] mb-4">
+            Linking your Discord account lets you approve or deny access requests directly from the
+            Discord alert, without opening OrkaVault. Generate a code below, then run{" "}
+            <code className="font-mono bg-gray-100 dark:bg-[var(--bg-muted)] px-1 rounded">
+              /orkavault link &lt;code&gt;
+            </code>{" "}
+            in Discord within 10 minutes.
+          </p>
+          {discordCode && (
+            <div className="mb-4 inline-flex items-center gap-2 bg-blue-50 border border-brand-blue rounded-md px-4 py-2">
+              <span className="font-mono text-lg font-bold text-brand-blue tracking-widest">{discordCode}</span>
+              <span className="text-xs text-gray-500 dark:text-[var(--text-tertiary)]">expires in 10 min</span>
+            </div>
+          )}
+          <div>
+            <button
+              onClick={handleGenerateDiscordCode}
+              disabled={discordCodeLoading}
+              className="text-sm text-white bg-gray-800 hover:bg-gray-900 px-4 py-2 rounded-md font-medium disabled:opacity-50"
+            >
+              {discordCodeLoading ? "Generating..." : discordCode ? "Generate New Code" : "Generate Link Code"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import Directory from "./pages/Directory";
 import Profile from "./pages/Profile";
 import Collections from "./pages/Collections";
 import ManagerCollections from "./pages/ManagerCollections";
+import ManageConsole from "./pages/ManageConsole";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
@@ -58,6 +59,14 @@ const AppRoutes = () => {
         <Route path="profile" element={<Profile />} />
 
         {/* MANAGER & ADMIN routes */}
+        <Route
+          path="manage"
+          element={
+            <ProtectedRoute allowedRoles={["MANAGER", "ADMIN"]}>
+              <ManageConsole />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="approvals"
           element={

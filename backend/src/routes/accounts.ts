@@ -21,6 +21,7 @@ import { scorePassword } from "../services/health";
 import { notifyAdmins, notifyUser } from "../services/notifications";
 import { parseCsv } from "../services/csvImport";
 import { meetsClearance } from "../services/clearance";
+import { validateTotpQrImage, generateOtpFromQrImage } from "../services/totp";
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -82,6 +83,18 @@ router.get(
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // Owner name/email for admin-facing UI (e.g. Force Rotate confirmation).
+    // ownerId isn't a Prisma relation on Account, so batch-resolve it here.
+    let ownersById: Record<string, { name: string; email: string }> = {};
+    if (req.user!.role === "ADMIN") {
+      const owners = await prisma.user.findMany({
+        where: { id: { in: [...new Set(accounts.map((a) => a.ownerId))] } },
+        select: { id: true, name: true, email: true },
+      });
+      ownersById = Object.fromEntries(owners.map((o) => [o.id, { name: o.name, email: o.email }]));
+    }
+
     res.json(
       accounts.map((a) => ({
         id: a.id,
@@ -89,6 +102,8 @@ router.get(
         username: a.username,
         platformType: a.platformType,
         ownerId: a.ownerId,
+        ownerName: ownersById[a.ownerId]?.name || null,
+        ownerEmail: ownersById[a.ownerId]?.email || null,
         healthScore: a.healthScore,
         healthLabel: a.healthLabel,
         refreshCycle: a.refreshCycle,
@@ -154,6 +169,15 @@ router.post(
     if (platformType === "GOOGLE_WORKSPACE" && !isGoogleSSO && !totpQrBase64 && (await isTotpQrRequired())) {
       res.status(400).json({ error: "An Authenticator QR Code is required for Google Workspace accounts." });
       return;
+    }
+
+    if (totpQrBase64) {
+      try {
+        await validateTotpQrImage(totpQrBase64);
+      } catch (e: any) {
+        res.status(400).json({ error: e.message || "Could not read a valid authenticator QR code from that image." });
+        return;
+      }
     }
 
     // Duplicate check
@@ -553,6 +577,13 @@ router.patch(
           continue;
         }
 
+        try {
+          await validateTotpQrImage(totpQrBase64);
+        } catch (e: any) {
+          results.push({ accountId, status: "error", error: e.message || "Could not read a valid authenticator QR code from that image." });
+          continue;
+        }
+
         let notes = account.notes;
         if (notes && notes.startsWith(QR_PENDING_NOTE_PREFIX)) {
           notes = notes.slice(QR_PENDING_NOTE_PREFIX.length).replace(/^\n/, "") || null;
@@ -780,9 +811,53 @@ router.post(
   },
 );
 
-// POST /api/accounts/:id/reveal-qr — fetch TOTP QR code from Secret Manager [USER with grant]
+// POST /api/accounts/:id/reveal-qr — view the raw authenticator QR image [ADMIN only]
+// Everyone else gets the rotating code instead — see reveal-otp below. The
+// underlying secret/QR is only ever handed out to admins re-provisioning a
+// device.
 router.post(
   "/:id/reveal-qr",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = req.params.id;
+
+    try {
+      const account = await prisma.account.findUnique({
+        where: { id: accountId },
+      });
+      if (!account) {
+        res.status(404).json({ error: "Account not found." });
+        return;
+      }
+
+      if (!account.totpQrBase64) {
+        res.status(404).json({ error: "No QR Code found for this account." });
+        return;
+      }
+
+      await prisma.auditLog.create({
+        data: {
+          userId: req.user!.id,
+          accountId,
+          action: "QR_CODE_REVEALED",
+          ipAddress: req.ip,
+        },
+      });
+
+      res.json({ qrCodeBase64: account.totpQrBase64, expiresIn: null, grantExpiresAt: null });
+    } catch (error: any) {
+      console.error("[Reveal QR]", error);
+      res.status(500).json({ error: error.message || "Failed to reveal QR Code." });
+    }
+  },
+);
+
+// POST /api/accounts/:id/reveal-otp — compute the current TOTP code [USER with grant]
+// Decodes the stored QR image server-side and returns only the rotating
+// 6-digit code — never the QR image or the secret it encodes.
+router.post(
+  "/:id/reveal-otp",
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     const accountId = req.params.id;
@@ -832,7 +907,7 @@ router.post(
       }
 
       if (!account.totpQrBase64) {
-        res.status(404).json({ error: "No QR Code found for this account." });
+        res.status(404).json({ error: "No authenticator QR code found for this account." });
         return;
       }
 
@@ -846,12 +921,22 @@ router.post(
         return;
       }
 
-      // Write audit BEFORE returning secret
+      let otp: string;
+      let secondsRemaining: number;
+      try {
+        ({ otp, secondsRemaining } = await generateOtpFromQrImage(account.totpQrBase64));
+      } catch (e: any) {
+        console.error("[Reveal OTP] Failed to decode stored QR image", e);
+        res.status(500).json({ error: "Could not generate an OTP from the stored QR code." });
+        return;
+      }
+
+      // Write audit BEFORE returning the code
       await prisma.auditLog.create({
         data: {
           userId,
           accountId,
-          action: "QR_CODE_REVEALED",
+          action: "OTP_REVEALED",
           ipAddress: req.ip,
         },
       });
@@ -891,10 +976,10 @@ router.post(
         }
       }
 
-      res.json({ qrCodeBase64: account.totpQrBase64, expiresIn, grantExpiresAt });
+      res.json({ otp, secondsRemaining, expiresIn, grantExpiresAt });
     } catch (error: any) {
-      console.error("[Reveal QR]", error);
-      res.status(500).json({ error: error.message || "Failed to reveal QR Code." });
+      console.error("[Reveal OTP]", error);
+      res.status(500).json({ error: error.message || "Failed to generate OTP." });
     }
   },
 );
@@ -971,6 +1056,15 @@ router.patch(
         return;
       }
 
+      if (totpQrBase64) {
+        try {
+          await validateTotpQrImage(totpQrBase64);
+        } catch (e: any) {
+          res.status(400).json({ error: e.message || "Could not read a valid authenticator QR code from that image." });
+          return;
+        }
+      }
+
       const updateData: any = {};
       if (name) updateData.name = name;
       if (username) updateData.username = username;
@@ -1017,6 +1111,8 @@ router.patch(
         updateData.passwordHash = passwordHash;
         updateData.healthScore = score;
         updateData.healthLabel = label as any;
+        updateData.lastUpdatedAt = new Date();
+        updateData.lastUpdatedBy = req.user!.id;
       }
 
       const updated = await prisma.account.update({
@@ -1079,6 +1175,46 @@ router.delete(
       res.status(500).json({ error: "Failed to delete account." });
     }
   }
+);
+
+// POST /api/accounts/bulk-delete — delete multiple accounts [ADMIN]
+// Requires the caller to have already confirmed via the "type approve" UI flow;
+// each deletion is written to the immutable AuditLog.
+router.post(
+  "/bulk-delete",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { accountIds } = req.body;
+    if (!Array.isArray(accountIds) || accountIds.length === 0) {
+      res.status(400).json({ error: "accountIds must be a non-empty array." });
+      return;
+    }
+    try {
+      const targets = await prisma.account.findMany({
+        where: { id: { in: accountIds } },
+      });
+
+      await Promise.all(targets.map((a) => deleteSecret(a.secretRef)));
+
+      await prisma.$transaction([
+        prisma.account.deleteMany({ where: { id: { in: accountIds } } }),
+        prisma.auditLog.createMany({
+          data: targets.map((a) => ({
+            userId: req.user!.id,
+            action: "ACCOUNT_BULK_DELETED",
+            metadata: { deletedAccount: a.name },
+            ipAddress: req.ip,
+          })),
+        }),
+      ]);
+
+      res.json({ message: `${targets.length} account(s) deleted.` });
+    } catch (error) {
+      console.error("[Bulk Delete Accounts]", error);
+      res.status(500).json({ error: "Failed to delete accounts." });
+    }
+  },
 );
 
 export default router;

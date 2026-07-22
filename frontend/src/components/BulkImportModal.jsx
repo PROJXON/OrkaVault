@@ -65,27 +65,17 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess }) {
   const qrPendingRows = result?.results?.filter((r) => r.status === "created" && r.qrPending) || [];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-        <div
-          className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-          onClick={handleClose}
-        />
-
-        <div className="relative inline-block w-full max-w-lg p-6 overflow-hidden text-left align-middle transition-all transform bg-white rounded-lg shadow-xl sm:my-8">
-          <div className="flex justify-between items-center mb-5 border-b pb-4">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">
-              Bulk Import Vault Entries
-            </h3>
-            <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <X className="w-5 h-5" />
+    <div className="scrim" onClick={handleClose}>
+        <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-h">
+            <div className="mt grow">Bulk Import Vault Entries</div>
+            <button onClick={handleClose} className="iconbtn" style={{ width: 32, height: 32 }}>
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="mb-4 p-3 bg-blue-50 text-blue-800 text-sm rounded-md">
+          <div className="modal-b">
+          <div className="p-3 text-sm rounded-md" style={{ background: "var(--brand-subtle)", color: "var(--brand-text)" }}>
             <p>
               Upload a CSV of vault entries. Google Workspace rows are
               imported without a TOTP QR code — you can attach those right
@@ -96,7 +86,7 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess }) {
             <button
               type="button"
               onClick={downloadTemplate}
-              className="mt-2 inline-flex items-center text-brand-blue hover:text-blue-700 font-medium"
+              className="mt-2 inline-flex items-center font-medium"
             >
               <Download className="w-4 h-4 mr-1" />
               Download CSV template
@@ -104,40 +94,29 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess }) {
           </div>
 
           {error && (
-            <div className="mb-4 p-3 text-sm text-brand-red bg-red-50 rounded border border-red-100">
+            <div className="p-3 text-sm rounded" style={{ color: "var(--error-text)", background: "var(--error-subtle)", border: "1px solid var(--error-border)" }}>
               {error}
             </div>
           )}
 
           {!result && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  CSV File
-                </label>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div className="field">
+                <span className="field-label">CSV File</span>
                 <input
                   type="file"
                   accept=".csv,text/csv"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-brand-blue file:text-white hover:file:bg-blue-700"
+                  className="text-sm mt-1"
+                  style={{ color: "var(--text-tertiary)" }}
                 />
               </div>
 
-              <div className="mt-5 pt-4 border-t sm:flex sm:flex-row-reverse">
-                <button
-                  type="submit"
-                  disabled={loading || !file}
-                  className="w-full inline-flex items-center justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-brand-blue text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-                >
-                  <UploadCloud className="w-4 h-4 mr-2" />
+              <div className="flex justify-end gap-2 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                <button type="button" onClick={handleClose} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={loading || !file} className="btn btn-primary">
+                  <UploadCloud className="w-4 h-4" />
                   {loading ? "Importing..." : "Import"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm"
-                >
-                  Cancel
                 </button>
               </div>
             </form>
@@ -145,14 +124,14 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess }) {
 
           {result && (
             <div className="space-y-4">
-              <div className="flex items-center p-3 rounded-md bg-green-50 text-brand-green text-sm">
+              <div className="flex items-center p-3 rounded-md text-sm" style={{ background: "var(--success-subtle)", color: "var(--success-text)" }}>
                 <CheckCircle className="w-5 h-5 mr-2 shrink-0" />
                 {result.created} of {result.results.length} row
                 {result.results.length === 1 ? "" : "s"} imported.
               </div>
 
               {qrPendingRows.length > 0 && (
-                <div className="p-3 rounded-md bg-yellow-50 text-yellow-800 text-sm">
+                <div className="p-3 rounded-md text-sm" style={{ background: "var(--warning-subtle)", color: "var(--warning-text)" }}>
                   <p className="font-medium mb-2">
                     {qrPendingRows.length} Google Workspace{" "}
                     {qrPendingRows.length === 1 ? "entry needs" : "entries need"} a QR code —
@@ -168,7 +147,7 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess }) {
               )}
 
               {failedRows.length > 0 && (
-                <div className="p-3 rounded-md bg-red-50 text-brand-red text-sm">
+                <div className="p-3 rounded-md text-sm" style={{ background: "var(--error-subtle)", color: "var(--error-text)" }}>
                   <p className="flex items-center font-medium mb-1">
                     <AlertTriangle className="w-4 h-4 mr-1 shrink-0" />
                     {failedRows.length} row{failedRows.length === 1 ? "" : "s"} failed
@@ -183,26 +162,14 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess }) {
                 </div>
               )}
 
-              <div className="pt-4 border-t flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none"
-                >
-                  Import Another File
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="px-4 py-2 text-sm font-medium text-white bg-brand-blue border border-transparent rounded-md hover:bg-blue-700 focus:outline-none"
-                >
-                  Done
-                </button>
+              <div className="flex justify-end gap-2 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                <button type="button" onClick={reset} className="btn btn-secondary">Import Another File</button>
+                <button type="button" onClick={handleClose} className="btn btn-primary">Done</button>
               </div>
             </div>
           )}
+          </div>
         </div>
-      </div>
     </div>
   );
 }

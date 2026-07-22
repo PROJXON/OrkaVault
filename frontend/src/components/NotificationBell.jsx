@@ -93,66 +93,37 @@ export default function NotificationBell() {
   };
 
   return (
-    <div className="relative" ref={containerRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-400 hover:text-gray-500 focus:outline-none"
-      >
-        <Bell className="h-6 w-6" />
-        {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-brand-red ring-2 ring-white text-[10px] font-bold text-white">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
+    <div className="menu-anchor" ref={containerRef}>
+      <button onClick={() => setIsOpen(!isOpen)} className="iconbtn" aria-label="Alerts">
+        <Bell width={18} height={18} />
+        {unreadCount > 0 && <span className="badge">{unreadCount > 99 ? "99+" : unreadCount}</span>}
       </button>
 
       {isOpen && (
-        <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-          <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-            <h3 className="text-sm font-medium text-gray-900">Notifications</h3>
+        <div className="menu right" style={{ width: 320, maxWidth: "calc(100vw - 24px)" }}>
+          <div className="menu-label">
+            <span>Alerts</span>
             {unreadCount > 0 && (
-              <button
-                onClick={markAllRead}
-                className="text-xs text-brand-blue hover:text-blue-700"
-              >
-                Mark all read
-              </button>
+              <a onClick={markAllRead} style={{ cursor: "pointer" }}>Mark all read</a>
             )}
           </div>
-          <div className="max-h-96 overflow-y-auto custom-scrollbar">
+          <div className="max-h-96 overflow-y-auto scroll-area">
             {notifications.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500 text-center">
-                No notifications
-              </div>
+              <div className="p-4 text-sm text-muted text-center">No notifications</div>
             ) : (
               notifications.map((notif) => {
                 const hasRoute = !!getNotifRoute(notif.type);
                 return (
-                  <div
-                    key={notif.id}
-                    onClick={() => handleNotifClick(notif)}
-                    className={`p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors ${
-                      !notif.read ? "bg-blue-50/50" : ""
-                    }`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <p
-                        className={`text-sm font-medium ${!notif.read ? "text-gray-900" : "text-gray-600"}`}
-                      >
-                        {notif.title}
-                      </p>
-                      {hasRoute && (
-                        <span className="text-xs text-brand-blue ml-2 shrink-0 mt-0.5">
-                          View →
-                        </span>
-                      )}
+                  <div key={notif.id} onClick={() => handleNotifClick(notif)} className={`notif ${notif.read ? "read" : ""}`}>
+                    <span className="dotcol"><i /></span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex justify-between items-start gap-2">
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{notif.title}</p>
+                        {hasRoute && <span className="text-xs shrink-0 mt-0.5" style={{ color: "var(--brand-text)" }}>View →</span>}
+                      </div>
+                      <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{notif.body}</p>
+                      <p className="text-xs mt-1 text-muted">{format(new Date(notif.createdAt), "MMM d, yyyy, h:mm a")}</p>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {notif.body}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-2">
-                      {format(new Date(notif.createdAt), "MMM d, yyyy, h:mm a")}
-                    </p>
                   </div>
                 );
               })
@@ -162,30 +133,19 @@ export default function NotificationBell() {
       )}
 
       {selectedNotif && (
-        <div className="fixed inset-0 z-[100] overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-            <div
-              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-              onClick={() => setSelectedNotif(null)}
-            />
-            <div className="relative inline-block w-full max-w-md p-6 overflow-hidden text-left align-middle transition-all transform bg-white rounded-lg shadow-xl sm:my-8">
-              <h3 className="text-lg font-medium leading-6 text-gray-900 mb-2">
-                {selectedNotif.title}
-              </h3>
-              <p className="text-xs text-gray-500 mb-4">
+        <div className="scrim" onClick={() => setSelectedNotif(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-b">
+              <div className="mt" style={{ marginBottom: 8 }}>{selectedNotif.title}</div>
+              <p className="text-xs text-muted mb-4">
                 {format(new Date(selectedNotif.createdAt), "MMMM d, yyyy 'at' h:mm a")}
               </p>
-              <div className="text-sm text-gray-700 bg-gray-50 p-4 rounded-md border border-gray-100 whitespace-pre-wrap">
+              <div className="text-sm p-4 rounded-md whitespace-pre-wrap" style={{ color: "var(--text-secondary)", background: "var(--bg-surface-sunken)", border: "1px solid var(--border-subtle)" }}>
                 {selectedNotif.body}
               </div>
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setSelectedNotif(null)}
-                  className="px-4 py-2 text-sm font-medium text-white bg-brand-blue border border-transparent rounded-md hover:bg-blue-700 focus:outline-none"
-                >
-                  Close
-                </button>
-              </div>
+            </div>
+            <div className="modal-f">
+              <button onClick={() => setSelectedNotif(null)} className="btn btn-primary">Close</button>
             </div>
           </div>
         </div>

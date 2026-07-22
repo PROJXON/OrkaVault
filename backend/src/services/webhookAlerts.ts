@@ -33,6 +33,16 @@ export interface ChatAlertPayload {
   detail?: string;
   /** Overrides the default /approvals link, e.g. "/workspace-activity". */
   link?: string;
+  /**
+   * AccessRequest id — when present on an ACCESS_REQUESTED alert, the
+   * message gets inline Approve/Deny buttons (routes/integrations.ts
+   * handles the click). Requires the platform's inbound interaction
+   * endpoint to be configured (DISCORD_PUBLIC_KEY / Chat app HTTP
+   * endpoint) — see docs/discord-google-chat-alerts-bot.md. If that
+   * setup hasn't been done, the buttons render but clicking them fails
+   * on the platform's side; the alert itself still delivers either way.
+   */
+  requestId?: string;
 }
 
 const EVENT_COLOR: Record<ChatAlertEvent, number> = {
@@ -86,6 +96,19 @@ function eventDescription(event: ChatAlertEvent, payload: ChatAlertPayload): str
   }
 }
 
+function discordApproveDenyComponents(event: ChatAlertEvent, payload: ChatAlertPayload) {
+  if (event !== "ACCESS_REQUESTED" || !payload.requestId) return undefined;
+  return [
+    {
+      type: 1, // action row
+      components: [
+        { type: 2, style: 3, label: "Approve", custom_id: `approve:${payload.requestId}` }, // green
+        { type: 2, style: 4, label: "Deny", custom_id: `deny:${payload.requestId}` }, // red
+      ],
+    },
+  ];
+}
+
 async function sendDiscord(webhookUrl: string, event: ChatAlertEvent, payload: ChatAlertPayload): Promise<void> {
   try {
     const body = {
@@ -98,6 +121,7 @@ async function sendDiscord(webhookUrl: string, event: ChatAlertEvent, payload: C
           timestamp: new Date().toISOString(),
         },
       ],
+      components: discordApproveDenyComponents(event, payload),
     };
     const res = await fetch(webhookUrl, {
       method: "POST",
@@ -114,6 +138,24 @@ async function sendDiscord(webhookUrl: string, event: ChatAlertEvent, payload: C
 
 async function sendGoogleChat(webhookUrl: string, event: ChatAlertEvent, payload: ChatAlertPayload): Promise<void> {
   try {
+    const buttons: any[] = [
+      {
+        text: payload.link ? "View Details" : "Open Approvals",
+        onClick: { openLink: { url: alertLink(payload) } },
+      },
+    ];
+    if (event === "ACCESS_REQUESTED" && payload.requestId) {
+      buttons.push(
+        {
+          text: "Approve",
+          onClick: { action: { function: "approve", parameters: [{ key: "requestId", value: payload.requestId }] } },
+        },
+        {
+          text: "Deny",
+          onClick: { action: { function: "deny", parameters: [{ key: "requestId", value: payload.requestId }] } },
+        },
+      );
+    }
     const body = {
       cardsV2: [
         {
@@ -124,16 +166,7 @@ async function sendGoogleChat(webhookUrl: string, event: ChatAlertEvent, payload
               {
                 widgets: [
                   { textParagraph: { text: eventDescription(event, payload) } },
-                  {
-                    buttonList: {
-                      buttons: [
-                        {
-                          text: payload.link ? "View Details" : "Open Approvals",
-                          onClick: { openLink: { url: alertLink(payload) } },
-                        },
-                      ],
-                    },
-                  },
+                  { buttonList: { buttons } },
                 ],
               },
             ],

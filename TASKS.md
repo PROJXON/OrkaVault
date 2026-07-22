@@ -1,6 +1,24 @@
-- we need a way to configure what departments there are. Currently departments are hard coded, we need to have a tab in settings, that lets us configure the departments.
-- we need department assignment to be editable like how roles are in the Users & Roles section, we should be able to dropdown select department.
-- we want to eventually utilize google workspace admin sdk api to monitor logins/connected apps etc, could you please write up a .md file explaining how we would achieve this with the current set up and the architecture, and any questions you need us to answer before we implement something like this
-- we need to add some way to get alerts via webhooks for discord, /google chat for access requests, and we need a way to set this, we may need to create a bot to handle this. Please write up a .md file explaining the best way to achieve this, the architecture and steps, basically same thing as the last thing.
-- we need to set up a plan to initiate this fully.
-- with the discord / google app/bot, we want admins to be able to /orkavault approve user, etc or something like this, but we will need a way to authenticate admins and managers.
+- we need to make it easy to copy passwords and otp, once a otp or password is revealed the user can click it like a button and it automatically copies to clipboard, a copied to clipboard message will also appear.
+
+- collection managment can be better as far as ui/ux goes, please add a + button, where when clicked the new collection form will appear, when editing a collection, have the edit collection appear right below the collection entry on the table(basically the row expands, do this in mobile too)
+
+- password health audit should also show the last changed date somewhere
+
+- the import, and pending qr uploads are a bit small, and add vault entry, buttons are kinda small and kinda of unclear that is where you would add, please make the icons a little bigger, and make the pending qr bubble with the number offset a little more so it doesn't cover the icon so much.
+
+- Force Rotate, says it will alert the owner, but does not state who the owner is.
+
+- Let's get started on the approve and deny from discord / gchat
+
+- Users & Roles does not have a column for end date.
+
+- We need a way to delete multiple user accounts, when we do select all, or even selecting mltiple, the admin needs to type approve in input field first and hit yes to delete. This will also be logged in immutable log.
+
+- We need a way to delete multiple vault entries, when we do select all, or even selecting mltiple, the admin needs to type approve in input field first and hit yes to delete. This will also be logged in immutable log.
+
+- audit log should show the users department
+
+- What is the retention rate for audit logs if one? we should have a setting that sets a retention rate, and once that retention rate is hit, logs are backed up to a csv in settings > backups. Max backups can be set in settings too.
+
+- please suggest feature and put the in docs/ , the suggested features should not add uneeded complexity for end-users, but be beneficial to overall security, and account sharing ease.
+

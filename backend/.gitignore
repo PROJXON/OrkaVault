@@ -21,6 +21,9 @@ node_modules/
 # ─── Uploads (user-generated files - should use cloud storage in prod) ────────
 uploads/
 
+# ─── Audit log CSV backups (local dev only - contain org activity data) ───────
+backups/
+
 # ─── Prisma Generated Client (re-generated on build) ─────────────────────────
 # The Prisma schema itself IS committed; only the generated client binary is excluded
 node_modules/.prisma/

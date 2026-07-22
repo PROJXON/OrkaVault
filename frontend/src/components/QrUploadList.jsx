@@ -61,11 +61,12 @@ export default function QrUploadList({ accounts, onSaved }) {
           return (
             <div
               key={a.id}
-              className="flex items-center justify-between bg-white rounded-md border border-yellow-200 px-3 py-2"
+              className="flex items-center justify-between rounded-md px-3 py-2"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--warning-border)" }}
             >
-              <span className="truncate mr-2 text-gray-900">{a.name}</span>
+              <span className="truncate mr-2" style={{ color: "var(--text-primary)" }}>{a.name}</span>
               {isSaved ? (
-                <span className="flex items-center text-brand-green text-xs font-medium whitespace-nowrap shrink-0">
+                <span className="flex items-center text-xs font-medium whitespace-nowrap shrink-0" style={{ color: "var(--success-text)" }}>
                   <CheckCircle className="w-4 h-4 mr-1" />
                   Saved
                 </span>
@@ -74,19 +75,20 @@ export default function QrUploadList({ accounts, onSaved }) {
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleQrFileChange(a.id, e.target.files?.[0])}
-                  className="max-w-[60%] text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-brand-blue file:text-white hover:file:bg-blue-700"
+                  className="max-w-[60%] text-xs"
+                  style={{ color: "var(--text-tertiary)" }}
                 />
               )}
             </div>
           );
         })}
       </div>
-      {qrError && <p className="text-brand-red text-xs mt-2">{qrError}</p>}
+      {qrError && <p className="text-xs mt-2" style={{ color: "var(--error-text)" }}>{qrError}</p>}
       <button
         type="button"
         onClick={handleSaveQrCodes}
         disabled={qrSaving || qrFilesStagedCount === 0}
-        className="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-brand-blue hover:bg-blue-700 focus:outline-none disabled:opacity-50"
+        className="btn btn-primary btn-sm mt-3"
       >
         {qrSaving
           ? "Saving..."

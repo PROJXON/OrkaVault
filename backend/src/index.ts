@@ -17,8 +17,11 @@ import policiesRoutes from "./routes/policies";
 import collectionsRoutes from "./routes/collections";
 import departmentsRoutes, { seedDefaultDepartments } from "./routes/departments";
 import workspaceActivityRoutes from "./routes/workspaceActivity";
+import backupsRoutes from "./routes/backups";
+import integrationsRoutes from "./routes/integrations";
 import { notifyAdmins } from "./services/notifications";
 import { ingestWorkspaceActivity } from "./services/googleWorkspace";
+import { runAuditRetentionSweep } from "./services/auditBackup";
 import { errorHandler } from "./middleware/errorHandler";
 
 const prisma = new PrismaClient();
@@ -42,6 +45,10 @@ app.use(
 // reject legitimate saves before they reach the route. Scoped to this
 // path only; every other route keeps the default limit.
 app.use("/api/accounts", express.json({ limit: "10mb" }));
+// Discord interaction signature verification (verifyDiscordSignature) needs
+// the exact raw bytes Discord signed — must be scoped ahead of the global
+// express.json() below, same pattern as the /api/accounts override above.
+app.use("/api/integrations/discord/interactions", express.raw({ type: "application/json" }));
 app.use(express.json());
 
 // ─── Serve uploaded avatars as static files ────────────────────────────
@@ -58,6 +65,8 @@ app.use("/api/policies", policiesRoutes);
 app.use("/api/collections", collectionsRoutes);
 app.use("/api/departments", departmentsRoutes);
 app.use("/api/workspace-activity", workspaceActivityRoutes);
+app.use("/api/backups", backupsRoutes);
+app.use("/api/integrations", integrationsRoutes);
 app.use("/api", miscRoutes);
 
 // Error Handler must be the last middleware
@@ -142,6 +151,18 @@ async function checkRotationDue() {
   }
 }
 
+/** Audit log retention: backs old rows up to CSV and purges them from Postgres. No-op until configured. */
+async function checkAuditRetention() {
+  try {
+    const result = await runAuditRetentionSweep();
+    if (!result.skipped && result.backedUp > 0) {
+      console.log(`[Cron] Audit retention: backed up ${result.backedUp} row(s) to ${result.file}.`);
+    }
+  } catch (error) {
+    console.error("[Cron] Audit retention sweep failed:", error);
+  }
+}
+
 // ─── Start Server ──────────────────────────────────────────────────────
 app.listen(PORT, async () => {
   console.log(`🚀 OrkaVault API running on http://localhost:${PORT}`);
@@ -154,11 +175,13 @@ app.listen(PORT, async () => {
   // Run cron checks on startup
   await checkOffboarding();
   await checkRotationDue();
+  await checkAuditRetention();
   await ingestWorkspaceActivity();
 
   // Run daily (every 24 hours)
   setInterval(checkOffboarding, 24 * 60 * 60 * 1000);
   setInterval(checkRotationDue, 24 * 60 * 60 * 1000);
+  setInterval(checkAuditRetention, 24 * 60 * 60 * 1000);
   // Workspace activity: 30 min, not 24h — see docs/google-workspace-admin-sdk-monitoring.md §1
   // on Google's own multi-hour ingestion lag (polling faster doesn't help, slower loses freshness).
   setInterval(ingestWorkspaceActivity, 30 * 60 * 1000);

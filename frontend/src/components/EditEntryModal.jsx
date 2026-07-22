@@ -109,36 +109,25 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-        <div
-          className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-          onClick={onClose}
-        />
-
-        <div className="relative inline-block w-full max-w-lg p-6 overflow-hidden text-left align-middle transition-all transform bg-white rounded-lg shadow-xl sm:my-8">
-          <div className="flex justify-between items-center mb-5 border-b pb-4">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">
-              Edit Vault Entry
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <X className="w-5 h-5" />
+    <div className="scrim" onClick={onClose}>
+        <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-h">
+            <div className="mt grow">Edit Vault Entry</div>
+            <button onClick={onClose} className="iconbtn" style={{ width: 32, height: 32 }}>
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="modal-b">
             {error && (
-              <div className="p-3 text-sm text-brand-red bg-red-50 rounded border border-red-100">
+              <div className="p-3 text-sm rounded" style={{ color: "var(--error-text)", background: "var(--error-subtle)", border: "1px solid var(--error-border)" }}>
                 {error}
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="field-label">
                   Account Name
                 </label>
                 <input
@@ -148,12 +137,12 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="input mt-1"
                   placeholder="e.g. HubSpot CRM"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="field-label">
                   Platform Type
                 </label>
                 <select
@@ -161,7 +150,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   onChange={(e) =>
                     setFormData({ ...formData, platformType: e.target.value })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="input mt-1"
                 >
                   <option value="THIRD_PARTY">Third Party Tool</option>
                   <option value="GOOGLE_WORKSPACE">Google Workspace</option>
@@ -169,7 +158,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="field-label">
                   Collection (Optional)
                 </label>
                 <select
@@ -177,7 +166,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   onChange={(e) =>
                     setFormData({ ...formData, collectionId: e.target.value })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="select mt-1"
                 >
                   <option value="">None</option>
                   {collections?.map(c => (
@@ -189,7 +178,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="field-label">
                   Username / Email
                 </label>
                 <input
@@ -199,11 +188,11 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   onChange={(e) =>
                     setFormData({ ...formData, username: e.target.value })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="input mt-1"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="field-label">
                   Rotation Cycle
                 </label>
                 <select
@@ -211,7 +200,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   onChange={(e) =>
                     setFormData({ ...formData, refreshCycle: e.target.value })
                   }
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="input mt-1"
                 >
                   <option value="MONTHLY">Monthly</option>
                   <option value="FOUR_MONTHS">Every 4 Months</option>
@@ -222,7 +211,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="field-label">
                 Required Clearance{" "}
                 <span className="text-gray-400 font-normal">(optional)</span>
               </label>
@@ -231,7 +220,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                 onChange={(e) =>
                   setFormData({ ...formData, requiredClearance: e.target.value })
                 }
-                className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                className="input mt-1"
               >
                 <option value="">-- No requirement --</option>
                 {CLEARANCE_TIERS.map((tier) => (
@@ -240,22 +229,21 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
               </select>
             </div>
 
-            <div className="flex items-center mt-4">
+            <label className="flex items-center gap-2 mt-4 text-sm" style={{ color: "var(--text-primary)" }}>
               <input
                 id="isGoogleSSO"
                 type="checkbox"
                 checked={formData.isGoogleSSO}
                 onChange={(e) => setFormData({ ...formData, isGoogleSSO: e.target.checked, password: "" })}
-                className="h-4 w-4 text-brand-blue focus:ring-brand-blue border-gray-300 rounded"
+                className="h-4 w-4 rounded"
+                style={{ accentColor: "var(--brand)" }}
               />
-              <label htmlFor="isGoogleSSO" className="ml-2 block text-sm text-gray-900">
-                Sign in via Google Account (No password required)
-              </label>
-            </div>
+              Sign in via Google Account (No password required)
+            </label>
 
             {!formData.isGoogleSSO && (
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="field-label">
                   New Password <span className="text-gray-400 font-normal">(Leave blank to keep current)</span>
                 </label>
                 <div className="mt-1 flex space-x-2">
@@ -266,13 +254,15 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                       onChange={(e) =>
                         setFormData({ ...formData, password: e.target.value })
                       }
-                      className="block w-full border border-gray-300 rounded-md py-2 pl-3 pr-10 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                      className="input"
+                      style={{ paddingRight: 40 }}
                       placeholder="Type new password..."
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      style={{ color: "var(--text-tertiary)" }}
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -284,7 +274,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   <button
                     type="button"
                     onClick={handleGeneratePassword}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                    className="btn btn-secondary btn-sm"
                   >
                     Generate
                   </button>
@@ -293,7 +283,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="field-label">
                 Notes
               </label>
               <textarea
@@ -301,14 +291,14 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                 onChange={(e) =>
                   setFormData({ ...formData, notes: e.target.value })
                 }
-                className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                className="input mt-1"
                 placeholder="Optional notes, URLs, or MFA backup codes..."
                 rows={2}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="field-label mb-1">
                 Authenticator QR Code{" "}
                 {formData.platformType === "GOOGLE_WORKSPACE" && requireTotpQr ? (
                   <span className="text-brand-red">(Required)</span>
@@ -316,40 +306,30 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   <span className="text-gray-400">(Upload new to replace)</span>
                 )}
               </label>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center flex-wrap gap-2">
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-brand-blue file:text-white hover:file:bg-blue-700"
+                  className="text-sm max-w-full"
+                  style={{ color: "var(--text-tertiary)" }}
                 />
                 {formData.totpQrBase64 && (
-                  <div className="text-xs text-brand-green font-medium whitespace-nowrap">
+                  <div className="text-xs font-medium whitespace-nowrap" style={{ color: "var(--success-text)" }}>
                     Image present
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="pt-4 flex justify-end space-x-3 border-t">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 text-sm font-medium text-white bg-brand-blue border border-transparent rounded-md hover:bg-blue-700 focus:outline-none disabled:opacity-50 flex items-center"
-              >
+            <div className="flex justify-end gap-2 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+              <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>
+              <button type="submit" disabled={loading} className="btn btn-primary">
                 {loading ? "Saving..." : "Save Vault"}
               </button>
             </div>
           </form>
         </div>
-      </div>
     </div>
   );
 }

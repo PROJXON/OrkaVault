@@ -161,6 +161,56 @@ router.delete(
   },
 );
 
+// POST /api/users/bulk-delete — deactivate multiple users + revoke grants [ADMIN]
+// Requires the caller to have already confirmed via the "type approve" UI flow;
+// each deactivation is written to the immutable AuditLog.
+router.post(
+  "/bulk-delete",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { userIds } = req.body;
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      res.status(400).json({ error: "userIds must be a non-empty array." });
+      return;
+    }
+    if (userIds.includes(req.user!.id)) {
+      res.status(403).json({ error: "You cannot deactivate yourself." });
+      return;
+    }
+    try {
+      const targets = await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, name: true, email: true },
+      });
+
+      await prisma.$transaction([
+        prisma.user.updateMany({
+          where: { id: { in: userIds } },
+          data: { active: false, revoked: true },
+        }),
+        prisma.accessGrant.updateMany({
+          where: { userId: { in: userIds }, active: true },
+          data: { active: false },
+        }),
+        prisma.auditLog.createMany({
+          data: targets.map((t) => ({
+            userId: req.user!.id,
+            action: "USER_BULK_DEACTIVATED",
+            metadata: { targetUserId: t.id, targetName: t.name, targetEmail: t.email },
+            ipAddress: req.ip,
+          })),
+        }),
+      ]);
+
+      res.json({ message: `${targets.length} user(s) deactivated and grants revoked.` });
+    } catch (error) {
+      console.error("[Bulk Deactivate Users]", error);
+      res.status(500).json({ error: "Failed to deactivate users." });
+    }
+  },
+);
+
 // PATCH /api/users/me/notifications — toggle notificationsOn [ALL]
 router.patch(
   "/me/notifications",
