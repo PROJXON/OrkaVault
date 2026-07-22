@@ -162,6 +162,7 @@ router.post(
         accountName: account?.name || accountId,
         requestTypeLabel: label,
         requestId: request.id,
+        reason: request.reason,
       });
 
       res.status(201).json(request);

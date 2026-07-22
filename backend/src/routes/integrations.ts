@@ -158,7 +158,14 @@ router.post("/discord/interactions", async (req: Request, res: Response) => {
 async function verifyGoogleChatRequest(req: Request): Promise<boolean> {
   const audience = process.env.GCHAT_PROJECT_NUMBER;
   const authHeader = req.header("Authorization");
-  if (!audience || !authHeader?.startsWith("Bearer ")) return false;
+  if (!audience) {
+    console.error("[GChat Verification] Missing GCHAT_PROJECT_NUMBER environment variable.");
+    return false;
+  }
+  if (!authHeader?.startsWith("Bearer ")) {
+    console.error("[GChat Verification] Missing or invalid Authorization header:", authHeader);
+    return false;
+  }
   try {
     const ticket = await gchatAuthClient.verifyIdToken({
       idToken: authHeader.slice("Bearer ".length),
@@ -167,8 +174,13 @@ async function verifyGoogleChatRequest(req: Request): Promise<boolean> {
     const payload = ticket.getPayload();
     // Per Google's Chat app verification docs: issuer must be the fixed
     // Chat API service account, not just any token audience-matched to us.
-    return payload?.email === "chat@system.gserviceaccount.com" && payload.email_verified === true;
-  } catch {
+    const isServiceAccount = payload?.email === "chat@system.gserviceaccount.com" && payload.email_verified === true;
+    if (!isServiceAccount) {
+      console.error("[GChat Verification] Token payload email is not the Google Chat service account:", payload?.email);
+    }
+    return isServiceAccount;
+  } catch (error) {
+    console.error("[GChat Verification] Token verification failed:", error);
     return false;
   }
 }

@@ -80,7 +80,9 @@ function eventDescription(event: ChatAlertEvent, payload: ChatAlertPayload): str
   const { requesterName, accountName, requestTypeLabel, reason, detail } = payload;
   switch (event) {
     case "ACCESS_REQUESTED":
-      return `${requesterName} requested ${requestTypeLabel || "access"} to "${accountName}".`;
+      return `${requesterName} requested ${requestTypeLabel || "access"} to "${accountName}".${
+        reason ? `\n\n**Justification:** ${reason}` : ""
+      }`;
     case "ACCESS_APPROVED":
       return `${requesterName}'s access request for "${accountName}" was approved.`;
     case "ACCESS_DENIED":

@@ -8,6 +8,9 @@ When `AccessGrant` temporary windows (e.g. `TEMP_24H`) expired, users had to re-
 ## What changed
 - [requests.ts](file:///media/sf_OrkaVault/backend/src/routes/requests.ts):
   - Added endpoint `GET /api/requests/last-approved/:accountId` to retrieve the user's most recent approved request for the given account.
+  - Included the request's justification `reason` in the `sendChatAlert` payload.
+- [webhookAlerts.ts](file:///media/sf_OrkaVault/backend/src/services/webhookAlerts.ts):
+  - Updated the `ACCESS_REQUESTED` description to include the justification reason.
 - [RequestModal.jsx](file:///media/sf_OrkaVault/frontend/src/components/RequestModal.jsx):
   - Equipped the component with a `prefill` prop to populate form fields upon modal initialization.
 - [Vault.jsx](file:///media/sf_OrkaVault/frontend/src/pages/Vault.jsx):
