@@ -1,16 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import api from "../lib/api";
+import { format } from "date-fns";
 import {
-  Users, Shield, Globe, Search, MonitorSmartphone, X, Mail,
-  Briefcase, CheckCircle, HeartPulse, Activity, Trash2, Edit2, Save, Clock, UserX
+  Shield, Globe, Search, MonitorSmartphone, X, Mail,
+  Briefcase, CheckCircle, Trash2, Edit2, Save, Clock, UserX
 } from "lucide-react";
-import { Bar, Pie, Doughnut } from "react-chartjs-2";
-import {
-  Chart as ChartJS, CategoryScale, LinearScale, BarElement,
-  Title, Tooltip, Legend, ArcElement,
-} from "chart.js";
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 const ACCESS_TYPE_LABELS = {
   VIEW_90S: "Single View (90s)",
@@ -22,6 +16,11 @@ const ACCESS_TYPE_COLORS = {
   VIEW_90S: "bg-purple-100 text-purple-700",
   TEMP_24H: "bg-amber-100 text-amber-700",
   ONGOING: "bg-green-100 text-green-700",
+};
+
+const formatRole = (role) => {
+  const map = { ADMIN: "Admin", MANAGER: "Manager", USER: "User" };
+  return map[role] || role;
 };
 
 export default function Directory() {
@@ -142,127 +141,14 @@ export default function Directory() {
   const getInitials = (name) =>
     name.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2);
 
-  // Chart data
-  const auditActivityData = data.metrics.auditActivity || [];
-  const barData = {
-    labels: auditActivityData.map(a =>
-      new Date(a.date).toLocaleDateString("en-US", { weekday: "short" })
-    ),
-    datasets: [{
-      label: "Audit Events",
-      data: auditActivityData.map(a => a.count),
-      backgroundColor: "#3b82f6",
-      borderRadius: 4,
-    }],
-  };
-  const barOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: { callbacks: { title: (items) => auditActivityData[items[0].dataIndex]?.date } },
-    },
-    scales: {
-      x: { grid: { display: false }, ticks: { color: "#6b7280" } },
-      y: { border: { display: false }, grid: { color: "#f3f4f6" }, ticks: { color: "#6b7280", precision: 0 } },
-    },
-  };
-
-  const healthDist = data.metrics.healthDistribution || { STRONG: 0, MEDIUM: 0, WEAK: 0 };
-  const doughnutData = {
-    labels: ["Strong", "Medium", "Weak"],
-    datasets: [{
-      data: [healthDist.STRONG, healthDist.MEDIUM, healthDist.WEAK],
-      backgroundColor: ["#10b981", "#f59e0b", "#ef4444"],
-      borderWidth: 0,
-      hoverOffset: 4,
-    }],
-  };
-
-  const internationalCount = data.metrics.globalRequestsCount || 0;
-  const domesticCount = data.metrics.domesticRequestsCount || 0;
-  const pieData = {
-    labels: ["Global Access", "Domestic Only"],
-    datasets: [{
-      data: [internationalCount, domesticCount],
-      backgroundColor: ["#8b5cf6", "#e5e7eb"],
-      borderWidth: 0,
-      hoverOffset: 4,
-    }],
-  };
-
   if (loading) return <div className="p-8 text-gray-500 dark:text-[var(--text-tertiary)] flex justify-center items-center h-64">Loading directory...</div>;
 
   return (
     <div className="max-w-7xl mx-auto pb-12">
       {/* Header */}
-      <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl p-8 mb-8 border border-gray-200 dark:border-[var(--border-subtle)] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-[var(--text-primary)] tracking-tight">Security &amp; Personnel Dashboard</h1>
-          <p className="text-gray-500 dark:text-[var(--text-tertiary)] mt-2 max-w-xl">Directory overview. Monitor team access, evaluate global vault health, and track recent audit activity.</p>
-        </div>
-        <div className="flex items-center space-x-2 bg-green-50 text-green-700 px-4 py-2 rounded-full text-sm font-medium border border-green-200">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span>System Live</span>
-        </div>
-      </div>
-
-      {/* Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {[
-          { icon: Users, label: "Total Personnel", value: data.metrics.totalPersonnel || 0, color: "text-blue-600", bg: "bg-blue-50" },
-          { icon: HeartPulse, label: "Avg Vault Health", value: `${data.metrics.avgHealthScore || 0}%`, color: "text-emerald-600", bg: "bg-emerald-50" },
-          { icon: Activity, label: "7-Day Audit Events", value: data.metrics.sevenDayAuditCount || 0, color: "text-indigo-600", bg: "bg-indigo-50" },
-          { icon: Globe, label: "Global Access", value: internationalCount, color: "text-violet-600", bg: "bg-violet-50" },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white dark:bg-[var(--bg-surface)] rounded-xl p-6 border border-gray-200 dark:border-[var(--border-subtle)] shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-medium text-gray-500 dark:text-[var(--text-tertiary)]">{stat.label}</span>
-              <div className={`p-2 rounded-lg ${stat.bg}`}><stat.icon className={`w-5 h-5 ${stat.color}`} /></div>
-            </div>
-            <div className="text-3xl font-bold text-gray-900 dark:text-[var(--text-primary)]">{stat.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-sm flex flex-col">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-[var(--text-primary)] uppercase tracking-wide mb-6 flex items-center">
-            <Activity className="w-4 h-4 mr-2 text-gray-400 dark:text-[var(--text-tertiary)]" /> Audit Activity (7 Days)
-          </h3>
-          <div className="flex-1 min-h-[200px]"><Bar data={barData} options={barOptions} /></div>
-        </div>
-        <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-sm flex flex-col items-center">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-[var(--text-primary)] uppercase tracking-wide mb-6 flex items-center self-start">
-            <HeartPulse className="w-4 h-4 mr-2 text-gray-400 dark:text-[var(--text-tertiary)]" /> Health Distribution
-          </h3>
-          <div className="w-40 h-40"><Doughnut data={doughnutData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} /></div>
-          <div className="mt-6 w-full space-y-2">
-            {[["bg-emerald-500", "Strong", healthDist.STRONG], ["bg-amber-500", "Medium", healthDist.MEDIUM], ["bg-red-500", "Weak", healthDist.WEAK]].map(([color, label, val]) => (
-              <div key={label} className="flex justify-between items-center text-sm border-b border-gray-100 pb-2 last:border-0">
-                <span className="flex items-center text-gray-600 dark:text-[var(--text-secondary)]"><div className={`w-3 h-3 rounded-full ${color} mr-2`} />{label}</span>
-                <span className="font-bold text-gray-900 dark:text-[var(--text-primary)]">{val}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-sm flex flex-col items-center">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-[var(--text-primary)] uppercase tracking-wide mb-6 flex items-center self-start">
-            <Globe className="w-4 h-4 mr-2 text-gray-400 dark:text-[var(--text-tertiary)]" /> Global Access Ratio
-          </h3>
-          <div className="w-40 h-40"><Pie data={pieData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} /></div>
-          <div className="mt-6 w-full space-y-3">
-            <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
-              <span className="flex items-center text-gray-600 dark:text-[var(--text-secondary)]"><div className="w-3 h-3 rounded-full bg-violet-500 mr-2" /> Global</span>
-              <span className="font-bold text-gray-900 dark:text-[var(--text-primary)]">{internationalCount}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="flex items-center text-gray-600 dark:text-[var(--text-secondary)]"><div className="w-3 h-3 rounded-full bg-gray-200 mr-2" /> Domestic</span>
-              <span className="font-bold text-gray-900 dark:text-[var(--text-primary)]">{domesticCount}</span>
-            </div>
-          </div>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-[var(--text-primary)]">Personnel Directory</h1>
+        <p className="mt-2 text-sm text-gray-700 dark:text-[var(--text-secondary)]">Browse organization directory and manage active resource access grants.</p>
       </div>
 
       {/* Search & Filters */}
@@ -277,14 +163,28 @@ export default function Directory() {
             className="w-full bg-gray-50 dark:bg-[var(--bg-canvas)] border border-gray-300 dark:border-[var(--border-default)] rounded-lg py-2 pl-10 pr-4 text-gray-900 dark:text-[var(--text-primary)] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto w-full md:w-auto custom-scrollbar">
+        <div className="block md:hidden w-full">
+          <select
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+            className="w-full bg-gray-50 dark:bg-[var(--bg-canvas)] border border-gray-300 dark:border-[var(--border-default)] rounded-lg py-2 px-3 text-sm text-gray-900 dark:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            {["All", "ADMIN", "MANAGER", "USER"].map((role) => (
+              <option key={role} value={role}>
+                {role === "All" ? "All Roles" : formatRole(role)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="hidden md:flex gap-2 overflow-x-auto w-full md:w-auto custom-scrollbar">
           {["All", "ADMIN", "MANAGER", "USER"].map((role) => (
             <button
               key={role}
               onClick={() => setFilterRole(role)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filterRole === role ? "bg-gray-900 text-white" : "bg-white dark:bg-[var(--bg-surface)] text-gray-600 dark:text-[var(--text-secondary)] border border-gray-200 dark:border-[var(--border-subtle)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)]"}`}
             >
-              {role === "All" ? "All Roles" : role}
+              {role === "All" ? "All Roles" : formatRole(role)}
             </button>
           ))}
         </div>
@@ -313,7 +213,7 @@ export default function Directory() {
                 </div>
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
-                <span className="px-2.5 py-1 bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-600 dark:text-[var(--text-secondary)] text-xs font-medium rounded border border-gray-200 dark:border-[var(--border-subtle)]">{user.role}</span>
+                <span className="px-2.5 py-1 bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-600 dark:text-[var(--text-secondary)] text-xs font-medium rounded border border-gray-200 dark:border-[var(--border-subtle)]">{formatRole(user.role)}</span>
                 {user.internationalAccess && (
                   <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium rounded flex items-center">
                     <Globe className="w-3 h-3 mr-1" /> Global
@@ -345,15 +245,31 @@ export default function Directory() {
                 </div>
                 <div className="ml-5">
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-[var(--text-primary)] leading-tight">{selectedUser.name}</h2>
-                  <div className="flex items-center mt-2">
-                    <span className="bg-green-50 text-green-700 text-xs px-2.5 py-1 rounded-full border border-green-200 flex items-center font-medium">
+                  <div className="flex flex-col gap-1.5 mt-2">
+                    <span className="bg-green-50 text-green-700 text-xs px-2.5 py-1 rounded-full border border-green-200 flex items-center font-medium self-start">
                       <CheckCircle className="w-3.5 h-3.5 mr-1" /> Verified Active
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-[var(--text-tertiary)] ml-1 font-medium">
+                      Member since {selectedUser.createdAt ? format(new Date(selectedUser.createdAt), "MMMM yyyy") : "—"}
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-6">
+                {/* Last Active */}
+                <div>
+                  <h4 className="text-xs font-bold text-gray-400 dark:text-[var(--text-tertiary)] uppercase tracking-widest mb-3">Last Activity</h4>
+                  <div className="bg-gray-50 dark:bg-[var(--bg-canvas)] rounded-lg p-4 border border-gray-100 flex items-center text-sm">
+                    <Clock className="w-4 h-4 text-gray-400 dark:text-[var(--text-tertiary)] mr-3" />
+                    <span className="text-gray-700 dark:text-[var(--text-secondary)] font-medium">
+                      {selectedUser.lastActive
+                        ? format(new Date(selectedUser.lastActive), "MMM d, yyyy, h:mm a")
+                        : "No recent activity recorded"}
+                    </span>
+                  </div>
+                </div>
+
                 {/* Identity */}
                 <div>
                   <h4 className="text-xs font-bold text-gray-400 dark:text-[var(--text-tertiary)] uppercase tracking-widest mb-3">Identity &amp; Role</h4>
@@ -364,7 +280,7 @@ export default function Directory() {
                     </div>
                     <div className="flex items-center text-sm">
                       <Briefcase className="w-4 h-4 text-gray-400 dark:text-[var(--text-tertiary)] mr-3" />
-                      <span className="text-gray-700 dark:text-[var(--text-secondary)]">{selectedUser.role} • {selectedUser.department || "Unassigned"}</span>
+                      <span className="text-gray-700 dark:text-[var(--text-secondary)]">{formatRole(selectedUser.role)} • {selectedUser.department || "Unassigned"}</span>
                     </div>
                   </div>
                 </div>

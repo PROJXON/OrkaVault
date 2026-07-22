@@ -19,7 +19,18 @@ router.get("/", async (_req: Request, res: Response) => {
     const departments = await prisma.department.findMany({
       orderBy: { name: "asc" },
     });
-    res.json(departments);
+    const deptsWithCounts = await Promise.all(
+      departments.map(async (d) => {
+        const userCount = await prisma.user.count({
+          where: { department: d.name },
+        });
+        return {
+          ...d,
+          userCount,
+        };
+      })
+    );
+    res.json(deptsWithCounts);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch departments." });
   }
@@ -77,8 +88,7 @@ router.patch(
 );
 
 // DELETE /api/departments/:id - delete a department [ADMIN]
-// Blocked if any active user is currently assigned this department, so an
-// admin doesn't silently orphan users' department labels.
+// Deleting a department reassigns any users assigned to it to the "Unspecified Department".
 router.delete(
   "/:id",
   requireAuth,
@@ -91,16 +101,34 @@ router.delete(
         return;
       }
       const inUse = await prisma.user.count({ where: { department: department.name } });
-      if (inUse > 0) {
-        res.status(409).json({
-          error: `Cannot delete — ${inUse} user(s) are assigned to this department. Reassign them first.`,
+      const unspecifiedDeptName = "Unspecified";
+
+      if (department.name === unspecifiedDeptName) {
+        if (inUse > 0) {
+          res.status(400).json({
+            error: `Cannot delete "${unspecifiedDeptName}" while ${inUse} user(s) are still assigned to it.`,
+          });
+          return;
+        }
+      } else if (inUse > 0) {
+        // Ensure "Unspecified Department" exists in the Department table
+        await prisma.department.upsert({
+          where: { name: unspecifiedDeptName },
+          update: {},
+          create: { name: unspecifiedDeptName },
         });
-        return;
+
+        // Reassign affected users
+        await prisma.user.updateMany({
+          where: { department: department.name },
+          data: { department: unspecifiedDeptName },
+        });
       }
+
       await prisma.department.delete({ where: { id: req.params.id } });
       res.json({ message: "Department deleted successfully." });
     } catch (error) {
-      res.status(404).json({ error: "Department not found." });
+      res.status(500).json({ error: "Failed to delete department." });
     }
   },
 );

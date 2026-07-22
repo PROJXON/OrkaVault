@@ -1,24 +1,35 @@
-- we need to make it easy to copy passwords and otp, once a otp or password is revealed the user can click it like a button and it automatically copies to clipboard, a copied to clipboard message will also appear.
+- FIRST: confirm the Discord bot token that got pasted into chat last
+  night actually got rotated (Developer Portal > Bot > Reset Token). If
+  it wasn't done, do it before touching anything else Discord-related.
 
-- collection managment can be better as far as ui/ux goes, please add a + button, where when clicked the new collection form will appear, when editing a collection, have the edit collection appear right below the collection entry on the table(basically the row expands, do this in mobile too)
+- Discord Approve/Deny buttons aren't rendering on the alert message
+  (message + link show up fine, buttons don't). Check Render backend
+  logs for a `[WebhookAlerts] Discord webhook responded ###` line from
+  around when the alert was sent — see
+  `buildlogs/2026-07-22-discord-live-deploy-debugging.md` for the full
+  diagnosis plan. If it's the incoming-webhook-can't-render-components
+  theory, we'll need to switch Discord alert delivery to send via the
+  bot itself instead of the webhook URL (means DISCORD_BOT_TOKEN has to
+  live on the deployed server going forward — confirm that tradeoff
+  before making the change).
 
-- password health audit should also show the last changed date somewhere
+- Once buttons render, do a real end-to-end test: submit an access
+  request, click Approve in Discord, confirm the AccessGrant actually
+  gets created and the AuditLog entry shows metadata.source: "discord".
 
-- the import, and pending qr uploads are a bit small, and add vault entry, buttons are kinda small and kinda of unclear that is where you would add, please make the icons a little bigger, and make the pending qr bubble with the number offset a little more so it doesn't cover the icon so much.
+- Google Chat side hasn't been touched at all yet (Discord was the only
+  platform set up last night). Needs: a Chat app created in Google Cloud
+  Console, GCHAT_PROJECT_NUMBER set on the backend, the app's HTTP
+  endpoint pointed at /api/integrations/gchat/events, and a real
+  approve/deny click tested end-to-end.
 
-- Force Rotate, says it will alert the owner, but does not state who the owner is.
+- From docs/discord-google-chat-alerts-bot.md's still-open questions:
+  decide whether linked Discord accounts should ever expire / require
+  re-linking (right now a link persists forever once made), and whether
+  access-request alerts need their own dedicated channel vs. sharing one
+  with other alert types.
 
-- Let's get started on the approve and deny from discord / gchat
-
-- Users & Roles does not have a column for end date.
-
-- We need a way to delete multiple user accounts, when we do select all, or even selecting mltiple, the admin needs to type approve in input field first and hit yes to delete. This will also be logged in immutable log.
-
-- We need a way to delete multiple vault entries, when we do select all, or even selecting mltiple, the admin needs to type approve in input field first and hit yes to delete. This will also be logged in immutable log.
-
-- audit log should show the users department
-
-- What is the retention rate for audit logs if one? we should have a setting that sets a retention rate, and once that retention rate is hit, logs are backed up to a csv in settings > backups. Max backups can be set in settings too.
-
-- please suggest feature and put the in docs/ , the suggested features should not add uneeded complexity for end-users, but be beneficial to overall security, and account sharing ease.
-
+- Look at docs/suggested-features.md and pick 1-2 to actually build next
+  time — dual-approval for the top clearance tier and the built-in
+  password generator are probably the best ROI for the least added
+  complexity, but read through all eight and decide.

@@ -34,7 +34,7 @@ export default function Vault() {
   const [accounts, setAccounts] = useState([]);
   const [search, setSearch] = useState(searchParams.get("q") || "");
   const [loading, setLoading] = useState(true);
-  const [requestModal, setRequestModal] = useState({ isOpen: false, account: null });
+  const [requestModal, setRequestModal] = useState({ isOpen: false, account: null, prefill: null });
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [qrPendingOpen, setQrPendingOpen] = useState(false);
@@ -53,6 +53,7 @@ export default function Vault() {
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [bulkDeleteConfirmText, setBulkDeleteConfirmText] = useState("");
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkSelect, setShowBulkSelect] = useState(false);
 
   const selectAccount = (id) => {
     setSelectedId(id);
@@ -161,6 +162,49 @@ export default function Vault() {
 
   const handleGrantExpired = (accountId) => {
     setAccounts((prev) => prev.map((a) => (a.id === accountId ? { ...a, hasGrant: false } : a)));
+  };
+
+  const handleRequestRenewal = async (accountId) => {
+    const account = accounts.find((a) => a.id === accountId);
+    if (!account) return;
+    try {
+      const { data } = await api.get(`/requests/last-approved/${accountId}`);
+      setRequestModal({
+        isOpen: true,
+        account,
+        prefill: data ? {
+          requestType: data.requestType,
+          reason: data.reason,
+          deviceName: data.deviceName || "",
+          location: data.location || "",
+          internationalAccessRequested: data.internationalAccessRequested || false,
+        } : null
+      });
+    } catch (e) {
+      console.error("Failed to fetch renewal details", e);
+      setRequestModal({ isOpen: true, account, prefill: null });
+    }
+  };
+
+  const getGrantExpirationInfo = (grantExpiresAt) => {
+    if (!grantExpiresAt) return null;
+    const msRemaining = new Date(grantExpiresAt).getTime() - Date.now();
+    if (msRemaining <= 0) return { expired: true, text: "Access expired" };
+
+    const totalSecs = Math.floor(msRemaining / 1000);
+    const hours = Math.floor(totalSecs / 3600);
+    const minutes = Math.floor((totalSecs % 3600) / 60);
+    const seconds = totalSecs % 60;
+
+    let text = "";
+    if (hours > 0) {
+      text = `${hours}h ${minutes}m remaining`;
+    } else if (minutes > 0) {
+      text = `${minutes}m remaining`;
+    } else {
+      text = `${seconds}s remaining`;
+    }
+    return { expired: false, text, msRemaining };
   };
 
   useEffect(() => {
@@ -288,17 +332,44 @@ export default function Vault() {
                 <option value="recent">Recently updated</option>
               </select>
             </div>
-            <button
-              className={`btn btn-sm ${favoritesOnly ? "btn-secondary" : "btn-ghost"}`}
-              style={{ alignSelf: "flex-start" }}
-              onClick={() => setFavoritesOnly((v) => !v)}
-            >
-              <Heart width={13} height={13} className={favoritesOnly ? "fill-current" : ""} style={favoritesOnly ? { color: "var(--error-solid)" } : {}} />
-              Favorites only
-            </button>
-            {user.role === "ADMIN" && sortedAccounts.length > 0 && (
-              <div className="flex items-center justify-between gap-2">
-                <label className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
+            <div className="flex items-center justify-between">
+              <button
+                className={`btn btn-sm ${favoritesOnly ? "btn-secondary" : "btn-ghost"}`}
+                style={{ alignSelf: "flex-start" }}
+                onClick={() => setFavoritesOnly((v) => !v)}
+              >
+                <Heart width={13} height={13} className={favoritesOnly ? "fill-current" : ""} style={favoritesOnly ? { color: "var(--error-solid)" } : {}} />
+                Favorites only
+              </button>
+              {user.role === "ADMIN" && sortedAccounts.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-700 dark:text-[var(--text-secondary)]">Bulk Select</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showBulkSelect}
+                    onClick={() => {
+                      setShowBulkSelect(!showBulkSelect);
+                      if (showBulkSelect) {
+                        setSelectedForDelete(new Set());
+                      }
+                    }}
+                    className={`relative inline-flex shrink-0 h-5 w-9 border-2 border-transparent rounded-full cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-brand-red ${
+                      showBulkSelect ? "bg-brand-red" : "bg-gray-200 dark:bg-gray-700"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                        showBulkSelect ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+            </div>
+            {user.role === "ADMIN" && sortedAccounts.length > 0 && showBulkSelect && (
+              <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-dashed border-gray-200 dark:border-[var(--border-subtle)]">
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none" style={{ color: "var(--text-tertiary)" }}>
                   <input
                     type="checkbox"
                     checked={selectedForDelete.size > 0 && selectedForDelete.size === sortedAccounts.length}
@@ -338,7 +409,7 @@ export default function Vault() {
                   >
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="min-w-0 flex items-start gap-2">
-                        {user.role === "ADMIN" && (
+                        {user.role === "ADMIN" && showBulkSelect && (
                           <input
                             type="checkbox"
                             checked={selectedForDelete.has(account.id)}
@@ -428,19 +499,44 @@ export default function Vault() {
                         Request Access
                       </button>
                     ) : (
-                      <div className="flex items-center gap-3 flex-wrap">
-                        {selected.hasTotpQr && (
-                          <RevealOtp accountId={selected.id} isAdmin={hasDirectAccess(selected)} onGrantExpired={() => handleGrantExpired(selected.id)} />
-                        )}
-                        <RevealPassword
-                          accountId={selected.id}
-                          isAdmin={hasDirectAccess(selected)}
-                          onRequestAccess={() => setRequestModal({ isOpen: true, account: selected })}
-                          onGrantExpired={() => handleGrantExpired(selected.id)}
-                        />
-                        {user.role === "ADMIN" && selected.hasTotpQr && (
-                          <AdminQrModal accountId={selected.id} />
-                        )}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {selected.hasTotpQr && (
+                            <RevealOtp accountId={selected.id} isAdmin={hasDirectAccess(selected)} onGrantExpired={() => handleGrantExpired(selected.id)} />
+                          )}
+                          <RevealPassword
+                            accountId={selected.id}
+                            isAdmin={hasDirectAccess(selected)}
+                            onRequestAccess={() => setRequestModal({ isOpen: true, account: selected })}
+                            onGrantExpired={() => handleGrantExpired(selected.id)}
+                          />
+                          {user.role === "ADMIN" && selected.hasTotpQr && (
+                            <AdminQrModal accountId={selected.id} />
+                          )}
+                        </div>
+
+                        {selected.grantExpiresAt && !hasDirectAccess(selected) && (() => {
+                          const info = getGrantExpirationInfo(selected.grantExpiresAt);
+                          if (!info || info.expired) return null;
+
+                          const isExpiringSoon = info.msRemaining <= 2 * 60 * 60 * 1000; // 2 hours
+
+                          return (
+                            <div className="w-full flex items-center justify-between p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-amber-800 dark:text-amber-300">
+                              <span className="text-xs font-medium">
+                                Temporary Access: {info.text}
+                              </span>
+                              {isExpiringSoon && (
+                                <button
+                                  onClick={() => handleRequestRenewal(selected.id)}
+                                  className="text-xs font-semibold px-2 py-1 rounded bg-amber-100 dark:bg-amber-900 hover:bg-amber-200 dark:hover:bg-amber-800 text-amber-900 dark:text-amber-100 border border-amber-300 dark:border-amber-700 transition-colors"
+                                >
+                                  Request Renewal
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -551,7 +647,8 @@ export default function Vault() {
       <RequestModal
         isOpen={requestModal.isOpen}
         account={requestModal.account}
-        onClose={() => setRequestModal({ isOpen: false, account: null })}
+        prefill={requestModal.prefill}
+        onClose={() => setRequestModal({ isOpen: false, account: null, prefill: null })}
         onSuccess={() => { fetchAccounts(); fetchDashboard(); }}
       />
       <AddEntryModal

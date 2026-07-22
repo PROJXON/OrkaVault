@@ -507,6 +507,8 @@ function DepartmentsTab() {
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
   const [error, setError] = useState("");
+  const [deletingDept, setDeletingDept] = useState(null);
+  const [confirmText, setConfirmText] = useState("");
 
   const fetchDepartments = async () => {
     try {
@@ -554,11 +556,19 @@ function DepartmentsTab() {
     }
   };
 
-  const handleDelete = async (d) => {
-    if (!window.confirm(`Delete "${d.name}"? Users currently assigned to it must be reassigned first.`)) return;
+  const handleDelete = (d) => {
+    setDeletingDept(d);
+    setConfirmText("");
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingDept) return;
+    if (deletingDept.userCount > 0 && confirmText !== "Yes") return;
     setError("");
     try {
-      await api.delete(`/departments/${d.id}`);
+      await api.delete(`/departments/${deletingDept.id}`);
+      setDeletingDept(null);
+      setConfirmText("");
       await fetchDepartments();
     } catch (e) {
       setError(e.response?.data?.error || "Failed to delete department.");
@@ -662,6 +672,67 @@ function DepartmentsTab() {
           <Plus className="h-4 w-4 mr-1" /> Add
         </button>
       </form>
+
+      {deletingDept && (
+        <div className="scrim" onClick={() => setDeletingDept(null)}>
+          <div className="modal" style={{ maxWidth: 500 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-h">
+              <div className="mt grow text-brand-red flex items-center gap-2 font-semibold">
+                <Trash2 className="w-5 h-5 text-brand-red" />
+                Delete Department
+              </div>
+              <button onClick={() => setDeletingDept(null)} className="iconbtn" style={{ width: 32, height: 32 }}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="modal-b space-y-4">
+              {deletingDept.userCount > 0 ? (
+                <>
+                  <div className="p-3 text-sm rounded bg-red-50 dark:bg-red-950/20 text-brand-red border border-red-200 dark:border-red-900/30">
+                    <p className="font-semibold mb-1">Warning: Active Users Affected</p>
+                    <p>
+                      There are <strong>{deletingDept.userCount}</strong> user(s) assigned to this department.
+                      Removing them will add them to the <strong>Unspecified</strong> department.
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-700 dark:text-[var(--text-secondary)]">
+                    Are you sure you want to delete this department? Please type <strong>Yes</strong> to confirm.
+                  </p>
+                  <input
+                    type="text"
+                    placeholder='Type "Yes" to confirm'
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm shadow-sm focus:ring-brand-blue focus:border-brand-blue"
+                  />
+                </>
+              ) : (
+                <p className="text-sm text-gray-700 dark:text-[var(--text-secondary)]">
+                  Are you sure you want to delete the department <strong>{deletingDept.name}</strong>?
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-4 animate-in fade-in zoom-in-95 duration-200" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                <button
+                  type="button"
+                  onClick={() => setDeletingDept(null)}
+                  className="btn btn-secondary px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  disabled={deletingDept.userCount > 0 && confirmText !== "Yes"}
+                  className="bg-brand-red hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

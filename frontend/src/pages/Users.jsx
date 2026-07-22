@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../lib/api";
 import { format } from "date-fns";
-import { Check, Trash2, Edit2, X } from "lucide-react";
+import { Check, Trash2, Edit2, X, RefreshCw } from "lucide-react";
 import { useAuth } from "../lib/authContext";
 import { CLEARANCE_TIERS } from "../lib/clearance";
 
@@ -17,6 +17,8 @@ export default function Users() {
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkSelect, setShowBulkSelect] = useState(false);
+  const [activeTab, setActiveTab] = useState("active"); // "active" or "deactivated"
   const { user: currentUser } = useAuth();
 
   const fetchUsersAndCollections = async () => {
@@ -161,25 +163,68 @@ export default function Users() {
     }
   };
 
+  const handleRestore = async (id) => {
+    try {
+      await api.patch(`/users/${id}/approve`);
+      await fetchUsersAndCollections();
+    } catch (e) {
+      alert(e.response?.data?.error || "Failed to restore user");
+    }
+  };
+
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept = departmentFilter ? u.department === departmentFilter : true;
-    return matchesSearch && matchesDept;
+    const matchesTab = activeTab === "active" ? !u.revoked : u.revoked;
+    return matchesSearch && matchesDept && matchesTab;
   });
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-[var(--text-primary)]">Users & Roles</h1>
-          <p className="mt-2 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
-            Manage user access, approve registrations, and assign roles.
-          </p>
-        </div>
-        
-        <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-3">
+      {/* Title section */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-[var(--text-primary)]">Users & Roles</h1>
+        <p className="mt-2 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
+          Manage user access, approve registrations, and assign roles.
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-6 border-b border-gray-200 dark:border-[var(--border-subtle)] flex gap-6">
+        <button
+          onClick={() => {
+            setActiveTab("active");
+            setSelectedIds(new Set());
+          }}
+          className={`pb-3 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === "active"
+              ? "border-brand-blue text-brand-blue"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-[var(--text-tertiary)] dark:hover:text-[var(--text-primary)]"
+          }`}
+        >
+          Active
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("deactivated");
+            setSelectedIds(new Set());
+            setShowBulkSelect(false);
+          }}
+          className={`pb-3 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === "deactivated"
+              ? "border-brand-red text-brand-red"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-[var(--text-tertiary)] dark:hover:text-[var(--text-primary)]"
+          }`}
+        >
+          Deactivated
+        </button>
+      </div>
+
+      {/* Filters (Search by email/name, department, and bulk select) */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full sm:w-auto">
           <input
             type="text"
             placeholder="Search by name or email..."
@@ -198,9 +243,35 @@ export default function Users() {
             ))}
           </select>
         </div>
+
+        {activeTab === "active" && (
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <span className="text-xs font-medium text-gray-700 dark:text-[var(--text-secondary)]">Bulk Select</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showBulkSelect}
+              onClick={() => {
+                setShowBulkSelect(!showBulkSelect);
+                if (showBulkSelect) {
+                  setSelectedIds(new Set());
+                }
+              }}
+              className={`relative inline-flex shrink-0 h-5 w-9 border-2 border-transparent rounded-full cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-brand-red ${
+                showBulkSelect ? "bg-brand-red" : "bg-gray-200 dark:bg-gray-700"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                  showBulkSelect ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        )}
       </div>
 
-      {selectedIds.size > 0 && (
+      {showBulkSelect && selectedIds.size > 0 && (
         <div className="mb-4 flex items-center justify-between bg-red-50 border border-red-200 rounded-md px-4 py-3">
           <span className="text-sm font-medium text-red-800">{selectedIds.size} user(s) selected</span>
           <div className="flex items-center gap-3">
@@ -228,7 +299,7 @@ export default function Users() {
           filteredUsers.map((u) => (
             <div key={u.id} className={`row-card ${!u.active ? "bg-amber-50" : ""}`}>
               <div className="row-card-title flex items-center gap-2">
-                {u.id !== currentUser.id && (
+                {showBulkSelect && u.id !== currentUser.id && (
                   <input
                     type="checkbox"
                     checked={selectedIds.has(u.id)}
@@ -237,6 +308,11 @@ export default function Users() {
                   />
                 )}
                 {u.name}
+                {!u.active && !u.revoked && (
+                  <span className="ml-2 bg-amber-100 text-brand-amber px-2 py-0.5 rounded-full text-xs font-medium">
+                    Pending
+                  </span>
+                )}
               </div>
               <div className="text-xs text-muted -mt-2 mb-2 truncate">{u.email}</div>
 
@@ -245,7 +321,7 @@ export default function Users() {
                 <select
                   value={u.role}
                   onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                  disabled={u.id === currentUser.id}
+                  disabled={u.id === currentUser.id || u.revoked}
                   className="text-sm border-gray-300 dark:border-[var(--border-default)] rounded-md focus:ring-brand-blue focus:border-brand-blue disabled:opacity-50 disabled:bg-gray-100 dark:bg-[var(--bg-muted)]"
                 >
                   <option value="USER">User</option>
@@ -258,7 +334,7 @@ export default function Users() {
                 <select
                   value={u.department || ""}
                   onChange={(e) => handleDepartmentChange(u.id, e.target.value)}
-                  disabled={u.id === currentUser.id}
+                  disabled={u.id === currentUser.id || u.revoked}
                   className="text-sm border-gray-300 dark:border-[var(--border-default)] rounded-md focus:ring-brand-blue focus:border-brand-blue disabled:opacity-50 disabled:bg-gray-100 dark:bg-[var(--bg-muted)]"
                 >
                   <option value="">-- Not set --</option>
@@ -266,18 +342,6 @@ export default function Users() {
                     <option key={d.id} value={d.name}>{d.name}</option>
                   ))}
                 </select>
-              </div>
-              <div className="row-card-field">
-                <span className="rcf-label">Status</span>
-                <span className="rcf-value">
-                  {u.revoked ? (
-                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-medium">Access Revoked</span>
-                  ) : u.active ? (
-                    <span className="bg-green-100 text-brand-green px-2 py-1 rounded-full text-xs font-medium">Active</span>
-                  ) : (
-                    <span className="bg-amber-100 text-brand-amber px-2 py-1 rounded-full text-xs font-medium">Pending Approval</span>
-                  )}
-                </span>
               </div>
               <div className="row-card-field">
                 <span className="rcf-label">Joined</span>
@@ -308,6 +372,13 @@ export default function Users() {
                   </button>
                 </div>
               )}
+              {u.revoked && (
+                <div className="row-card-actions">
+                  <button onClick={() => handleRestore(u.id)} className="btn btn-success btn-sm flex-1 flex items-center justify-center gap-1">
+                    <RefreshCw className="h-4 w-4" /> Restore User
+                  </button>
+                </div>
+              )}
             </div>
           ))
         )}
@@ -318,14 +389,16 @@ export default function Users() {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
           <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">
             <tr>
-              <th className="px-6 py-3 text-left w-10">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.size > 0 && selectedIds.size === selectableUsers().length}
-                  onChange={toggleSelectAll}
-                  className="rounded border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
-                />
-              </th>
+              {showBulkSelect && (
+                <th className="px-6 py-3 text-left w-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size > 0 && selectedIds.size === selectableUsers().length}
+                    onChange={toggleSelectAll}
+                    className="rounded border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
+                  />
+                </th>
+              )}
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
                 User
               </th>
@@ -334,9 +407,6 @@ export default function Users() {
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
                 Department
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
-                Status
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
                 Joined
@@ -353,7 +423,7 @@ export default function Users() {
             {loading ? (
               <tr>
                 <td
-                  colSpan="8"
+                  colSpan={showBulkSelect ? "7" : "6"}
                   className="px-6 py-4 text-center text-sm text-gray-500 dark:text-[var(--text-tertiary)]"
                 >
                   Loading...
@@ -362,19 +432,26 @@ export default function Users() {
             ) : (
               filteredUsers.map((u) => (
                 <tr key={u.id} className={!u.active ? "bg-amber-50" : ""}>
+                  {showBulkSelect && (
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {u.id !== currentUser.id && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(u.id)}
+                          onChange={() => toggleSelect(u.id)}
+                          className="rounded border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
+                        />
+                      )}
+                    </td>
+                  )}
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {u.id !== currentUser.id && (
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(u.id)}
-                        onChange={() => toggleSelect(u.id)}
-                        className="rounded border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
-                      />
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900 dark:text-[var(--text-primary)]">
+                    <div className="text-sm font-medium text-gray-900 dark:text-[var(--text-primary)] flex items-center">
                       {u.name}
+                      {!u.active && !u.revoked && (
+                        <span className="ml-2 bg-amber-100 text-brand-amber px-2 py-0.5 rounded-full text-xs font-medium">
+                          Pending
+                        </span>
+                      )}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-[var(--text-tertiary)]">{u.email}</div>
                   </td>
@@ -382,7 +459,7 @@ export default function Users() {
                     <select
                       value={u.role}
                       onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                      disabled={u.id === currentUser.id}
+                      disabled={u.id === currentUser.id || u.revoked}
                       className="text-sm border-gray-300 dark:border-[var(--border-default)] rounded-md focus:ring-brand-blue focus:border-brand-blue disabled:opacity-50 disabled:bg-gray-100 dark:bg-[var(--bg-muted)]"
                     >
                       <option value="USER">User</option>
@@ -394,7 +471,7 @@ export default function Users() {
                     <select
                       value={u.department || ""}
                       onChange={(e) => handleDepartmentChange(u.id, e.target.value)}
-                      disabled={u.id === currentUser.id}
+                      disabled={u.id === currentUser.id || u.revoked}
                       className="text-sm border-gray-300 dark:border-[var(--border-default)] rounded-md focus:ring-brand-blue focus:border-brand-blue disabled:opacity-50 disabled:bg-gray-100 dark:bg-[var(--bg-muted)]"
                     >
                       <option value="">-- Not set --</option>
@@ -402,21 +479,6 @@ export default function Users() {
                         <option key={d.id} value={d.name}>{d.name}</option>
                       ))}
                     </select>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {u.revoked ? (
-                      <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-medium">
-                        Access Revoked
-                      </span>
-                    ) : u.active ? (
-                      <span className="bg-green-100 text-brand-green px-2 py-1 rounded-full text-xs font-medium">
-                        Active
-                      </span>
-                    ) : (
-                      <span className="bg-amber-100 text-brand-amber px-2 py-1 rounded-full text-xs font-medium">
-                        Pending Approval
-                      </span>
-                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
                     {format(new Date(u.createdAt), "MMM d, yyyy, h:mm a")}
@@ -462,9 +524,14 @@ export default function Users() {
                       </>
                     )}
                     {u.revoked && (
-                      <span className="text-gray-500 dark:text-[var(--text-tertiary)] italic text-xs">
-                        Access Revoked
-                      </span>
+                      <button
+                        onClick={() => handleRestore(u.id)}
+                        className="text-brand-green hover:text-green-700 inline-flex items-center gap-1"
+                        title="Restore User"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        <span className="text-sm font-medium">Restore</span>
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -478,12 +545,12 @@ export default function Users() {
       {/* Edit User Modal */}
       {editingUser && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+          <div className="flex items-start justify-center min-h-screen px-4 pt-20 pb-10 text-center sm:items-center sm:pt-4 sm:pb-4">
             <div
               className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
               onClick={() => setEditingUser(null)}
             />
-            <div className="relative inline-block w-full max-w-md p-6 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-xl sm:my-8">
+            <div className="relative inline-block w-full max-w-md p-6 my-4 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-xl sm:my-8">
               <div className="flex justify-between items-center mb-5 border-b pb-4">
                 <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-[var(--text-primary)]">
                   Edit User
@@ -646,12 +713,12 @@ export default function Users() {
       {/* Bulk delete confirmation — requires typing "approve" */}
       {bulkConfirmOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+          <div className="flex items-start justify-center min-h-screen px-4 pt-20 pb-10 text-center sm:items-center sm:pt-4 sm:pb-4">
             <div
               className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
               onClick={() => { setBulkConfirmOpen(false); setBulkConfirmText(""); }}
             />
-            <div className="relative inline-block w-full max-w-md p-6 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-xl sm:my-8">
+            <div className="relative inline-block w-full max-w-md p-6 my-4 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-xl sm:my-8">
               <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-[var(--text-primary)] mb-2">
                 Delete {selectedIds.size} user(s)?
               </h3>

@@ -62,6 +62,27 @@ router.get(
   },
 );
 
+// GET /api/requests/last-approved/:accountId — get last approved request for this account by user
+router.get(
+  "/last-approved/:accountId",
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const request = await prisma.accessRequest.findFirst({
+        where: {
+          accountId: req.params.accountId,
+          requesterId: req.user!.id,
+          status: "APPROVED",
+        },
+        orderBy: { submittedAt: "desc" },
+      });
+      res.json(request);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch last approved request." });
+    }
+  }
+);
+
 // POST /api/requests — submit new access request [ALL]
 router.post(
   "/",

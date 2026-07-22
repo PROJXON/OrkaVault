@@ -19,3 +19,4 @@ release/
 
 .vercel
 .env*
+package-lock.json

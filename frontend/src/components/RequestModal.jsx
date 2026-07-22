@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import api from "../lib/api";
 
-export default function RequestModal({ isOpen, onClose, account, onSuccess }) {
+export default function RequestModal({ isOpen, onClose, account, onSuccess, prefill }) {
   const [requestType, setRequestType] = useState("VIEW_90S");
   const [reason, setReason] = useState("");
   const [deviceName, setDeviceName] = useState("");
@@ -13,14 +13,14 @@ export default function RequestModal({ isOpen, onClose, account, onSuccess }) {
 
   React.useEffect(() => {
     if (isOpen) {
-      setRequestType("VIEW_90S");
-      setReason("");
-      setDeviceName("");
-      setLocation("");
-      setInternationalAccessRequested(false);
+      setRequestType(prefill?.requestType || "VIEW_90S");
+      setReason(prefill?.reason || "");
+      setDeviceName(prefill?.deviceName || "");
+      setLocation(prefill?.location || "");
+      setInternationalAccessRequested(prefill?.internationalAccessRequested || false);
       setError("");
     }
-  }, [isOpen]);
+  }, [isOpen, prefill]);
 
   if (!isOpen || !account) return null;
 

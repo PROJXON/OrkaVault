@@ -18,6 +18,12 @@ router.get("/", requireAuth, async (req, res, next) => {
         clearanceLevel: true,
         internationalAccess: true,
         devices: true,
+        createdAt: true,
+        auditLogs: {
+          orderBy: { timestamp: "desc" },
+          take: 1,
+          select: { timestamp: true },
+        },
         accessGrants: {
           where: { active: true },
           select: {
@@ -101,8 +107,11 @@ router.get("/", requireAuth, async (req, res, next) => {
             });
           }
         });
+        const lastActive = user.auditLogs[0]?.timestamp || null;
         return {
           ...user,
+          auditLogs: undefined,
+          lastActive,
           resources: Array.from(uniqueResources.values()),
         };
       }),

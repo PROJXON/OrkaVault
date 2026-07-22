@@ -109,8 +109,32 @@ function discordApproveDenyComponents(event: ChatAlertEvent, payload: ChatAlertP
   ];
 }
 
+const channelIdCache = new Map<string, string>();
+
+async function getChannelIdFromWebhook(webhookUrl: string): Promise<string | null> {
+  if (channelIdCache.has(webhookUrl)) {
+    return channelIdCache.get(webhookUrl)!;
+  }
+  try {
+    const res = await fetch(webhookUrl);
+    if (!res.ok) {
+      console.error(`[WebhookAlerts] Failed to fetch webhook metadata: ${res.status}`);
+      return null;
+    }
+    const data = (await res.json()) as { channel_id?: string };
+    if (data.channel_id) {
+      channelIdCache.set(webhookUrl, data.channel_id);
+      return data.channel_id;
+    }
+  } catch (err) {
+    console.error("[WebhookAlerts] Error resolving channel ID from webhook:", err);
+  }
+  return null;
+}
+
 async function sendDiscord(webhookUrl: string, event: ChatAlertEvent, payload: ChatAlertPayload): Promise<void> {
   try {
+    const botToken = process.env.DISCORD_BOT_TOKEN;
     const body = {
       embeds: [
         {
@@ -123,6 +147,25 @@ async function sendDiscord(webhookUrl: string, event: ChatAlertEvent, payload: C
       ],
       components: discordApproveDenyComponents(event, payload),
     };
+
+    if (botToken) {
+      const channelId = await getChannelIdFromWebhook(webhookUrl);
+      if (channelId) {
+        const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${botToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) {
+          return; // Successfully sent via Bot API!
+        }
+        console.error(`[WebhookAlerts] Discord Bot API responded ${res.status} ${await res.text()}. Falling back to webhook.`);
+      }
+    }
+
     const res = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
