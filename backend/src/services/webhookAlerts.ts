@@ -189,18 +189,6 @@ async function sendGoogleChat(webhookUrl: string, event: ChatAlertEvent, payload
         onClick: { openLink: { url: alertLink(payload) } },
       },
     ];
-    if (event === "ACCESS_REQUESTED" && payload.requestId) {
-      buttons.push(
-        {
-          text: "Approve",
-          onClick: { action: { function: "approve", parameters: [{ key: "requestId", value: payload.requestId }] } },
-        },
-        {
-          text: "Deny",
-          onClick: { action: { function: "deny", parameters: [{ key: "requestId", value: payload.requestId }] } },
-        },
-      );
-    }
     const body = {
       cardsV2: [
         {
