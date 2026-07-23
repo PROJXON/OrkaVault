@@ -24,6 +24,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const { data } = await api.post("/auth/login", { email, password });
+    if (data.mfaRequired) {
+      return data;
+    }
     localStorage.setItem("accessToken", data.accessToken);
     localStorage.setItem("refreshToken", data.refreshToken);
     await fetchUser();
@@ -44,11 +47,32 @@ export const AuthProvider = ({ children }) => {
   const continueWithGoogle = async (credential) => {
     const { data } = await api.post("/auth/google", { credential });
     if (data.action === "login") {
+      if (data.mfaRequired) {
+        return data;
+      }
       localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("refreshToken", data.refreshToken);
       await fetchUser();
     }
     return data; // returns action ('login' | 'register') and data
+  };
+
+  const mfaVerify = async ({ tempToken, totpCode, signature, mfaDeviceId, deviceName, publicKey }) => {
+    const { data } = await api.post("/auth/mfa/verify", {
+      tempToken,
+      totpCode,
+      signature,
+      mfaDeviceId,
+      deviceName,
+      publicKey
+    });
+    localStorage.setItem("accessToken", data.accessToken);
+    localStorage.setItem("refreshToken", data.refreshToken);
+    if (data.mfaDeviceId) {
+      localStorage.setItem("mfaDeviceId", data.mfaDeviceId);
+    }
+    await fetchUser();
+    return data;
   };
 
   const logout = async () => {
@@ -62,7 +86,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, setUser, loading, login, register, logout, fetchUser, continueWithGoogle }}
+      value={{ user, setUser, loading, login, register, logout, fetchUser, continueWithGoogle, mfaVerify }}
     >
       {children}
     </AuthContext.Provider>

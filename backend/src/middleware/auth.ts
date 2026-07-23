@@ -40,6 +40,7 @@ export interface AuthenticatedRequest extends Request {
     favorites: string[];
     managedCollections: any[];
     clearanceLevel: string | null;
+    mfaEnabled: boolean;
   };
 }
 
@@ -136,7 +137,27 @@ export async function requireAuth(
       favorites: user.favorites,
       managedCollections: user.managedCollections,
       clearanceLevel: user.clearanceLevel,
+      mfaEnabled: user.mfaEnabled,
     };
+
+    // If user does not have MFA enabled, restrict them to MFA setup and basic profile endpoints
+    const allowedUrls = [
+      "/api/auth/me",
+      "/api/auth/mfa/setup",
+      "/api/auth/mfa/enable",
+      "/api/auth/logout",
+      "/api/profile/me",
+      "/api/departments"
+    ];
+
+    const cleanUrl = req.originalUrl.split("?")[0];
+    if (!user.mfaEnabled && !allowedUrls.includes(cleanUrl)) {
+      res.status(403).json({
+        error: "Two-Factor Authentication (MFA) setup is required before you can access this resource.",
+        mfaSetupRequired: true,
+      });
+      return;
+    }
 
     next();
   } catch (error) {

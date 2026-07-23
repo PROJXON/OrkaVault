@@ -3,6 +3,9 @@
  */
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { webcrypto } from "crypto";
+import { generateSecret, generateURI, verifySync } from "otplib";
 import { PrismaClient } from "@prisma/client";
 import {
   requireAuth,
@@ -107,6 +110,24 @@ router.post("/login", async (req: Request, res: Response) => {
       return;
     }
 
+    if (user.mfaEnabled) {
+      const challenge = webcrypto.randomUUID();
+      const JWT_SECRET =
+        process.env.JWT_SECRET ||
+        "orkavault_local_development_jwt_secret_key_64_characters_long_12345";
+      const tempToken = jwt.sign(
+        { userId: user.id, purpose: "mfa_verification", challenge },
+        JWT_SECRET,
+        { expiresIn: "5m" }
+      );
+      res.json({
+        mfaRequired: true,
+        tempToken,
+        challenge,
+      });
+      return;
+    }
+
     const payload: JwtPayload = {
       userId: user.id,
       email: user.email,
@@ -200,6 +221,25 @@ router.post("/google", async (req: Request, res: Response) => {
         return;
       }
 
+      if (user.mfaEnabled) {
+        const challenge = webcrypto.randomUUID();
+        const JWT_SECRET =
+          process.env.JWT_SECRET ||
+          "orkavault_local_development_jwt_secret_key_64_characters_long_12345";
+        const tempToken = jwt.sign(
+          { userId: user.id, purpose: "mfa_verification", challenge },
+          JWT_SECRET,
+          { expiresIn: "5m" }
+        );
+        res.json({
+          action: "login",
+          mfaRequired: true,
+          tempToken,
+          challenge,
+        });
+        return;
+      }
+
       // Log them in
       const jwtPayload: JwtPayload = {
         userId: user.id,
@@ -258,6 +298,317 @@ router.get("/setup-status", async (req: Request, res: Response) => {
     res.json({ isFirstUser: userCount === 0 });
   } catch (error) {
     res.status(500).json({ error: "Failed to check setup status." });
+  }
+});
+
+// POST /api/auth/mfa/setup
+router.post("/mfa/setup", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const secret = generateSecret();
+    const otpauth = generateURI({ secret, label: req.user!.email, issuer: "OrkaVault" });
+
+    await prisma.user.update({
+      where: { id: req.user!.id },
+      data: { mfaSecret: secret },
+    });
+
+    res.json({ secret, otpauth });
+  } catch (error) {
+    console.error("[MFA Setup]", error);
+    res.status(500).json({ error: "Failed to initiate MFA setup." });
+  }
+});
+
+// POST /api/auth/mfa/enable
+router.post("/mfa/enable", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const { code } = req.body;
+  if (!code) {
+    res.status(400).json({ error: "Verification code is required." });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+    });
+
+    if (!user || !user.mfaSecret) {
+      res.status(400).json({ error: "MFA setup has not been initiated." });
+      return;
+    }
+
+    const verified = verifySync({
+      token: code,
+      secret: user.mfaSecret,
+    }).valid;
+
+    if (!verified) {
+      res.status(400).json({ error: "Invalid verification code." });
+      return;
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { mfaEnabled: true },
+    });
+
+    res.json({ message: "MFA enabled successfully." });
+  } catch (error) {
+    console.error("[MFA Enable]", error);
+    res.status(500).json({ error: "Failed to enable MFA." });
+  }
+});
+
+// POST /api/auth/mfa/disable
+router.post("/mfa/disable", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const { code } = req.body;
+  if (!code) {
+    res.status(400).json({ error: "Verification code is required." });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+    });
+
+    if (!user || !user.mfaSecret || !user.mfaEnabled) {
+      res.status(400).json({ error: "MFA is not enabled." });
+      return;
+    }
+
+    const verified = verifySync({
+      token: code,
+      secret: user.mfaSecret,
+    }).valid;
+
+    if (!verified) {
+      res.status(400).json({ error: "Invalid verification code." });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.mfaDevice.deleteMany({ where: { userId: user.id } }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: { mfaEnabled: false, mfaSecret: null },
+      }),
+    ]);
+
+    res.json({ message: "MFA disabled successfully." });
+  } catch (error) {
+    console.error("[MFA Disable]", error);
+    res.status(500).json({ error: "Failed to disable MFA." });
+  }
+});
+
+// POST /api/auth/mfa/verify
+router.post("/mfa/verify", async (req: Request, res: Response) => {
+  const { tempToken, totpCode, signature, mfaDeviceId, deviceName, publicKey } = req.body;
+
+  if (!tempToken) {
+    res.status(400).json({ error: "Temporary MFA token is required." });
+    return;
+  }
+
+  try {
+    const JWT_SECRET =
+      process.env.JWT_SECRET ||
+      "orkavault_local_development_jwt_secret_key_64_characters_long_12345";
+    
+    let decoded: any;
+    try {
+      decoded = jwt.verify(tempToken, JWT_SECRET);
+    } catch (err) {
+      res.status(401).json({ error: "Invalid or expired temporary MFA token." });
+      return;
+    }
+
+    if (!decoded || decoded.purpose !== "mfa_verification") {
+      res.status(401).json({ error: "Invalid token purpose." });
+      return;
+    }
+
+    const { userId, challenge } = decoded;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { mfaDevices: true },
+    });
+
+    if (!user || !user.active) {
+      res.status(401).json({ error: "User not found or deactivated." });
+      return;
+    }
+
+    if (signature) {
+      if (!mfaDeviceId) {
+        res.status(400).json({ error: "Device ID is required for signature verification." });
+        return;
+      }
+
+      const device = user.mfaDevices.find((d) => d.id === mfaDeviceId);
+      if (!device) {
+        res.status(401).json({ error: "Device not registered." });
+        return;
+      }
+
+      let isValid = false;
+      try {
+        const jwk = JSON.parse(device.publicKey);
+        const importedKey = await webcrypto.subtle.importKey(
+          "jwk",
+          jwk,
+          { name: "ECDSA", namedCurve: "P-256" },
+          true,
+          ["verify"]
+        );
+
+        const signatureBuffer = Buffer.from(signature, "hex");
+        const challengeBuffer = Buffer.from(challenge);
+
+        isValid = await webcrypto.subtle.verify(
+          { name: "ECDSA", hash: { name: "SHA-256" } },
+          importedKey,
+          signatureBuffer,
+          challengeBuffer
+        );
+      } catch (cryptoError) {
+        console.error("[MFA Verify] Cryptographic error:", cryptoError);
+      }
+
+      if (!isValid) {
+        res.status(401).json({ error: "Device cryptographic verification failed." });
+        return;
+      }
+
+      await prisma.mfaDevice.update({
+        where: { id: mfaDeviceId },
+        data: { lastUsedAt: new Date() },
+      });
+
+      const payload: JwtPayload = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      };
+      const accessToken = generateAccessToken(payload);
+      const refreshToken = generateRefreshToken(payload);
+
+      res.json({
+        accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      });
+      return;
+    } else if (totpCode) {
+      if (!user.mfaSecret) {
+        res.status(400).json({ error: "MFA not configured." });
+        return;
+      }
+
+      const verified = verifySync({
+        token: totpCode,
+        secret: user.mfaSecret,
+      }).valid;
+
+      if (!verified) {
+        res.status(401).json({ error: "Invalid verification code." });
+        return;
+      }
+
+      let responseDeviceId: string | undefined = undefined;
+
+      if (deviceName && publicKey) {
+        const newDevice = await prisma.mfaDevice.create({
+          data: {
+            userId: user.id,
+            name: deviceName,
+            publicKey: JSON.stringify(publicKey),
+          },
+        });
+        responseDeviceId = newDevice.id;
+      }
+
+      const payload: JwtPayload = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      };
+      const accessToken = generateAccessToken(payload);
+      const refreshToken = generateRefreshToken(payload);
+
+      res.json({
+        accessToken,
+        refreshToken,
+        mfaDeviceId: responseDeviceId,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      });
+      return;
+    } else {
+      res.status(400).json({ error: "Either verification code or device signature is required." });
+      return;
+    }
+  } catch (error) {
+    console.error("[MFA Verify Route]", error);
+    res.status(500).json({ error: "MFA verification failed." });
+  }
+});
+
+// GET /api/auth/mfa/devices
+router.get("/mfa/devices", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const devices = await prisma.mfaDevice.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(devices);
+  } catch (error) {
+    console.error("[MFA Devices List]", error);
+    res.status(500).json({ error: "Failed to list MFA devices." });
+  }
+});
+
+// DELETE /api/auth/mfa/devices/:id
+router.delete("/mfa/devices/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const device = await prisma.mfaDevice.findUnique({
+      where: { id },
+    });
+
+    if (!device || device.userId !== req.user!.id) {
+      res.status(404).json({ error: "Device not found." });
+      return;
+    }
+
+    const deviceCount = await prisma.mfaDevice.count({
+      where: { userId: req.user!.id }
+    });
+
+    if (deviceCount <= 1) {
+      res.status(400).json({ error: "You need to set up a new MFA device before deleting the last one left." });
+      return;
+    }
+
+    await prisma.mfaDevice.delete({
+      where: { id },
+    });
+
+    res.json({ message: "Device successfully revoked." });
+  } catch (error) {
+    console.error("[MFA Device Delete]", error);
+    res.status(500).json({ error: "Failed to revoke device." });
   }
 });
 

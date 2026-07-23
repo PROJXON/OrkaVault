@@ -23,8 +23,11 @@ import Collections from "./pages/Collections";
 import ManagerCollections from "./pages/ManagerCollections";
 import ManageConsole from "./pages/ManageConsole";
 
+import { useLocation } from "react-router-dom";
+
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading)
     return (
@@ -33,6 +36,12 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
       </div>
     );
   if (!user) return <Navigate to="/login" />;
+
+  // Force MFA setup redirect
+  if (!user.mfaEnabled && location.pathname !== "/profile") {
+    return <Navigate to="/profile" replace />;
+  }
+
   if (allowedRoles && !allowedRoles.includes(user.role))
     return <Navigate to="/vault" />;
 

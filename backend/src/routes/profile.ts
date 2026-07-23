@@ -53,6 +53,7 @@ router.get("/me", requireAuth, async (req: AuthenticatedRequest, res: Response) 
         clearanceLevel: true,
         internationalAccess: true,
         avatarUrl: true,
+        mfaEnabled: true,
         createdAt: true,
       },
     });

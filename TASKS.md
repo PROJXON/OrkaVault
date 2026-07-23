@@ -17,11 +17,7 @@
   request, click Approve in Discord, confirm the AccessGrant actually
   gets created and the AuditLog entry shows metadata.source: "discord".
 
-- Google Chat side hasn't been touched at all yet (Discord was the only
-  platform set up last night). Needs: a Chat app created in Google Cloud
-  Console, GCHAT_PROJECT_NUMBER set on the backend, the app's HTTP
-  endpoint pointed at /api/integrations/gchat/events, and a real
-  approve/deny click tested end-to-end.
+- Google Chat side: Resolved as outbound-only webhook alerts. Built the card formatting in `sendGoogleChat` under `backend/src/services/webhookAlerts.ts` with direct web links to approve/deny. The interactive bot/inbound route (`/gchat/events`) and Apps Script proxy were discarded due to Google Chat's platform limitations (incoming webhooks cannot host interactive buttons, and resolving user email identity requires complex restricted scopes/directory access).
 
 - From docs/discord-google-chat-alerts-bot.md's still-open questions:
   decide whether linked Discord accounts should ever expire / require
