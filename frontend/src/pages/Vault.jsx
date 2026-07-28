@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Search, Plus, Edit2, Trash2, Heart, History, RefreshCw, UploadCloud,
-  ShieldAlert, Lock, X, Bell, Star, Clock, KeyRound, LayoutGrid,
+  ShieldAlert, Lock, X, Bell, Star, Clock, KeyRound, LayoutGrid, Folder,
 } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
@@ -226,6 +226,19 @@ export default function Vault() {
     fetchDashboard();
   }, []);
 
+  // Deep link from elsewhere in the app (e.g. Collections Management)
+  // straight to one entry: /vault?select=<accountId>.
+  useEffect(() => {
+    const wantedId = searchParams.get("select");
+    if (!wantedId || loading) return;
+    if (accounts.some((a) => a.id === wantedId)) {
+      selectAccount(wantedId);
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("select");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, accounts, loading]);
+
   const filtered = accounts.filter((a) => {
     const q = search.toLowerCase();
     const matchesSearch = a.name.toLowerCase().includes(q) || a.username.toLowerCase().includes(q);
@@ -275,7 +288,13 @@ export default function Vault() {
 
   const healthTagClass = (label) => (label === "STRONG" ? "hi" : label === "MEDIUM" ? "mid" : label === "SSO" ? "info" : "lo");
 
+  const collectionsById = useMemo(
+    () => Object.fromEntries(collections.map((c) => [c.id, c])),
+    [collections],
+  );
+
   const selected = accounts.find((a) => a.id === selectedId) || null;
+  const selectedEntryCollection = selected?.collectionId ? collectionsById[selected.collectionId] : null;
 
   useEffect(() => {
     if (selectedId && !accounts.some((a) => a.id === selectedId) && !loading) {
@@ -456,6 +475,9 @@ export default function Vault() {
                       <HealthPill label={account.healthLabel} />
                       <span className="badge-pill">{formatPlatformType(account.platformType)}</span>
                       {account.requiredClearance && <span className="badge-pill">{account.requiredClearance}</span>}
+                      {collectionsById[account.collectionId] && (
+                        <span className="badge-pill">{collectionsById[account.collectionId].name}</span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -501,6 +523,23 @@ export default function Vault() {
                       Updated {selected.lastUpdatedAt ? new Date(selected.lastUpdatedAt).toLocaleDateString() : new Date(selected.createdAt).toLocaleDateString()}
                     </span>
                   </div>
+                  <div className="flex items-center gap-1.5 text-xs mb-4 flex-wrap" style={{ color: "var(--text-tertiary)" }}>
+                    <Folder width={13} height={13} className="shrink-0" />
+                    {selectedEntryCollection ? (
+                      <>
+                        <span>{selectedEntryCollection.name}</span>
+                        <span>·</span>
+                        <span>
+                          Managers:{" "}
+                          {selectedEntryCollection.managers?.length > 0
+                            ? selectedEntryCollection.managers.map((m) => m.name).join(", ")
+                            : <span className="italic">None assigned</span>}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="italic">Not in a collection</span>
+                    )}
+                  </div>
                   {selected.notes && (
                     <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>{selected.notes}</p>
                   )}
@@ -524,17 +563,17 @@ export default function Vault() {
                       <div className="space-y-3">
                         <div className="flex items-center gap-3 flex-wrap">
                           {selected.hasTotpQr && (
-                            <RevealOtp key={selected.id} accountId={selected.id} isAdmin={hasDirectAccess(selected)} onGrantExpired={() => handleGrantExpired(selected.id)} />
+                            <RevealOtp key={`otp-${selected.id}`} accountId={selected.id} isAdmin={hasDirectAccess(selected)} onGrantExpired={() => handleGrantExpired(selected.id)} />
                           )}
                           <RevealPassword
-                            key={selected.id}
+                            key={`pw-${selected.id}`}
                             accountId={selected.id}
                             isAdmin={hasDirectAccess(selected)}
                             onRequestAccess={() => setRequestModal({ isOpen: true, account: selected })}
                             onGrantExpired={() => handleGrantExpired(selected.id)}
                           />
                           {user.role === "ADMIN" && selected.hasTotpQr && (
-                            <AdminQrModal key={selected.id} accountId={selected.id} />
+                            <AdminQrModal key={`qr-${selected.id}`} accountId={selected.id} />
                           )}
                         </div>
 

@@ -367,6 +367,35 @@
   .admin-tile .at-t { font-size: var(--fs-md); font-weight: var(--fw-bold); color: var(--text-primary); }
   .admin-tile .at-d { font-size: var(--fs-sm); color: var(--text-tertiary); margin-top: 5px; line-height: var(--lh-normal); }
 
+  /* ---------- collection manifest (expandable account list) ---------- */
+  .coll-row { cursor: pointer; transition: background var(--dur-fast); }
+  .coll-row:hover { background: var(--bg-subtle); }
+  .coll-row.open { background: var(--bg-subtle); }
+  .coll-row:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
+  .coll-chevron { color: var(--text-tertiary); transition: transform var(--dur-fast) var(--ease-out); flex: none; }
+  .coll-chevron.open { transform: rotate(90deg); color: var(--brand); }
+  /* Height-animated accordion via the 0fr/1fr grid-track trick — no JS
+     height measurement needed, and it degrades to instant show/hide if a
+     browser doesn't support animating grid-template-rows. */
+  .coll-collapse { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--dur-normal) var(--ease-standard); }
+  .coll-collapse.open { grid-template-rows: 1fr; }
+  .coll-collapse > div { overflow: hidden; min-height: 0; }
+  .acc-panel { padding: 4px 2px 14px; }
+  .acc-empty { font-size: var(--fs-sm); color: var(--text-tertiary); font-style: italic; padding: 6px 2px; }
+  .acc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+  .acc-chip {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+    padding: 8px 10px; cursor: pointer; transition: border-color var(--dur-fast), transform var(--dur-fast), box-shadow var(--dur-fast);
+  }
+  .acc-chip:hover { border-color: var(--brand-border); box-shadow: var(--shadow-xs); transform: translateY(-1px); }
+  .acc-chip:hover .acc-chip-arrow { transform: translateX(2px); color: var(--brand); }
+  .acc-chip-ic { width: 26px; height: 26px; border-radius: var(--radius-xs); background: var(--brand-subtle); color: var(--brand); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .acc-chip-main { flex: 1; min-width: 0; }
+  .acc-chip-name { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .acc-chip-sub { font-size: var(--fs-2xs); color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .acc-chip-arrow { color: var(--text-tertiary); flex: none; transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast); }
+
   /* ---------- modal ---------- */
   .scrim {
     position: fixed; inset: 0; background: var(--bg-overlay); display: flex; align-items: center; justify-content: center;

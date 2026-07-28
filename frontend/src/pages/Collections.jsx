@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { Folder, Plus, Trash2, Edit2, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Folder, Plus, Trash2, Edit2, X, ChevronRight, KeyRound, ArrowRight } from "lucide-react";
 import api from "../lib/api";
+import HealthPill from "../components/HealthPill";
+
+const formatPlatformType = (type) => {
+  const map = { THIRD_PARTY: "Third Party", GOOGLE_WORKSPACE: "Google Workspace" };
+  return map[type] || type?.replace(/_/g, " ") || "";
+};
 
 export default function Collections() {
+  const navigate = useNavigate();
   const [collections, setCollections] = useState([]);
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,6 +19,7 @@ export default function Collections() {
   const [managerIds, setManagerIds] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
 
   const fetchCollections = async () => {
     try {
@@ -64,6 +73,7 @@ export default function Collections() {
   };
 
   const toggleEdit = (c) => {
+    setExpandedId(null);
     if (editingId === c.id) {
       resetForm();
       return;
@@ -75,11 +85,21 @@ export default function Collections() {
     setManagerIds(c.managers?.map((m) => m.id) || []);
   };
 
+  const toggleExpand = (id) => {
+    resetForm();
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
+
+  const goToAccountInVault = (accountId) => {
+    navigate(`/vault?select=${accountId}`);
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this collection? Accounts will be uncategorized.")) return;
     try {
       await api.delete(`/collections/${id}`);
       if (editingId === id) resetForm();
+      if (expandedId === id) setExpandedId(null);
       fetchCollections();
     } catch (e) {
       alert("Failed to delete collection");
@@ -158,13 +178,43 @@ export default function Collections() {
     </form>
   );
 
+  // The manifest: every account attached to a collection, rendered as a
+  // clickable chip that hands off straight to that entry in the Vault.
+  const renderAccountsPanel = (c) => (
+    <div className="acc-panel">
+      {c.accounts?.length > 0 ? (
+        <div className="acc-grid">
+          {c.accounts.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => goToAccountInVault(a.id)}
+              className="acc-chip"
+              title={`Open ${a.name} in the Vault`}
+            >
+              <span className="acc-chip-ic"><KeyRound width={13} height={13} /></span>
+              <span className="acc-chip-main">
+                <span className="acc-chip-name">{a.name}</span>
+                <span className="acc-chip-sub">{a.username} · {formatPlatformType(a.platformType)}</span>
+              </span>
+              {a.healthLabel && <HealthPill label={a.healthLabel} />}
+              <ArrowRight width={14} height={14} className="acc-chip-arrow" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="acc-empty">No accounts assigned to this collection yet.</div>
+      )}
+    </div>
+  );
+
   return (
     <div className="max-w-5xl mx-auto">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-[var(--text-primary)]">Collections Management</h1>
           <p className="mt-2 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
-            Create and manage collections to group vault entries.
+            Create and manage collections to group vault entries. Click a collection to see what's inside.
           </p>
         </div>
         <button
@@ -193,15 +243,25 @@ export default function Collections() {
         ) : (
           collections.map((c) => (
             <div key={c.id} className="row-card">
-              <div className="row-card-title">
+              <button
+                type="button"
+                onClick={() => toggleExpand(c.id)}
+                className="row-card-title w-full text-left"
+                style={{ marginBottom: 4 }}
+              >
                 <Folder className="h-4 w-4 shrink-0" style={{ color: "var(--text-tertiary)" }} />
-                {c.name}
+                <span className="flex-1">{c.name}</span>
+                <span className="rcf-value" style={{ color: "var(--text-tertiary)", fontWeight: 500 }}>
+                  {c._count?.accounts || 0}
+                </span>
+                <ChevronRight width={16} height={16} className={`coll-chevron ${expandedId === c.id ? "open" : ""}`} />
+              </button>
+              {c.description && <div className="text-xs text-muted -mt-1 mb-2">{c.description}</div>}
+
+              <div className={`coll-collapse ${expandedId === c.id ? "open" : ""}`}>
+                <div>{renderAccountsPanel(c)}</div>
               </div>
-              {c.description && <div className="text-xs text-muted -mt-2 mb-2">{c.description}</div>}
-              <div className="row-card-field">
-                <span className="rcf-label">Items</span>
-                <span className="rcf-value">{c._count?.accounts || 0}</span>
-              </div>
+
               <div className="row-card-field">
                 <span className="rcf-label">Managers</span>
                 <span className="rcf-value">
@@ -234,7 +294,7 @@ export default function Collections() {
           <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">Collection</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">Items</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">Accounts</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">Managers</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">Actions</th>
             </tr>
@@ -251,9 +311,22 @@ export default function Collections() {
             ) : (
               collections.map((c) => (
                 <React.Fragment key={c.id}>
-                  <tr className={editingId === c.id ? "bg-blue-50 dark:bg-[var(--bg-muted)]" : ""}>
+                  <tr
+                    className={`coll-row ${expandedId === c.id ? "open" : ""} ${editingId === c.id ? "bg-blue-50 dark:bg-[var(--bg-muted)]" : ""}`}
+                    onClick={() => toggleExpand(c.id)}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={expandedId === c.id}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleExpand(c.id);
+                      }
+                    }}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
+                        <ChevronRight width={16} height={16} className={`coll-chevron mr-2 ${expandedId === c.id ? "open" : ""}`} />
                         <Folder className="h-5 w-5 text-gray-400 dark:text-[var(--text-tertiary)] mr-3" />
                         <div>
                           <div className="text-sm font-medium text-gray-900 dark:text-[var(--text-primary)]">{c.name}</div>
@@ -271,19 +344,26 @@ export default function Collections() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        onClick={() => toggleEdit(c)}
+                        onClick={(e) => { e.stopPropagation(); toggleEdit(c); }}
                         className="text-brand-blue hover:text-blue-700 mr-4"
                         title={editingId === c.id ? "Close" : "Edit"}
                       >
                         {editingId === c.id ? <X className="h-4 w-4 inline" /> : <Edit2 className="h-4 w-4 inline" />}
                       </button>
                       <button
-                        onClick={() => handleDelete(c.id)}
+                        onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}
                         className="text-brand-red hover:text-red-700"
                         title="Delete"
                       >
                         <Trash2 className="h-4 w-4 inline" />
                       </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan="4" className="p-0 border-0">
+                      <div className={`coll-collapse ${expandedId === c.id ? "open" : ""}`}>
+                        <div className="px-6">{renderAccountsPanel(c)}</div>
+                      </div>
                     </td>
                   </tr>
                   {editingId === c.id && (

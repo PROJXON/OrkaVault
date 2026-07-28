@@ -10,6 +10,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef(null);
+  const containerRef = useRef(null);
 
   const handleCopy = async () => {
     if (!password || password === "USE_GOOGLE_SSO") return;
@@ -119,6 +120,18 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
 
   useEffect(() => () => clearAllTimers(), []);
 
+  // Auto-hide when the user clicks anywhere outside the revealed pill.
+  useEffect(() => {
+    if (phase !== "revealed") return;
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        handleDone();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [phase]);
+
   const formatTime = (secs) => {
     if (secs == null) return null;
     if (secs >= 3600) return `${Math.floor(secs / 3600)}h`;
@@ -138,6 +151,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
     if (password === "USE_GOOGLE_SSO") {
       return (
         <div
+          ref={containerRef}
           className="inline-flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-md border border-brand-blue"
         >
           <span className="text-brand-blue text-xs font-medium">
@@ -161,6 +175,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
 
     return (
       <div
+        ref={containerRef}
         className="inline-flex items-center space-x-2 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200"
         onCopy={(e) => e.preventDefault()}
         onContextMenu={(e) => e.preventDefault()}

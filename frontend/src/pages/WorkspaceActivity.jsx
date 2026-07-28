@@ -130,17 +130,7 @@ function ActivityLogTab() {
   return (
     <>
       <p className="mt-2 mb-6 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
-        Google Workspace logins and OAuth app grants ingested for
-        OrkaVault users. Flagged rows also triggered an admin
-        notification. Location is approximate (from the IP that made the
-        request — for an OAuth grant via third-party SSO, that's often
-        the app's own server, not the user's actual location) and only
-        appears when Google resolves it. Likely Device (login rows only)
-        is a guess, not data Google gives us — it's whichever of the
-        user's devices (from the Devices tab) last synced closest to the
-        login time; treat it as a lead to investigate, not a fact.
-        Requires Workspace monitoring to be configured (see Settings
-        &rarr; Alerts) — empty until then.
+        Google Workspace logins and OAuth app grants ingested for your organization.
       </p>
 
       <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
@@ -251,12 +241,12 @@ function ActivityLogTab() {
 function ConnectedAppRow({ app }) {
   return (
     <div className="py-2 border-t border-gray-100 dark:border-[var(--border-subtle)] first:border-t-0">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-gray-900 dark:text-[var(--text-primary)]">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-sm font-medium text-gray-900 dark:text-[var(--text-primary)] min-w-0 break-words">
           {app.appName || app.clientId}
         </span>
         {app.nativeApp && (
-          <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-0.5 rounded text-xs font-medium">
+          <span className="shrink-0 bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-0.5 rounded text-xs font-medium">
             Native
           </span>
         )}
@@ -384,15 +374,7 @@ function ConnectedAppsTab() {
   return (
     <>
       <p className="mt-2 mb-6 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
-        Every active Workspace account and its currently connected
-        third-party OAuth apps — a live snapshot, not an audit trail;
-        shows apps connected before monitoring existed too, unlike the
-        Activity Log tab. Synced from Google when this tab loads (this
-        can take a moment on a larger org) and again every 6 hours in
-        the background — click an account to view its apps, or Refresh
-        inside it to re-sync just that one. Requires Workspace
-        monitoring to be configured (see Settings &rarr; Alerts) — empty
-        until then.
+        Every active Workspace account and its currently connected third-party apps.
       </p>
 
       <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
@@ -631,15 +613,7 @@ function DevicesTab() {
   return (
     <>
       <p className="mt-2 mb-6 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
-        Devices associated with each Workspace account, from Google's Cloud
-        Identity Devices API — a current-state snapshot, not an event log
-        (see the Activity Log tab for that; the two aren't correlated,
-        since Google's login/OAuth events don't carry per-event device
-        info). Requires Endpoint Verification, GCPW, or Google Drive for
-        Desktop actually installed for desktops to show up — mobile
-        (Android/iOS) is usually tracked automatically. Device counts
-        below are last-known (from the 6-hourly background sync); click an
-        account to sync and view its current devices.
+        Devices associated with each Workspace account, synced from Google.
       </p>
 
       <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">

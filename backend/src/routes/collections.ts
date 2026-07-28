@@ -13,6 +13,10 @@ router.get("/", requireAuth, async (_req: AuthenticatedRequest, res: Response) =
       include: {
         _count: { select: { accounts: true } },
         managers: { select: { id: true, name: true, email: true } },
+        accounts: {
+          select: { id: true, name: true, username: true, platformType: true, healthLabel: true },
+          orderBy: { name: "asc" },
+        },
       },
     });
     res.json(collections);

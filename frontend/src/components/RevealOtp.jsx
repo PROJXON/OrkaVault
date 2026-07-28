@@ -22,6 +22,7 @@ export default function RevealOtp({ accountId, isAdmin, onRequestAccess, onGrant
   const otpRefreshRef = useRef(null);
   const copiedTimerRef = useRef(null);
   const grantExpiredRef = useRef(false);
+  const containerRef = useRef(null);
 
   const handleCopy = async () => {
     if (!otp) return;
@@ -158,6 +159,18 @@ export default function RevealOtp({ accountId, isAdmin, onRequestAccess, onGrant
 
   useEffect(() => () => clearAllTimers(), []);
 
+  // Auto-hide when the user clicks anywhere outside the revealed pill.
+  useEffect(() => {
+    if (phase !== "revealed") return;
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        handleDone();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [phase]);
+
   const formatTime = (secs) => {
     if (secs == null) return null;
     if (secs >= 3600) return `${Math.floor(secs / 3600)}h`;
@@ -172,6 +185,7 @@ export default function RevealOtp({ accountId, isAdmin, onRequestAccess, onGrant
   if (phase === "revealed" && otp) {
     return (
       <div
+        ref={containerRef}
         className="inline-flex items-center space-x-2 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200"
         onCopy={(e) => e.preventDefault()}
         onContextMenu={(e) => e.preventDefault()}
