@@ -1,0 +1,3 @@
+{
+"READ": "Please download your GCP Project's Service Account Key and rename it as local_workspace_sa_key.json it will replace this file"
+}

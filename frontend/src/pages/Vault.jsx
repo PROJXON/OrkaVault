@@ -53,6 +53,7 @@ export default function Vault() {
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [bulkDeleteConfirmText, setBulkDeleteConfirmText] = useState("");
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [syncingWorkspace, setSyncingWorkspace] = useState(false);
   const [showBulkSelect, setShowBulkSelect] = useState(false);
 
   const selectAccount = (id) => {
@@ -116,6 +117,19 @@ export default function Vault() {
       alert(e.response?.data?.error || "Failed to delete selected accounts");
     } finally {
       setBulkDeleting(false);
+    }
+  };
+
+  const handleSyncWorkspaceAccounts = async () => {
+    setSyncingWorkspace(true);
+    try {
+      const { data } = await api.post("/accounts/sync-workspace");
+      alert(`Created ${data.created} new vault entr${data.created === 1 ? "y" : "ies"} from Google Workspace. ${data.skipped} already existed and were left unchanged.`);
+      fetchAccounts();
+    } catch (e) {
+      alert(e.response?.data?.error || "Failed to sync Workspace accounts");
+    } finally {
+      setSyncingWorkspace(false);
     }
   };
 
@@ -297,6 +311,14 @@ export default function Vault() {
                     <span className="badge">{qrPendingAccounts.length}</span>
                   </button>
                 )}
+                <button
+                  className="iconbtn"
+                  title="Sync Workspace Accounts — creates a vault entry for any active Google Workspace account that doesn't have one yet"
+                  onClick={handleSyncWorkspaceAccounts}
+                  disabled={syncingWorkspace}
+                >
+                  <RefreshCw width={20} height={20} className={syncingWorkspace ? "animate-spin" : ""} />
+                </button>
                 <button className="iconbtn" title="Bulk Import" onClick={() => setBulkImportOpen(true)}>
                   <UploadCloud width={20} height={20} />
                 </button>

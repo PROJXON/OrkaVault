@@ -223,6 +223,26 @@ model WorkspaceActivityEvent {
   @@index([userEmail])
 }
 
+// Current-state snapshot of a user's connected third-party OAuth apps
+// (Directory API tokens.list), distinct from WorkspaceActivityEvent's
+// append-only audit trail of grant/revoke actions. Each sync upserts on
+// (userEmail, clientId) and deletes rows no longer returned by Google
+// (= app was disconnected) — see services/googleWorkspace.ts.
+model ConnectedApp {
+  id         String   @id @default(uuid())
+  userEmail  String
+  clientId   String
+  appName    String?
+  scopes     String[]
+  nativeApp  Boolean  @default(false)
+  anonymous  Boolean  @default(false)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@unique([userEmail, clientId])
+  @@index([userEmail])
+}
+
 model OrganizationPolicy {
   id          String   @id @default(uuid())
   name        String

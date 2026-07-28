@@ -22,6 +22,7 @@ import { notifyAdmins, notifyUser } from "../services/notifications";
 import { parseCsv } from "../services/csvImport";
 import { meetsClearance } from "../services/clearance";
 import { validateTotpQrImage, generateOtpFromQrImage } from "../services/totp";
+import { syncWorkspaceAccountsToVault } from "../services/workspaceAccountSync";
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -1213,6 +1214,27 @@ router.post(
     } catch (error) {
       console.error("[Bulk Delete Accounts]", error);
       res.status(500).json({ error: "Failed to delete accounts." });
+    }
+  },
+);
+
+// POST /api/accounts/sync-workspace — creates a vault Account for every
+// active Google Workspace user who doesn't already have one (matched by
+// username/email, any platformType, case-insensitive). Create-only —
+// never updates an existing entry. isGoogleSSO: true / secretRef:
+// "SSO_ONLY" since these track access to each person's own Workspace
+// login, not a shared password. See services/workspaceAccountSync.ts. [ADMIN]
+router.post(
+  "/sync-workspace",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const result = await syncWorkspaceAccountsToVault(req.user!.id);
+      res.json(result);
+    } catch (error) {
+      console.error("[Sync Workspace Accounts]", error);
+      res.status(500).json({ error: "Failed to sync Workspace accounts." });
     }
   },
 );

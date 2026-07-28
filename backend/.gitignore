@@ -36,3 +36,6 @@ test_api.js
 test_update.ts
 run_tests.ts
 package-lock.json
+
+# Cleanup scripts ---
+src/scripts/cleanupWorkspaceTokenNoise.ts

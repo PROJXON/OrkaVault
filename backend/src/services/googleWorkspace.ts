@@ -1,16 +1,23 @@
 /**
  * Google Workspace Admin SDK Monitoring Service
  *
- * Polls the Reports API (`activities.list` for "login" and "token"
- * applicationName) for Workspace login/OAuth-grant activity and persists
- * it to WorkspaceActivityEvent. Requires domain-wide delegation: a GCP
- * service account impersonating a Workspace super-admin.
+ * Two independent things live here, both behind the same domain-wide
+ * delegation credential:
+ * - Polls the Reports API (`activities.list` for "login" and "token"
+ *   applicationName) for Workspace login/OAuth-grant *events* and
+ *   persists them to WorkspaceActivityEvent (an append-only audit trail).
+ * - Syncs the Directory API's `tokens.list` per user into ConnectedApp —
+ *   a current-state *snapshot* of each user's connected third-party apps
+ *   (not an event log; stale rows are deleted when an app disappears).
  *
- * See docs/google-workspace-admin-sdk-monitoring.md for the design.
+ * Requires domain-wide delegation: a GCP service account impersonating a
+ * Workspace super-admin. See docs/google-workspace-admin-sdk-monitoring.md
+ * for the design.
  *
  * Not configured until GOOGLE_WORKSPACE_ADMIN_EMAIL is set and a service
  * account key file exists at GOOGLE_WORKSPACE_SA_KEY_PATH — until then,
- * ingestWorkspaceActivity() is a no-op (logged once, not every tick).
+ * ingestWorkspaceActivity()/syncConnectedApps() are no-ops (logged once,
+ * not every tick).
  */
 
 import * as fs from "fs";
@@ -32,22 +39,119 @@ const SA_KEY_PATH = path.resolve(
 const SCOPES = [
   "https://www.googleapis.com/auth/admin.reports.audit.readonly",
   "https://www.googleapis.com/auth/admin.directory.user.security",
+  "https://www.googleapis.com/auth/admin.directory.user.readonly",
 ];
 
 let warnedNotConfigured = false;
+
+// Connected Apps: how many users' tokens.list calls run at once. Google
+// doesn't bill Admin SDK calls, but does rate-limit them — this trades
+// speed against 429s, backed up by withRetry429 below for whatever
+// bursts through anyway.
+const CONNECTED_APPS_SYNC_CONCURRENCY = 10;
+
+function is429(error: any): boolean {
+  return error?.response?.status === 429 || error?.status === 429 || error?.code === 429;
+}
+
+/** Retries only on 429 (rate limit) — any other error propagates immediately. Exponential backoff + jitter, honors Retry-After if Google sends one. */
+async function withRetry429<T>(fn: () => Promise<T>, maxRetries = 5): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      if (!is429(error) || attempt >= maxRetries) throw error;
+      const retryAfterHeader = error?.response?.headers?.["retry-after"];
+      const retryAfterMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : null;
+      const backoffMs = retryAfterMs ?? Math.min(1000 * 2 ** attempt, 20000) + Math.random() * 250;
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    }
+  }
+}
+
+/**
+ * Runs fn over items with at most `limit` in flight at once (a fixed pool
+ * of workers pulling from a shared index), instead of either fully
+ * sequential (slow) or Promise.all-everything (risks a burst of 429s).
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const i = nextIndex++;
+      if (i >= items.length) return;
+      try {
+        results[i] = { status: "fulfilled", value: await fn(items[i]) };
+      } catch (error) {
+        results[i] = { status: "rejected", reason: error };
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return results;
+}
+
+// Google's Reports API has documented multi-hour ingestion lag, and an
+// event can surface after a *later* event from the other applicationName
+// stream (login vs. token) has already been ingested. A watermark anchored
+// to "the latest event we've seen" would then permanently skip it, since
+// every subsequent poll asks Google for activity after that point. A
+// rolling lookback window avoids that race — alreadyIngested() dedupes the
+// re-scanned overlap — at the cost of re-fetching a wider range each poll.
+const LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
 export function isWorkspaceMonitoringConfigured(): boolean {
   return !!ADMIN_EMAIL && fs.existsSync(SA_KEY_PATH);
 }
 
+let cachedKeyFile: { client_email: string; private_key: string; client_id?: string } | null = null;
+
+function getServiceAccountKey() {
+  if (!cachedKeyFile) {
+    cachedKeyFile = JSON.parse(fs.readFileSync(SA_KEY_PATH, "utf-8"));
+  }
+  return cachedKeyFile!;
+}
+
+/**
+ * Our own service account's OAuth Client ID. Domain-wide delegation makes
+ * every one of our API calls (impersonating ADMIN_EMAIL) look, from
+ * Google's side, exactly like that admin authorizing this client — so it
+ * shows up in Reports API "token" activity as an oauth_token_grant with
+ * this value as appName. That's not a real third-party app connecting;
+ * it's our own polling. ingestWorkspaceActivity() filters it out below.
+ */
+function getOwnClientId(): string | undefined {
+  return getServiceAccountKey().client_id;
+}
+
+// Reused across every call in the process, not rebuilt per-request: the
+// JWT client from google-auth-library caches/refreshes its own access
+// token internally when reused, so this cuts token-endpoint round trips
+// down to roughly one per hour (whenever the cached token actually
+// expires) instead of one per Google API call. That matters a lot now —
+// syncConnectedApps() calls this once per active user, concurrently, and
+// a fresh JWT instance every time meant a fresh token exchange every
+// time too (see "JWT.refreshTokenNoCache" in any auth-error stack trace).
+let cachedAuthClient: JWT | null = null;
+
 function getAuthClient(): JWT {
-  const keyFile = JSON.parse(fs.readFileSync(SA_KEY_PATH, "utf-8"));
-  return new JWT({
+  if (cachedAuthClient) return cachedAuthClient;
+  const keyFile = getServiceAccountKey();
+  cachedAuthClient = new JWT({
     email: keyFile.client_email,
     key: keyFile.private_key,
     scopes: SCOPES,
     subject: ADMIN_EMAIL,
   });
+  return cachedAuthClient;
 }
 
 export interface NormalizedActivityEvent {
@@ -114,6 +218,150 @@ export async function fetchActivitySince(since: Date): Promise<NormalizedActivit
     }
   }
   return results;
+}
+
+export interface WorkspaceUser {
+  email: string;
+  displayName: string | null;
+}
+
+/**
+ * Enumerate every non-suspended Workspace user org-wide (Directory API,
+ * paginated). Used to know which userKeys to call tokens.list for —
+ * Reports API's userKey: "all" has no Directory API equivalent, so this
+ * has to walk the full directory itself. Also backs
+ * workspaceAccountSync.ts's vault-entry provisioning, which needs a
+ * display name, not just the email.
+ */
+export async function listActiveWorkspaceUsers(): Promise<WorkspaceUser[]> {
+  const auth = getAuthClient();
+  const directory = google.admin({ version: "directory_v1", auth });
+
+  const users: WorkspaceUser[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await withRetry429(() =>
+      directory.users.list({
+        customer: "my_customer",
+        maxResults: 500,
+        pageToken,
+      }),
+    );
+    for (const user of res.data.users || []) {
+      if (user.primaryEmail && !user.suspended) {
+        users.push({
+          email: user.primaryEmail,
+          displayName: user.name?.fullName ?? user.name?.displayName ?? null,
+        });
+      }
+    }
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return users;
+}
+
+export interface NormalizedConnectedApp {
+  clientId: string;
+  appName: string | null;
+  scopes: string[];
+  nativeApp: boolean;
+  anonymous: boolean;
+}
+
+/** Current OAuth grants for one user (Directory API tokens.list) — a snapshot, not history. */
+export async function fetchConnectedApps(userEmail: string): Promise<NormalizedConnectedApp[]> {
+  const auth = getAuthClient();
+  const directory = google.admin({ version: "directory_v1", auth });
+
+  const res = await withRetry429(() => directory.tokens.list({ userKey: userEmail }));
+  const items = res.data.items || [];
+  return items
+    .filter((item): item is typeof item & { clientId: string } => !!item.clientId)
+    .map((item) => ({
+      clientId: item.clientId,
+      appName: item.displayText ?? null,
+      scopes: item.scopes ?? [],
+      nativeApp: !!item.nativeApp,
+      anonymous: !!item.anonymous,
+    }));
+}
+
+/**
+ * Fetches one user's current connected apps from Google and syncs
+ * ConnectedApp to match (upsert + delete-stale). Shared by the bulk cron
+ * below and the on-demand per-user route, so there's one place that owns
+ * the upsert/delete-stale logic. Can throw — callers decide how to handle
+ * a single user's failure (skip-and-continue for the cron, surface as a
+ * 500 for the on-demand route).
+ *
+ * Returns the persisted ConnectedApp rows (with id/lastSeenAt), not the
+ * raw Google response shape — callers (including the API route) render
+ * these directly, and NormalizedConnectedApp has neither field.
+ */
+export async function syncConnectedAppsForUser(userEmail: string) {
+  const apps = await fetchConnectedApps(userEmail);
+
+  for (const app of apps) {
+    await prisma.connectedApp.upsert({
+      where: { userEmail_clientId: { userEmail, clientId: app.clientId } },
+      update: {
+        appName: app.appName,
+        scopes: app.scopes,
+        nativeApp: app.nativeApp,
+        anonymous: app.anonymous,
+        lastSeenAt: new Date(),
+      },
+      create: {
+        userEmail,
+        clientId: app.clientId,
+        appName: app.appName,
+        scopes: app.scopes,
+        nativeApp: app.nativeApp,
+        anonymous: app.anonymous,
+      },
+    });
+  }
+
+  await prisma.connectedApp.deleteMany({
+    where: { userEmail, clientId: { notIn: apps.map((a) => a.clientId) } },
+  });
+
+  return prisma.connectedApp.findMany({ where: { userEmail }, orderBy: { appName: "asc" } });
+}
+
+/**
+ * Cron entry point: syncs ConnectedApp to match Google's current state for
+ * every active Workspace user, up to CONNECTED_APPS_SYNC_CONCURRENCY at a
+ * time (each call also retries once-off 429s via withRetry429 inside
+ * fetchConnectedApps). Never throws, like ingestWorkspaceActivity — one
+ * user's failure is logged and skipped, not fatal to the rest.
+ */
+export async function syncConnectedApps(): Promise<void> {
+  if (!isWorkspaceMonitoringConfigured()) return;
+
+  try {
+    const workspaceUsers = await listActiveWorkspaceUsers();
+    let userCount = 0;
+    let appCount = 0;
+
+    const results = await mapWithConcurrency(workspaceUsers, CONNECTED_APPS_SYNC_CONCURRENCY, ({ email }) =>
+      syncConnectedAppsForUser(email),
+    );
+
+    results.forEach((result, i) => {
+      if (result.status === "fulfilled") {
+        userCount++;
+        appCount += result.value.length;
+      } else {
+        console.error(`[ConnectedApps] Failed to fetch tokens for ${workspaceUsers[i].email}:`, result.reason);
+      }
+    });
+
+    console.log(`[ConnectedApps] Synced ${userCount} users, ${appCount} apps.`);
+  } catch (error) {
+    console.error("[ConnectedApps] Sync failed:", error);
+  }
 }
 
 interface AlertResult {
@@ -218,13 +466,12 @@ export async function ingestWorkspaceActivity(): Promise<void> {
   }
 
   try {
-    const latest = await prisma.workspaceActivityEvent.findFirst({
-      orderBy: { occurredAt: "desc" },
-      select: { occurredAt: true },
-    });
-    const since = latest?.occurredAt ?? new Date(Date.now() - 60 * 60 * 1000);
+    const since = new Date(Date.now() - LOOKBACK_MS);
 
-    const events = await fetchActivitySince(since);
+    const ownClientId = getOwnClientId();
+    const events = (await fetchActivitySince(since)).filter(
+      (event) => !ownClientId || event.appName !== ownClientId,
+    );
     let flaggedCount = 0;
 
     for (const event of events) {
