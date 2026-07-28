@@ -524,16 +524,17 @@ export default function Vault() {
                       <div className="space-y-3">
                         <div className="flex items-center gap-3 flex-wrap">
                           {selected.hasTotpQr && (
-                            <RevealOtp accountId={selected.id} isAdmin={hasDirectAccess(selected)} onGrantExpired={() => handleGrantExpired(selected.id)} />
+                            <RevealOtp key={selected.id} accountId={selected.id} isAdmin={hasDirectAccess(selected)} onGrantExpired={() => handleGrantExpired(selected.id)} />
                           )}
                           <RevealPassword
+                            key={selected.id}
                             accountId={selected.id}
                             isAdmin={hasDirectAccess(selected)}
                             onRequestAccess={() => setRequestModal({ isOpen: true, account: selected })}
                             onGrantExpired={() => handleGrantExpired(selected.id)}
                           />
                           {user.role === "ADMIN" && selected.hasTotpQr && (
-                            <AdminQrModal accountId={selected.id} />
+                            <AdminQrModal key={selected.id} accountId={selected.id} />
                           )}
                         </div>
 

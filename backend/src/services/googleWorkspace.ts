@@ -22,7 +22,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { google } from "googleapis";
+import { google, cloudidentity_v1 } from "googleapis";
 import { JWT } from "google-auth-library";
 import { PrismaClient, NotifType } from "@prisma/client";
 import { notifyAdmins } from "./notifications";
@@ -40,6 +40,13 @@ const SCOPES = [
   "https://www.googleapis.com/auth/admin.reports.audit.readonly",
   "https://www.googleapis.com/auth/admin.directory.user.security",
   "https://www.googleapis.com/auth/admin.directory.user.readonly",
+  // NOTE: using the full "cloud-identity.devices" scope, not .readonly.
+  // Domain-wide delegation authorization is matched by exact scope
+  // string, not permission hierarchy — .readonly was rejected even
+  // though the full scope was authorized for this client ID. This code
+  // still only ever calls .list() (never wipe/block/delete) — the scope
+  // is broader than what's used, but it's what's actually authorized.
+  "https://www.googleapis.com/auth/cloud-identity.devices",
 ];
 
 let warnedNotConfigured = false;
@@ -52,6 +59,20 @@ const CONNECTED_APPS_SYNC_CONCURRENCY = 10;
 
 function is429(error: any): boolean {
   return error?.response?.status === 429 || error?.status === 429 || error?.code === 429;
+}
+
+// gaxios/googleapis errors default to a useless top-level message
+// ("Request failed with status code 403") — the actual reason Google
+// rejected the request lives in error.response.data.error, which
+// console.error(error) alone doesn't surface. Use this in every catch
+// block that logs a Google API failure, not just the generic error object.
+function describeGoogleApiError(error: any): string {
+  const apiError = error?.response?.data?.error;
+  if (apiError) {
+    const status = apiError.status ?? apiError.code ?? error?.response?.status ?? "?";
+    return `[${status}] ${apiError.message ?? JSON.stringify(apiError)}`;
+  }
+  return error?.message ?? String(error);
 }
 
 /** Retries only on 429 (rate limit) — any other error propagates immediately. Exponential backoff + jitter, honors Retry-After if Google sends one. */
@@ -132,6 +153,28 @@ function getOwnClientId(): string | undefined {
   return getServiceAccountKey().client_id;
 }
 
+// Real third-party OAuth clients registered via Cloud Console always get a
+// client_id formatted "<digits>-<hash>.apps.googleusercontent.com" (that's
+// what shows up for every genuine app in Connected Apps). Service accounts
+// — including ours — only ever get a bare numeric client_id, no domain
+// suffix. So: an oauth_token_grant whose actor is our own impersonated
+// ADMIN_EMAIL *and* whose client_id is bare-numeric is our own polling,
+// even on the rare occasion the exact-match against getOwnClientId() above
+// fails (e.g. a value-encoding quirk we haven't seen yet, or the service
+// account key being rotated without a redeploy). Exact match is tried
+// first since it's unambiguous; this is the fallback, not the primary check.
+const BARE_NUMERIC_CLIENT_ID = /^\d+$/;
+function isOwnPollingNoise(event: NormalizedActivityEvent, ownClientId: string | undefined): boolean {
+  if (event.eventType !== "oauth_token_grant") return false;
+  if (ownClientId && event.clientId === ownClientId) return true;
+  return (
+    !!ADMIN_EMAIL &&
+    event.userEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase() &&
+    !!event.clientId &&
+    BARE_NUMERIC_CLIENT_ID.test(event.clientId)
+  );
+}
+
 // Reused across every call in the process, not rebuilt per-request: the
 // JWT client from google-auth-library caches/refreshes its own access
 // token internally when reused, so this cuts token-endpoint round trips
@@ -158,10 +201,50 @@ export interface NormalizedActivityEvent {
   userEmail: string;
   eventType: string;
   appName: string | null;
+  // Raw OAuth client_id, kept separate from appName (which may already be
+  // the client_id itself, as a fallback — see below). Used for the
+  // getOwnClientId() filter and for the ConnectedApp name-lookup fallback,
+  // both of which need the *actual* client_id regardless of what ended up
+  // in appName.
+  clientId: string | null;
   ipAddress: string | null;
+  // Top-level field on the Activity resource (`networkInfo`), not part of
+  // events[].parameters. Approximate (IP-derived) and not always present.
+  // Note there is deliberately no deviceType/deviceOsVersion here — Google's
+  // userDeviceInfo field is NOT populated for login/token application
+  // events at all (confirmed against Google's own coverage list — it's
+  // scoped to Contact/Gemini/Keep/Meet/Chat/Chrome/Drive/Group/Rule/Looker
+  // Studio/SAML, not login or token), so there is no per-event device data
+  // to carry here regardless of device enrollment. Device info lives in
+  // WorkspaceDevice instead (see syncWorkspaceDevices() below) — a
+  // separate per-user snapshot from the Cloud Identity Devices API, not
+  // correlated to individual events.
+  regionCode: string | null;
+  subdivisionCode: string | null;
   occurredAt: Date;
   uniqueQualifier: string | null;
   raw: unknown;
+}
+
+// A parameter's value can land in different fields depending on Google's
+// declared type for it (value / multiValue / intValue / boolValue) — for
+// name-like string parameters it should be `value`, but fall back to the
+// first multiValue entry defensively since not every parameter's actual
+// shape from the Reports API is documented reliably.
+function paramValue(p: any): string | undefined {
+  if (!p) return undefined;
+  if (typeof p.value === "string") return p.value;
+  if (Array.isArray(p.multiValue) && p.multiValue.length > 0) return p.multiValue[0];
+  // client_id for our own service account is a bare number (no
+  // ".apps.googleusercontent.com" suffix — that suffix only applies to
+  // normal OAuth 2.0 Client IDs registered in Cloud Console, not service
+  // accounts), so Google's Reports API may report it as intValue (int64,
+  // encoded as a JSON string) rather than the string `value` field that
+  // real third-party client_ids use. Missing this was why the
+  // getOwnClientId() filter below stopped matching after appName parsing
+  // was tightened up.
+  if (p.intValue !== undefined && p.intValue !== null) return String(p.intValue);
+  return undefined;
 }
 
 function normalize(
@@ -172,6 +255,8 @@ function normalize(
   const occurredAt = new Date(item.id?.time);
   const uniqueQualifier = item.id?.uniqueQualifier ?? null;
   const ipAddress = item.ipAddress ?? null;
+  const regionCode = item.networkInfo?.regionCode ?? null;
+  const subdivisionCode = item.networkInfo?.subdivisionCode ?? null;
 
   const events = Array.isArray(item.events) ? item.events : [];
   return events.map((ev: any) => {
@@ -180,14 +265,25 @@ function normalize(
       // Google's token audit events use names like "authorize" / "revoke".
       eventType = eventType === "revoke" ? "oauth_token_revoke" : "oauth_token_grant";
     }
-    const appNameParam = (ev.parameters || []).find(
-      (p: any) => p.name === "application_name" || p.name === "client_id",
-    );
+    // Google's Token audit events carry the human-readable name under the
+    // "app_name" parameter. Not every grant has one — unverified/internal
+    // OAuth clients often don't get a friendly name from Google at all —
+    // in which case we fall back to the raw client_id here, and
+    // ingestWorkspaceActivity() below tries a second, better fallback
+    // (a name already learned via the Connected Apps Directory-API sync)
+    // before giving up and showing the raw client_id.
+    const params = ev.parameters || [];
+    const appNameParam = params.find((p: any) => p.name === "app_name");
+    const clientIdParam = params.find((p: any) => p.name === "client_id");
+    const clientId = applicationName === "token" ? paramValue(clientIdParam) ?? null : null;
     return {
       userEmail,
       eventType,
-      appName: applicationName === "token" ? appNameParam?.value ?? null : null,
+      appName: applicationName === "token" ? paramValue(appNameParam) ?? clientId ?? null : null,
+      clientId,
       ipAddress,
+      regionCode,
+      subdivisionCode,
       occurredAt,
       uniqueQualifier,
       raw: item,
@@ -364,6 +460,274 @@ export async function syncConnectedApps(): Promise<void> {
   }
 }
 
+export interface NormalizedWorkspaceDevice {
+  userEmail: string;
+  deviceId: string;
+  deviceType: string | null;
+  model: string | null;
+  osVersion: string | null;
+  managementState: string | null;
+  lastSyncTime: Date | null;
+}
+
+// Both Device and DeviceUser resource names start "devices/{id}/..." — that
+// {id} segment is the reliable join key between the two, NOT the separate
+// "deviceId" field on the Device object (that field is a distinct
+// identifier, e.g. a serial-like value, and is not guaranteed to equal the
+// resource name's path segment — keying the join off it was the original
+// bug here: every device/deviceUser join silently missed, so Device
+// fields came back null while DeviceUser fields like managementState
+// (which don't depend on this join at all) populated fine).
+function deviceResourceId(name: string | null | undefined): string | null {
+  return name?.match(/^devices\/([^/]+)/)?.[1] ?? null;
+}
+
+type DeviceInfo = {
+  deviceId: string;
+  deviceType: string | null;
+  model: string | null;
+  osVersion: string | null;
+  lastSyncTime: Date | null;
+};
+
+/**
+ * Paginates devices.list into a resourceId -> device-attributes map.
+ * `filter` uses the same "Mobile device search fields" vocabulary as the
+ * legacy Directory API (e.g. "email:someone@domain.com") — confirmed via
+ * Google's own how-to guide example ('status:approved os:IOS'), since the
+ * Cloud Identity API's own reference docs don't spell out the syntax
+ * themselves, just point at that shared field list.
+ */
+async function fetchDevicesById(cloudidentity: cloudidentity_v1.Cloudidentity, filter?: string) {
+  const devicesById = new Map<string, DeviceInfo>();
+  let pageToken: string | undefined;
+  do {
+    const res = await withRetry429(() =>
+      cloudidentity.devices.list({
+        customer: "customers/my_customer",
+        pageSize: 100,
+        pageToken,
+        filter,
+      }),
+    );
+    for (const device of res.data.devices || []) {
+      const resourceId = deviceResourceId(device.name);
+      if (!resourceId) continue;
+      devicesById.set(resourceId, {
+        // Prefer the explicit deviceId field for what we display/store —
+        // it's the more human-meaningful identifier — falling back to the
+        // resource ID only if Google omits it, which shouldn't happen but
+        // costs nothing to guard.
+        deviceId: device.deviceId ?? resourceId,
+        deviceType: device.deviceType ?? null,
+        model: device.model ?? null,
+        osVersion: device.osVersion ?? null,
+        lastSyncTime: device.lastSyncTime ? new Date(device.lastSyncTime) : null,
+      });
+    }
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+  return devicesById;
+}
+
+/**
+ * Paginates devices.deviceUsers.list (parent: "devices/-" = search across
+ * all devices) and joins each association against `devicesById`. Page size
+ * caps at 20 here (vs. devices.list's 100), so this is the slower half of
+ * a full org sweep — the per-user variant below passes `filter` to keep
+ * both calls scoped instead of walking the whole org.
+ */
+async function fetchDeviceUserAssociations(
+  cloudidentity: cloudidentity_v1.Cloudidentity,
+  devicesById: Map<string, DeviceInfo>,
+  filter?: string,
+): Promise<NormalizedWorkspaceDevice[]> {
+  const results: NormalizedWorkspaceDevice[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await withRetry429(() =>
+      cloudidentity.devices.deviceUsers.list({
+        parent: "devices/-",
+        customer: "customers/my_customer",
+        pageSize: 20,
+        pageToken,
+        filter,
+      }),
+    );
+    for (const deviceUser of res.data.deviceUsers || []) {
+      const resourceId = deviceResourceId(deviceUser.name);
+      if (!deviceUser.userEmail || !resourceId) continue;
+      const device = devicesById.get(resourceId);
+      results.push({
+        userEmail: deviceUser.userEmail,
+        deviceId: device?.deviceId ?? resourceId,
+        deviceType: device?.deviceType ?? null,
+        model: device?.model ?? null,
+        osVersion: device?.osVersion ?? null,
+        managementState: deviceUser.managementState ?? null,
+        lastSyncTime: device?.lastSyncTime ?? null,
+      });
+    }
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+  return results;
+}
+
+/**
+ * Cloud Identity Devices API, org-wide, two calls: devices.list gives
+ * device attributes keyed by resource ID; devices.deviceUsers.list gives
+ * the userEmail <-> device associations for every device. Slow on a large
+ * org (deviceUsers.list's 20-per-page cap means many round trips) — this
+ * is what the background cron uses; the UI should prefer
+ * fetchWorkspaceDevicesForUser() for anything interactive.
+ */
+export async function fetchWorkspaceDevices(): Promise<NormalizedWorkspaceDevice[]> {
+  const auth = getAuthClient();
+  const cloudidentity = google.cloudidentity({ version: "v1", auth });
+
+  const devicesById = await fetchDevicesById(cloudidentity);
+  const results = await fetchDeviceUserAssociations(cloudidentity, devicesById);
+
+  console.log(
+    `[WorkspaceDevices] Fetched ${devicesById.size} devices, ${results.length} device/user associations, ${results.filter((r) => r.deviceType).length} joined successfully.`,
+  );
+
+  return results;
+}
+
+/**
+ * Same shape as fetchWorkspaceDevices() but scoped to one user via the
+ * "email:" filter on both calls — the fast path for anything interactive
+ * (the Devices tab syncs a user's devices on-demand rather than eating the
+ * cost of a full org sweep just to expand one row). The filter is a
+ * partial/substring match per Google's docs (matches "joe.a@x.com" and
+ * "joe.b@x.com" on a query for "joe"), so results are still filtered
+ * client-side to an exact match rather than trusting the server-side
+ * filter alone.
+ */
+export async function fetchWorkspaceDevicesForUser(userEmail: string): Promise<NormalizedWorkspaceDevice[]> {
+  const auth = getAuthClient();
+  const cloudidentity = google.cloudidentity({ version: "v1", auth });
+  const filter = `email:${userEmail}`;
+
+  const devicesById = await fetchDevicesById(cloudidentity, filter);
+  const results = await fetchDeviceUserAssociations(cloudidentity, devicesById, filter);
+
+  return results.filter((d) => d.userEmail.toLowerCase() === userEmail.toLowerCase());
+}
+
+async function upsertWorkspaceDevices(devices: NormalizedWorkspaceDevice[]): Promise<void> {
+  for (const d of devices) {
+    await prisma.workspaceDevice.upsert({
+      where: { userEmail_deviceId: { userEmail: d.userEmail, deviceId: d.deviceId } },
+      update: {
+        deviceType: d.deviceType,
+        model: d.model,
+        osVersion: d.osVersion,
+        managementState: d.managementState,
+        lastSyncTime: d.lastSyncTime,
+      },
+      create: {
+        userEmail: d.userEmail,
+        deviceId: d.deviceId,
+        deviceType: d.deviceType,
+        model: d.model,
+        osVersion: d.osVersion,
+        managementState: d.managementState,
+        lastSyncTime: d.lastSyncTime,
+      },
+    });
+  }
+}
+
+/**
+ * Cron entry point: full org-wide upsert + delete-stale against
+ * WorkspaceDevice, mirroring syncConnectedApps()'s snapshot pattern. Kept
+ * as a background-only sweep (6h cron) — the Devices tab itself now uses
+ * syncWorkspaceDevicesForUser() per account instead of forcing a full sync
+ * on every page load, since the full sweep is meaningfully slower.
+ */
+export async function syncWorkspaceDevices(): Promise<void> {
+  if (!isWorkspaceMonitoringConfigured()) return;
+
+  try {
+    const devices = await fetchWorkspaceDevices();
+    await upsertWorkspaceDevices(devices);
+
+    // Org-wide delete-stale, not per-user — safe because `devices` above
+    // is a full org sweep every time, not a partial/filtered one.
+    if (devices.length > 0) {
+      await prisma.workspaceDevice.deleteMany({
+        where: {
+          NOT: {
+            OR: devices.map((d) => ({ userEmail: d.userEmail, deviceId: d.deviceId })),
+          },
+        },
+      });
+    }
+
+    console.log(`[WorkspaceDevices] Synced ${devices.length} device/user associations.`);
+  } catch (error) {
+    console.error("[WorkspaceDevices] Sync failed:", describeGoogleApiError(error));
+  }
+}
+
+/**
+ * On-demand per-user sync, mirroring syncConnectedAppsForUser() — used by
+ * the Devices tab when an admin expands one account. Can throw; the route
+ * decides how to surface that (500 to the caller), same convention as
+ * syncConnectedAppsForUser.
+ */
+export async function syncWorkspaceDevicesForUser(userEmail: string) {
+  const devices = await fetchWorkspaceDevicesForUser(userEmail);
+  await upsertWorkspaceDevices(devices);
+
+  await prisma.workspaceDevice.deleteMany({
+    where: { userEmail, deviceId: { notIn: devices.map((d) => d.deviceId) } },
+  });
+
+  return prisma.workspaceDevice.findMany({ where: { userEmail }, orderBy: { deviceType: "asc" } });
+}
+
+export interface InferredDevice {
+  deviceType: string | null;
+  model: string | null;
+  osVersion: string | null;
+  gapMs: number;
+}
+
+// Best-effort, NOT authoritative: Google's Reports API login events carry
+// no device reference at all (see the note on NormalizedActivityEvent) —
+// there is no real link to draw here, only a guess. This finds the
+// WorkspaceDevice with the closest lastSyncTime to a login's occurredAt,
+// for the same user, on the theory that Endpoint Verification pings
+// periodically while Chrome is open on the device actually being used.
+// Endpoint Verification's sync interval isn't documented anywhere found,
+// so MAX_INFERENCE_GAP_MS is a loose sanity bound to avoid surfacing a
+// "match" to a device that hasn't synced in a long time — not a real fact
+// about EV's cadence. The actual gap is always returned alongside the
+// guess (gapMs) so the caller can judge credibility itself: "4 minutes
+// apart" is trustworthy, "6 days apart, nothing closer available" is not,
+// and both currently render as a "match" without this.
+const MAX_INFERENCE_GAP_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function inferLikelyDevice(
+  occurredAt: Date,
+  devices: { deviceType: string | null; model: string | null; osVersion: string | null; lastSyncTime: Date | null }[],
+): InferredDevice | null {
+  let best: InferredDevice | null = null;
+  let bestGap = Infinity;
+  for (const d of devices) {
+    if (!d.lastSyncTime) continue;
+    const gap = Math.abs(d.lastSyncTime.getTime() - occurredAt.getTime());
+    if (gap < bestGap) {
+      bestGap = gap;
+      best = { deviceType: d.deviceType, model: d.model, osVersion: d.osVersion, gapMs: gap };
+    }
+  }
+  return best && bestGap <= MAX_INFERENCE_GAP_MS ? best : null;
+}
+
 interface AlertResult {
   flagged: boolean;
   notifType?: NotifType;
@@ -470,20 +834,60 @@ export async function ingestWorkspaceActivity(): Promise<void> {
 
     const ownClientId = getOwnClientId();
     const events = (await fetchActivitySince(since)).filter(
-      (event) => !ownClientId || event.appName !== ownClientId,
+      (event) => !isOwnPollingNoise(event, ownClientId),
     );
+
+    // Second fallback for events where Google's Reports API didn't supply
+    // app_name (appName === the raw client_id): the Connected Apps sync
+    // (syncConnectedApps(), Directory API tokens.list) sometimes already
+    // has a friendlier displayText for the same client_id, since it's a
+    // different Google endpoint with different data. One bulk lookup per
+    // ingest run rather than a query per event.
+    //
+    // Isolated in its own try/catch deliberately: this is a cosmetic
+    // upgrade (nicer app names), not essential to ingestion. It must never
+    // be able to abort the loop below and block real event ingestion
+    // (including login events, which have nothing to do with app names)
+    // just because this one lookup had a bad moment.
+    const unresolvedClientIds = [
+      ...new Set(
+        events
+          .filter((e) => e.clientId && e.appName === e.clientId)
+          .map((e) => e.clientId as string),
+      ),
+    ];
+    let nameByClientId = new Map<string, string>();
+    if (unresolvedClientIds.length) {
+      try {
+        const knownNames = await prisma.connectedApp.findMany({
+          where: { clientId: { in: unresolvedClientIds }, appName: { not: null } },
+          select: { clientId: true, appName: true },
+        });
+        nameByClientId = new Map(knownNames.map((a) => [a.clientId, a.appName as string]));
+      } catch (error) {
+        console.error("[WorkspaceActivity] ConnectedApp name lookup failed (non-fatal, continuing without it):", error);
+      }
+    }
+
     let flaggedCount = 0;
 
     for (const event of events) {
       if (!event.userEmail || await alreadyIngested(event)) continue;
 
-      const alert = await evaluateAlert(event);
+      const resolvedAppName =
+        event.clientId && event.appName === event.clientId
+          ? nameByClientId.get(event.clientId) ?? event.appName
+          : event.appName;
+
+      const alert = await evaluateAlert({ ...event, appName: resolvedAppName });
       await prisma.workspaceActivityEvent.create({
         data: {
           userEmail: event.userEmail,
           eventType: event.eventType,
-          appName: event.appName,
+          appName: resolvedAppName,
           ipAddress: event.ipAddress,
+          regionCode: event.regionCode,
+          subdivisionCode: event.subdivisionCode,
           flagged: alert.flagged,
           occurredAt: event.occurredAt,
           uniqueQualifier: event.uniqueQualifier,

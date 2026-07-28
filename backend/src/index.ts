@@ -20,7 +20,7 @@ import workspaceActivityRoutes from "./routes/workspaceActivity";
 import backupsRoutes from "./routes/backups";
 import integrationsRoutes from "./routes/integrations";
 import { notifyAdmins } from "./services/notifications";
-import { ingestWorkspaceActivity, syncConnectedApps } from "./services/googleWorkspace";
+import { ingestWorkspaceActivity, syncConnectedApps, syncWorkspaceDevices } from "./services/googleWorkspace";
 import { runAuditRetentionSweep } from "./services/auditBackup";
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -178,6 +178,7 @@ app.listen(PORT, async () => {
   await checkAuditRetention();
   await ingestWorkspaceActivity();
   await syncConnectedApps();
+  await syncWorkspaceDevices();
 
   // Run daily (every 24 hours)
   setInterval(checkOffboarding, 24 * 60 * 60 * 1000);
@@ -186,7 +187,8 @@ app.listen(PORT, async () => {
   // Workspace activity: 30 min, not 24h — see docs/google-workspace-admin-sdk-monitoring.md §1
   // on Google's own multi-hour ingestion lag (polling faster doesn't help, slower loses freshness).
   setInterval(ingestWorkspaceActivity, 30 * 60 * 1000);
-  // Connected apps is a current-state snapshot, not a security event feed —
-  // changes far less often, so a longer interval is enough.
+  // Connected apps and devices are current-state snapshots, not security
+  // event feeds — both change far less often, so a longer interval is enough.
   setInterval(syncConnectedApps, 6 * 60 * 60 * 1000);
+  setInterval(syncWorkspaceDevices, 6 * 60 * 60 * 1000);
 });

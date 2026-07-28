@@ -10,6 +10,83 @@ const formatEventType = (eventType) => {
     .join(" ");
 };
 
+// Google doesn't always supply a human-readable app_name for a grant (e.g.
+// unverified/internal OAuth clients) — in that case the backend falls back
+// to the raw client_id, which looks like "123-abc.apps.googleusercontent.com".
+// Show that as a labeled, shortened value instead of the raw string so it
+// doesn't read as unlabeled garbage.
+const isRawClientId = (appName) => !!appName && /\.apps\.googleusercontent\.com$/.test(appName);
+const formatAppName = (appName) => {
+  if (!appName) return "-";
+  if (!isRawClientId(appName)) return appName;
+  const idPart = appName.split(".")[0];
+  const shortId = idPart.length > 12 ? `${idPart.slice(0, 12)}…` : idPart;
+  return `Unverified app (${shortId})`;
+};
+
+// deviceType values from the Cloud Identity Devices API (WorkspaceDevice —
+// a per-user device inventory synced separately from the Activity Log; see
+// the Devices tab below). Google's Reports API login events have no
+// per-event device field at all — the "Likely Device" shown on login rows
+// further down is a backend-computed guess (inferLikelyDevice(), closest
+// WorkspaceDevice.lastSyncTime), not real per-event data from Google.
+const DEVICE_TYPE_LABELS = {
+  WINDOWS: "Windows",
+  MAC_OS: "Mac",
+  LINUX: "Linux",
+  CHROME_OS: "Chrome OS",
+  ANDROID: "Android",
+  IOS: "iOS",
+  GOOGLE_SYNC: "Google Sync",
+  DEVICE_TYPE_UNSPECIFIED: "Unknown",
+};
+const formatDeviceType = (deviceType) => {
+  if (!deviceType) return "-";
+  return DEVICE_TYPE_LABELS[deviceType] || deviceType;
+};
+
+const MANAGEMENT_STATE_LABELS = {
+  APPROVED: "Approved",
+  BLOCKED: "Blocked",
+  PENDING: "Pending approval",
+  UNPROVISIONED: "Unprovisioned",
+  WIPING: "Wiping",
+  WIPED: "Wiped",
+};
+const formatManagementState = (state) => {
+  if (!state) return "-";
+  return MANAGEMENT_STATE_LABELS[state] || state;
+};
+
+// regionCode/subdivisionCode come from Google's networkInfo — approximate
+// (IP-derived), only present when Google resolves it for that event.
+const formatLocation = (regionCode, subdivisionCode) => {
+  if (!regionCode) return "-";
+  return subdivisionCode ? `${subdivisionCode}, ${regionCode}` : regionCode;
+};
+
+const formatGap = (gapMs) => {
+  const mins = Math.round(gapMs / 60000);
+  if (mins < 1) return "under a minute";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours}h`;
+  return `${Math.round(hours / 24)}d`;
+};
+
+// inferredDevice is a backend-computed guess (services/googleWorkspace.ts's
+// inferLikelyDevice()) — the closest WorkspaceDevice.lastSyncTime for this
+// user, not real per-event data from Google. Always show the gap alongside
+// the guess so it reads as "closest available, N apart" rather than a
+// confirmed fact.
+const formatInferredDevice = (inferredDevice) => {
+  if (!inferredDevice) return "-";
+  const parts = [formatDeviceType(inferredDevice.deviceType)];
+  if (inferredDevice.model) parts.push(inferredDevice.model);
+  if (inferredDevice.osVersion) parts.push(inferredDevice.osVersion);
+  return `${parts.join(" · ")} (±${formatGap(inferredDevice.gapMs)}, inferred)`;
+};
+
 function ActivityLogTab() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,8 +132,15 @@ function ActivityLogTab() {
       <p className="mt-2 mb-6 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
         Google Workspace logins and OAuth app grants ingested for
         OrkaVault users. Flagged rows also triggered an admin
-        notification. Requires Workspace monitoring to be configured
-        (see Settings &rarr; Alerts) — empty until then.
+        notification. Location is approximate (from the IP that made the
+        request — for an OAuth grant via third-party SSO, that's often
+        the app's own server, not the user's actual location) and only
+        appears when Google resolves it. Likely Device (login rows only)
+        is a guess, not data Google gives us — it's whichever of the
+        user's devices (from the Devices tab) last synced closest to the
+        login time; treat it as a lead to investigate, not a fact.
+        Requires Workspace monitoring to be configured (see Settings
+        &rarr; Alerts) — empty until then.
       </p>
 
       <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
@@ -108,8 +192,11 @@ function ActivityLogTab() {
         </div>
       </div>
 
-      {/* Mobile: one card per event instead of a wide table */}
-      <div className="row-cards md:hidden">
+      {/* Tile layout at every breakpoint — a table here kept forcing
+          horizontal scroll once more columns were added (nowrap-ish
+          columns add up wider than most viewports), so this is cards
+          only, no table fallback. */}
+      <div className="row-cards">
         {loading ? (
           <div className="text-sm text-center py-6 text-muted">Loading...</div>
         ) : filteredEvents.length === 0 ? (
@@ -119,9 +206,6 @@ function ActivityLogTab() {
             <div key={event.id} className="row-card">
               <div className="row-card-title">
                 <span className="badge-pill font-mono">{formatEventType(event.eventType)}</span>
-                {event.flagged && (
-                  <span className="bg-red-100 text-brand-red px-2 py-1 rounded text-xs font-medium">Flagged</span>
-                )}
               </div>
               <div className="row-card-field">
                 <span className="rcf-label">Timestamp</span>
@@ -135,92 +219,30 @@ function ActivityLogTab() {
               </div>
               <div className="row-card-field">
                 <span className="rcf-label">App</span>
-                <span className="rcf-value">{event.appName || "-"}</span>
+                <span className="rcf-value" title={isRawClientId(event.appName) ? event.appName : undefined}>
+                  {formatAppName(event.appName)}
+                </span>
               </div>
               <div className="row-card-field">
                 <span className="rcf-label">IP Address</span>
                 <span className="rcf-value font-mono">{event.ipAddress || "-"}</span>
               </div>
+              <div className="row-card-field">
+                <span className="rcf-label">Location</span>
+                <span className="rcf-value">{formatLocation(event.regionCode, event.subdivisionCode)}</span>
+              </div>
+              <div className="row-card-field">
+                <span className="rcf-label">Likely Device</span>
+                <span
+                  className="rcf-value"
+                  title="Best-effort guess: closest Endpoint Verification sync time for this user's devices. Not confirmed by Google — logins only, since token grants often come from a third-party app's own server."
+                >
+                  {formatInferredDevice(event.inferredDevice)}
+                </span>
+              </div>
             </div>
           ))
         )}
-      </div>
-
-      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
-        <div className="overflow-x-auto custom-scrollbar">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
-          <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
-                Timestamp
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
-                Event Type
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
-                User
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
-                App
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
-                IP Address
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
-                Flagged
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-[var(--bg-surface)] divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
-            {loading ? (
-              <tr>
-                <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
-                  Loading...
-                </td>
-              </tr>
-            ) : filteredEvents.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
-                  No workspace activity found matching filters
-                </td>
-              </tr>
-            ) : (
-              filteredEvents.map((event) => (
-                <tr key={event.id} className="hover:bg-gray-50 dark:bg-[var(--bg-canvas)]">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
-                    <div title={new Date(event.occurredAt).toLocaleString()}>
-                      {format(new Date(event.occurredAt), "MMM d, yyyy, h:mm a")}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-1 rounded text-xs font-mono">
-                      {formatEventType(event.eventType)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-[var(--text-primary)]">
-                    {event.userEmail}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
-                    {event.appName || "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)] font-mono">
-                    {event.ipAddress || "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {event.flagged ? (
-                      <span className="bg-red-100 text-brand-red px-2 py-1 rounded text-xs font-medium">
-                        Flagged
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 dark:text-[var(--text-tertiary)] text-xs">-</span>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-        </div>
       </div>
     </>
   );
@@ -483,6 +505,189 @@ function ConnectedAppsTab() {
   );
 }
 
+function DeviceRow({ device }) {
+  return (
+    <div className="py-2 border-t border-gray-100 dark:border-[var(--border-subtle)] first:border-t-0">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-gray-900 dark:text-[var(--text-primary)]">
+          {formatDeviceType(device.deviceType)}
+        </span>
+        <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-0.5 rounded text-xs font-medium">
+          {formatManagementState(device.managementState)}
+        </span>
+      </div>
+      <div className="mt-1 text-xs text-gray-500 dark:text-[var(--text-tertiary)]">
+        {device.model || "Unknown model"}{device.osVersion ? ` — ${device.osVersion}` : ""}
+      </div>
+      <div className="mt-1 text-xs text-gray-400 dark:text-[var(--text-tertiary)]">
+        {device.lastSyncTime
+          ? `Last synced ${format(new Date(device.lastSyncTime), "MMM d, yyyy, h:mm a")}`
+          : "Last synced -"}
+      </div>
+    </div>
+  );
+}
+
+function DevicesTab() {
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [filterText, setFilterText] = useState("");
+  const [expandedUser, setExpandedUser] = useState(null);
+  const [devicesByUser, setDevicesByUser] = useState({});
+  const [syncingUser, setSyncingUser] = useState(null);
+  const [errorByUser, setErrorByUser] = useState({});
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const { data } = await api.get("/workspace-activity/devices/users");
+        setUsers(data);
+      } catch (e) {
+        console.error("Failed to load Workspace accounts");
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+    loadUsers();
+  }, []);
+
+  const filteredUsers = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => u.userEmail.toLowerCase().includes(q));
+  }, [users, filterText]);
+
+  const syncUser = async (userEmail) => {
+    setSyncingUser(userEmail);
+    setErrorByUser((prev) => ({ ...prev, [userEmail]: null }));
+    try {
+      const { data } = await api.post(
+        `/workspace-activity/devices/sync/${encodeURIComponent(userEmail)}`,
+      );
+      setDevicesByUser((prev) => ({ ...prev, [userEmail]: data }));
+      setUsers((prev) =>
+        prev.map((u) => (u.userEmail === userEmail ? { ...u, deviceCount: data.length } : u)),
+      );
+    } catch (e) {
+      setErrorByUser((prev) => ({ ...prev, [userEmail]: "Failed to sync this account." }));
+    } finally {
+      setSyncingUser(null);
+    }
+  };
+
+  const toggleUser = (userEmail) => {
+    const collapsing = expandedUser === userEmail;
+    setExpandedUser(collapsing ? null : userEmail);
+    // Only sync the first time an account is expanded this session — a
+    // per-account Cloud Identity query, not the slow full-org sweep.
+    // Re-expanding afterward is instant; use the account's own "Refresh"
+    // to force a re-sync.
+    if (!collapsing && !devicesByUser[userEmail]) syncUser(userEmail);
+  };
+
+  const renderDetail = (userEmail) => {
+    if (syncingUser === userEmail) {
+      return (
+        <div className="text-sm text-center py-4 text-gray-500 dark:text-[var(--text-tertiary)]">
+          Syncing...
+        </div>
+      );
+    }
+    if (errorByUser[userEmail]) {
+      return (
+        <div className="text-sm text-center py-4 text-brand-red">
+          {errorByUser[userEmail]}{" "}
+          <button onClick={() => syncUser(userEmail)} className="underline">
+            Retry
+          </button>
+        </div>
+      );
+    }
+    const devices = devicesByUser[userEmail] || [];
+    if (devices.length === 0) {
+      return (
+        <div className="text-sm text-center py-4 text-gray-500 dark:text-[var(--text-tertiary)]">
+          No devices found
+        </div>
+      );
+    }
+    return (
+      <div>
+        <div className="flex justify-end mb-1">
+          <button
+            onClick={() => syncUser(userEmail)}
+            className="text-xs text-brand-blue hover:underline"
+          >
+            Refresh
+          </button>
+        </div>
+        {devices.map((device) => (
+          <DeviceRow key={device.id} device={device} />
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <p className="mt-2 mb-6 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
+        Devices associated with each Workspace account, from Google's Cloud
+        Identity Devices API — a current-state snapshot, not an event log
+        (see the Activity Log tab for that; the two aren't correlated,
+        since Google's login/OAuth events don't carry per-event device
+        info). Requires Endpoint Verification, GCPW, or Google Drive for
+        Desktop actually installed for desktops to show up — mobile
+        (Android/iOS) is usually tracked automatically. Device counts
+        below are last-known (from the 6-hourly background sync); click an
+        account to sync and view its current devices.
+      </p>
+
+      <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)] mb-1">Search Accounts</label>
+          <input
+            type="text"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            placeholder="Filter by email..."
+            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+          />
+        </div>
+        <div className="flex items-end">
+          <button
+            onClick={() => setFilterText("")}
+            className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-none whitespace-nowrap"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <div className="row-cards">
+        {usersLoading ? (
+          <div className="text-sm text-center py-6 text-muted">Loading...</div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="text-sm text-center py-6 text-muted">No accounts found matching filters</div>
+        ) : (
+          filteredUsers.map((u) => (
+            <div key={u.userEmail} className="row-card">
+              <button type="button" onClick={() => toggleUser(u.userEmail)} className="w-full text-left">
+                <div className="row-card-title">
+                  <span className="badge-pill font-mono">{u.userEmail}</span>
+                  <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-1 rounded text-xs font-medium">
+                    {u.deviceCount} device{u.deviceCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+              </button>
+              {expandedUser === u.userEmail && <div className="mt-2">{renderDetail(u.userEmail)}</div>}
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  );
+}
+
 export default function WorkspaceActivity() {
   const [tab, setTab] = useState("activity");
 
@@ -499,6 +704,7 @@ export default function WorkspaceActivity() {
           {[
             { key: "activity", label: "Activity Log" },
             { key: "connected-apps", label: "Connected Apps" },
+            { key: "devices", label: "Devices" },
           ].map((t) => (
             <button
               key={t.key}
@@ -515,7 +721,13 @@ export default function WorkspaceActivity() {
         </nav>
       </div>
 
-      {tab === "activity" ? <ActivityLogTab /> : <ConnectedAppsTab />}
+      {tab === "activity" ? (
+        <ActivityLogTab />
+      ) : tab === "connected-apps" ? (
+        <ConnectedAppsTab />
+      ) : (
+        <DevicesTab />
+      )}
     </div>
   );
 }

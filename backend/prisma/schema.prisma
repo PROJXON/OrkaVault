@@ -213,6 +213,8 @@ model WorkspaceActivityEvent {
   eventType       String // "login_success" | "login_failure" | "suspicious_login" | "oauth_token_grant" | "oauth_token_revoke"
   appName         String?
   ipAddress       String?
+  regionCode      String? // ISO 3166-1 alpha-2, from Google's networkInfo.regionCode — approximate, not always present. NOTE: this is the IP that made *this specific Google API call* — for an oauth_token_grant via third-party SSO, that's the third-party app's server, not necessarily the end user's location.
+  subdivisionCode String? // ISO 3166-2 (state/province), from networkInfo.subdivisionCode
   flagged         Boolean  @default(false)
   occurredAt      DateTime
   uniqueQualifier String?
@@ -240,6 +242,31 @@ model ConnectedApp {
   createdAt  DateTime @default(now())
 
   @@unique([userEmail, clientId])
+  @@index([userEmail])
+}
+
+// Current-state snapshot of devices associated with each Workspace user,
+// from the Cloud Identity Devices API (devices.list + devices.deviceUsers.list)
+// — a genuinely different Google API/credential requirement than the
+// Reports API events above (needs Endpoint Verification/GCPW/Drive for
+// Desktop actually installed on the device, plus the cloud-identity.devices
+// scope). This is deliberately NOT correlated to individual
+// WorkspaceActivityEvent rows — Google's Reports API login/token events
+// don't carry per-event device info at all, so there's no reliable way to
+// tie a specific login to a specific row here. Each sync upserts on
+// (userEmail, deviceId) and deletes rows no longer returned by Google.
+model WorkspaceDevice {
+  id              String    @id @default(uuid())
+  userEmail       String
+  deviceId        String
+  deviceType      String? // WINDOWS | MAC_OS | IOS | ANDROID | CHROME_OS | LINUX | GOOGLE_SYNC | DEVICE_TYPE_UNSPECIFIED
+  model           String?
+  osVersion       String?
+  managementState String? // APPROVED | BLOCKED | PENDING | UNPROVISIONED | WIPING | WIPED
+  lastSyncTime    DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([userEmail, deviceId])
   @@index([userEmail])
 }
 

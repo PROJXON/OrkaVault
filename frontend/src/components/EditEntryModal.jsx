@@ -80,7 +80,12 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (requireTotpQr && formData.platformType === "GOOGLE_WORKSPACE" && !formData.totpQrBase64) {
+    if (
+      requireTotpQr &&
+      formData.platformType === "GOOGLE_WORKSPACE" &&
+      !account.hasTotpQr &&
+      !formData.totpQrBase64
+    ) {
       setError("An Authenticator QR Code is required for Google Workspace accounts.");
       return;
     }
@@ -300,7 +305,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
             <div>
               <label className="field-label mb-1">
                 Authenticator QR Code{" "}
-                {formData.platformType === "GOOGLE_WORKSPACE" && requireTotpQr ? (
+                {formData.platformType === "GOOGLE_WORKSPACE" && requireTotpQr && !account.hasTotpQr ? (
                   <span className="text-brand-red">(Required)</span>
                 ) : (
                   <span className="text-gray-400">(Upload new to replace)</span>
@@ -314,11 +319,15 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   className="text-sm max-w-full"
                   style={{ color: "var(--text-tertiary)" }}
                 />
-                {formData.totpQrBase64 && (
+                {formData.totpQrBase64 ? (
                   <div className="text-xs font-medium whitespace-nowrap" style={{ color: "var(--success-text)" }}>
-                    Image present
+                    New image selected
                   </div>
-                )}
+                ) : account.hasTotpQr ? (
+                  <div className="text-xs font-medium whitespace-nowrap text-gray-400">
+                    Existing QR code on file — will be kept
+                  </div>
+                ) : null}
               </div>
             </div>
 

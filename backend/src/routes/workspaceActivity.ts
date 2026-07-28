@@ -5,10 +5,23 @@
 import { Router, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middleware/auth";
-import { syncConnectedApps, syncConnectedAppsForUser, listActiveWorkspaceUsers } from "../services/googleWorkspace";
+import {
+  syncConnectedApps,
+  syncConnectedAppsForUser,
+  listActiveWorkspaceUsers,
+  syncWorkspaceDevices,
+  syncWorkspaceDevicesForUser,
+  inferLikelyDevice,
+} from "../services/googleWorkspace";
 
 const prisma = new PrismaClient();
 const router = Router();
+
+// Only login-type events get a device guess attached — an oauth_token_grant's
+// IP/timing is often the third-party app's own server (see the note on
+// WorkspaceActivityEvent.regionCode), not the user's device, so guessing a
+// device there would be actively misleading rather than just approximate.
+const LOGIN_EVENT_TYPES = new Set(["login_success", "login_failure", "suspicious_login"]);
 
 // GET /api/workspace-activity — list ingested events with filters [ADMIN]
 router.get(
@@ -28,7 +41,29 @@ router.get(
         orderBy: { occurredAt: "desc" },
         take: Math.min(parseInt(limit as string) || 100, 500),
       });
-      res.json(events);
+
+      // Attach a best-effort "likely device" guess to login events only,
+      // from whatever WorkspaceDevice data is already synced (no live
+      // Google calls here — this route stays fast). See
+      // inferLikelyDevice()'s comment for why this is a guess, not a fact.
+      const loginUserEmails = [...new Set(events.filter((e) => LOGIN_EVENT_TYPES.has(e.eventType)).map((e) => e.userEmail))];
+      const devices = loginUserEmails.length
+        ? await prisma.workspaceDevice.findMany({ where: { userEmail: { in: loginUserEmails } } })
+        : [];
+      const devicesByUser = new Map<string, typeof devices>();
+      for (const d of devices) {
+        const list = devicesByUser.get(d.userEmail);
+        if (list) list.push(d);
+        else devicesByUser.set(d.userEmail, [d]);
+      }
+
+      const eventsWithInference = events.map((e) =>
+        LOGIN_EVENT_TYPES.has(e.eventType)
+          ? { ...e, inferredDevice: inferLikelyDevice(e.occurredAt, devicesByUser.get(e.userEmail) || []) }
+          : e,
+      );
+
+      res.json(eventsWithInference);
     } catch (error) {
       console.error("[WorkspaceActivity]", error);
       res.status(500).json({ error: "Failed to fetch workspace activity." });
@@ -155,6 +190,100 @@ router.post(
     } catch (error) {
       console.error("[ConnectedApps]", error);
       res.status(500).json({ error: "Failed to sync connected apps for user." });
+    }
+  },
+);
+
+// GET /api/workspace-activity/devices — current per-user device inventory
+// (WorkspaceDevice, a snapshot from the Cloud Identity Devices API — not
+// correlated to individual Activity Log rows, see services/googleWorkspace.ts
+// on why Reports API login/token events can't carry per-event device info).
+// Populated by the syncWorkspaceDevices cron. [ADMIN]
+router.get(
+  "/devices",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { userEmail } = req.query;
+    const where: any = {};
+    if (userEmail) where.userEmail = userEmail as string;
+
+    try {
+      const devices = await prisma.workspaceDevice.findMany({
+        where,
+        orderBy: [{ userEmail: "asc" }, { deviceType: "asc" }],
+      });
+      res.json(devices);
+    } catch (error) {
+      console.error("[WorkspaceDevices]", error);
+      res.status(500).json({ error: "Failed to fetch workspace devices." });
+    }
+  },
+);
+
+// GET /api/workspace-activity/devices/users — fast list of every active
+// Workspace account + its last-known device count (one users.list call +
+// one grouped DB query, no live Cloud Identity calls) — mirrors
+// /connected-apps/users. Backs the Devices tab's default (fast) view; the
+// tab syncs an individual account only when it's expanded. [ADMIN]
+router.get(
+  "/devices/users",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const [workspaceUsers, counts] = await Promise.all([
+        listActiveWorkspaceUsers(),
+        prisma.workspaceDevice.groupBy({ by: ["userEmail"], _count: { _all: true } }),
+      ]);
+      const countByEmail = new Map(counts.map((c) => [c.userEmail, c._count._all]));
+      const users = workspaceUsers
+        .map(({ email }) => ({ userEmail: email, deviceCount: countByEmail.get(email) ?? 0 }))
+        .sort((a, b) => a.userEmail.localeCompare(b.userEmail));
+      res.json(users);
+    } catch (error) {
+      console.error("[WorkspaceDevices]", error);
+      res.status(500).json({ error: "Failed to list Workspace accounts." });
+    }
+  },
+);
+
+// POST /api/workspace-activity/devices/sync — manual full org resync.
+// Slow (see services/googleWorkspace.ts on deviceUsers.list's 20-per-page
+// cap) — kept as a manual "resync everything" escape hatch; the Devices
+// tab itself uses the per-account route below instead. [ADMIN]
+router.post(
+  "/devices/sync",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      await syncWorkspaceDevices();
+      const devices = await prisma.workspaceDevice.findMany({
+        orderBy: [{ userEmail: "asc" }, { deviceType: "asc" }],
+      });
+      res.json(devices);
+    } catch (error) {
+      console.error("[WorkspaceDevices]", error);
+      res.status(500).json({ error: "Failed to sync workspace devices." });
+    }
+  },
+);
+
+// POST /api/workspace-activity/devices/sync/:userEmail — on-demand sync
+// for a single account (filtered Cloud Identity calls, not a full org
+// sweep) — used when the admin expands an account in the Devices tab. [ADMIN]
+router.post(
+  "/devices/sync/:userEmail",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const devices = await syncWorkspaceDevicesForUser(req.params.userEmail);
+      res.json(devices);
+    } catch (error) {
+      console.error("[WorkspaceDevices]", error);
+      res.status(500).json({ error: "Failed to sync devices for user." });
     }
   },
 );
