@@ -1,0 +1,18 @@
+# .gitignore is intentionally not tracked in this repo (see git log).
+# Copy this file to .gitignore in the repo root after cloning.
+
+# ─── OS & Editor ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.suo
+*.user
+.idea/
+.vscode/
+
+# ─── Ignore files themselves ──────────────────────────────────────────────────
+.gitignore
+.prettierignore
+
+# ─── Node Modules ─────────────────────────────────────────────────────────────
+node_modules/
+
