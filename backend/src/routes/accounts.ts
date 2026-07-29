@@ -142,7 +142,43 @@ router.get(
       res.status(404).json({ error: "Account not found." });
       return;
     }
-    res.json({ ...account, secretRef: undefined });
+
+    // Same non-secret metadata every user already sees via GET / (the list
+    // route) — but never totpQrBase64/passwordHash/secretRef (secret-adjacent;
+    // reveal-otp/reveal-qr are the only routes allowed to hand those out, and
+    // only after their own grant/clearance/manager-scope checks), and other
+    // grant-holders' identities are ADMIN-only, matching ownersById above.
+    const myGrant = account.accessGrants.find((g) => g.userId === req.user!.id);
+    res.json({
+      id: account.id,
+      name: account.name,
+      username: account.username,
+      platformType: account.platformType,
+      ownerId: account.ownerId,
+      healthScore: account.healthScore,
+      healthLabel: account.healthLabel,
+      refreshCycle: account.refreshCycle,
+      nextRotationDue: account.nextRotationDue,
+      qaStatus: account.qaStatus,
+      notes: account.notes,
+      collectionId: account.collectionId,
+      requiredClearance: account.requiredClearance,
+      createdAt: account.createdAt,
+      createdBy: account.createdBy,
+      hasTotpQr: !!account.totpQrBase64,
+      isGoogleSSO: account.isGoogleSSO,
+      hasGrant: !!myGrant,
+      grantExpiresAt: myGrant?.expiresAt || null,
+      accessGrants:
+        req.user!.role === "ADMIN"
+          ? account.accessGrants.map((g) => ({
+              userId: g.userId,
+              name: g.user.name,
+              email: g.user.email,
+              expiresAt: g.expiresAt,
+            }))
+          : undefined,
+    });
   },
 );
 

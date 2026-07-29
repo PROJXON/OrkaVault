@@ -43,7 +43,14 @@ export async function getMaxBackups(): Promise<number> {
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const str = typeof value === "string" ? value : JSON.stringify(value);
+  let str = typeof value === "string" ? value : JSON.stringify(value);
+  // Neutralize CSV/formula injection (CWE-1236): actorName/actorEmail/
+  // actorDepartment below come from User fields an attacker controls at
+  // self-registration, and this file is meant to be opened by an admin in
+  // Excel/Sheets — a leading =/+/-/@ would otherwise be interpreted as a
+  // formula. Prefixing with a quote is the standard mitigation (renders
+  // as literal text, not evaluated).
+  if (/^[=+\-@]/.test(str)) str = `'${str}`;
   return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 

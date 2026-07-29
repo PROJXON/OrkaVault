@@ -14,6 +14,7 @@ import {
   verifyRefreshToken,
   AuthenticatedRequest,
   JwtPayload,
+  JWT_SECRET,
 } from "../middleware/auth";
 import { notifyAdmins, notifyUser } from "../services/notifications";
 import { OAuth2Client } from "google-auth-library";
@@ -112,9 +113,6 @@ router.post("/login", async (req: Request, res: Response) => {
 
     if (user.mfaEnabled) {
       const challenge = webcrypto.randomUUID();
-      const JWT_SECRET =
-        process.env.JWT_SECRET ||
-        "orkavault_local_development_jwt_secret_key_64_characters_long_12345";
       const tempToken = jwt.sign(
         { userId: user.id, purpose: "mfa_verification", challenge },
         JWT_SECRET,
@@ -223,9 +221,6 @@ router.post("/google", async (req: Request, res: Response) => {
 
       if (user.mfaEnabled) {
         const challenge = webcrypto.randomUUID();
-        const JWT_SECRET =
-          process.env.JWT_SECRET ||
-          "orkavault_local_development_jwt_secret_key_64_characters_long_12345";
         const tempToken = jwt.sign(
           { userId: user.id, purpose: "mfa_verification", challenge },
           JWT_SECRET,
@@ -412,10 +407,6 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
   }
 
   try {
-    const JWT_SECRET =
-      process.env.JWT_SECRET ||
-      "orkavault_local_development_jwt_secret_key_64_characters_long_12345";
-    
     let decoded: any;
     try {
       decoded = jwt.verify(tempToken, JWT_SECRET);

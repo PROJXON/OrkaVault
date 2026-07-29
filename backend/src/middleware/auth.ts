@@ -12,12 +12,23 @@ import { PrismaClient, Role } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  "orkavault_local_development_jwt_secret_key_64_characters_long_12345";
-const JWT_REFRESH_SECRET =
-  process.env.JWT_REFRESH_SECRET ||
-  "orkavault_local_development_jwt_refresh_secret_key_64_characters_long";
+// No insecure hardcoded fallback: a deployment that forgets to set either
+// of these would otherwise sign/verify tokens with a secret that's public
+// in this source tree, letting anyone forge a valid access or refresh
+// token for any userId. Fail loudly at startup instead.
+const rawJwtSecret = process.env.JWT_SECRET;
+const rawJwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
+
+if (!rawJwtSecret || !rawJwtRefreshSecret) {
+  throw new Error(
+    "JWT_SECRET and JWT_REFRESH_SECRET must both be set in the environment. " +
+      "Copy backend/.env.example to .env and fill in strong random values for both " +
+      "— refusing to start with an insecure default secret.",
+  );
+}
+
+export const JWT_SECRET: string = rawJwtSecret;
+const JWT_REFRESH_SECRET: string = rawJwtRefreshSecret;
 
 export interface JwtPayload {
   userId: string;
@@ -99,6 +110,18 @@ export async function requireAuth(
     try {
       decoded = verifyAccessToken(token);
     } catch (err) {
+      res.status(401).json({ error: "Invalid or expired token." });
+      return;
+    }
+
+    // Reject MFA-challenge tokens here. /api/auth/login and /api/auth/google
+    // sign a short-lived tempToken (userId + purpose: "mfa_verification")
+    // with this same JWT_SECRET so /api/auth/mfa/verify can validate it —
+    // but a real access token (see JwtPayload) never carries a `purpose`
+    // claim. Without this check, a tempToken passes verifyAccessToken like
+    // any other valid token and would grant full API access before the
+    // second factor is ever provided.
+    if ((decoded as JwtPayload & { purpose?: string }).purpose) {
       res.status(401).json({ error: "Invalid or expired token." });
       return;
     }

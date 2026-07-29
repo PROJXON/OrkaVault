@@ -21,8 +21,8 @@ export type ChatAlertEvent =
   | "ACCESS_APPROVED"
   | "ACCESS_DENIED"
   | "WORKSPACE_SUSPICIOUS_LOGIN"
-  | "WORKSPACE_NEW_OAUTH_APP"
-  | "WORKSPACE_LOGIN_ALLOWLIST_VIOLATION";
+  | "WORKSPACE_LOGIN_ALLOWLIST_VIOLATION"
+  | "WORKSPACE_LOGIN_FAILURE";
 
 export interface ChatAlertPayload {
   requesterName: string;
@@ -50,8 +50,8 @@ const EVENT_COLOR: Record<ChatAlertEvent, number> = {
   ACCESS_APPROVED: 0x22c55e, // green
   ACCESS_DENIED: 0xef4444, // red
   WORKSPACE_SUSPICIOUS_LOGIN: 0xef4444, // red
-  WORKSPACE_NEW_OAUTH_APP: 0xf59e0b, // amber
   WORKSPACE_LOGIN_ALLOWLIST_VIOLATION: 0xef4444, // red
+  WORKSPACE_LOGIN_FAILURE: 0xef4444, // red
 };
 
 function alertLink(payload: ChatAlertPayload): string {
@@ -69,10 +69,10 @@ function eventTitle(event: ChatAlertEvent): string {
       return "Access Request Denied";
     case "WORKSPACE_SUSPICIOUS_LOGIN":
       return "Suspicious Workspace Login";
-    case "WORKSPACE_NEW_OAUTH_APP":
-      return "New OAuth App Connected";
     case "WORKSPACE_LOGIN_ALLOWLIST_VIOLATION":
       return "Login Outside Allow-List";
+    case "WORKSPACE_LOGIN_FAILURE":
+      return "Workspace Login Failure";
   }
 }
 
@@ -91,10 +91,10 @@ function eventDescription(event: ChatAlertEvent, payload: ChatAlertPayload): str
       }`;
     case "WORKSPACE_SUSPICIOUS_LOGIN":
       return `Google flagged a suspicious login for ${requesterName}${detail ? ` from ${detail}` : ""}.`;
-    case "WORKSPACE_NEW_OAUTH_APP":
-      return `${requesterName} connected a new OAuth app${accountName ? `: "${accountName}"` : ""}.`;
     case "WORKSPACE_LOGIN_ALLOWLIST_VIOLATION":
       return `${requesterName} logged in from outside the allow-list${detail ? ` (${detail})` : ""}.`;
+    case "WORKSPACE_LOGIN_FAILURE":
+      return `Failed Workspace login for ${requesterName}${detail ? `\n\n${detail}` : ""}.`;
   }
 }
 

@@ -734,6 +734,43 @@ interface AlertResult {
   detail?: string;
 }
 
+// Mirrors the label maps in frontend/src/pages/WorkspaceActivity.jsx
+// (formatDeviceType/formatInferredDevice) — kept separate since this is a
+// plain-text chat-message rendering, not the UI's, but should read the
+// same way to anyone cross-referencing the Activity Log page.
+const DEVICE_TYPE_LABELS_FOR_ALERT: Record<string, string> = {
+  WINDOWS: "Windows",
+  MAC_OS: "Mac",
+  LINUX: "Linux",
+  CHROME_OS: "Chrome OS",
+  ANDROID: "Android",
+  IOS: "iOS",
+  GOOGLE_SYNC: "Google Sync",
+  DEVICE_TYPE_UNSPECIFIED: "Unknown",
+};
+
+function formatGapForAlert(gapMs: number): string {
+  const mins = Math.round(gapMs / 60000);
+  if (mins < 1) return "under a minute";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours}h`;
+  return `${Math.round(hours / 24)}d`;
+}
+
+function formatInferredDeviceForAlert(inferred: InferredDevice | null): string | null {
+  if (!inferred) return null;
+  const parts = [DEVICE_TYPE_LABELS_FOR_ALERT[inferred.deviceType ?? ""] || inferred.deviceType || "Unknown"];
+  if (inferred.model) parts.push(inferred.model);
+  if (inferred.osVersion) parts.push(inferred.osVersion);
+  return `${parts.join(" · ")} (±${formatGapForAlert(inferred.gapMs)}, inferred)`;
+}
+
+function formatLocationForAlert(regionCode: string | null, subdivisionCode: string | null): string | null {
+  if (!regionCode) return null;
+  return subdivisionCode ? `${subdivisionCode}, ${regionCode}` : regionCode;
+}
+
 function ipInAllowlist(ip: string, allowlist: string[]): boolean {
   // Exact-match / simple-prefix check. Full CIDR range matching is a
   // reasonable follow-up if the allow-list ever needs to hold ranges
@@ -743,11 +780,30 @@ function ipInAllowlist(ip: string, allowlist: string[]): boolean {
 }
 
 /**
- * Encodes the three alert triggers the user asked for. Every event is
- * still persisted regardless of this result — `flagged` only controls
- * whether a notification/chat alert fires.
+ * Encodes the alert triggers the user asked for. Every event is still
+ * persisted regardless of this result — `flagged` only controls whether a
+ * notification/chat alert fires.
  */
 export async function evaluateAlert(event: NormalizedActivityEvent): Promise<AlertResult> {
+  if (event.eventType === "login_failure") {
+    // Unconditional — every failed login is worth surfacing, unlike
+    // login_success (only flagged below when it violates the allow-list).
+    const devices = await prisma.workspaceDevice.findMany({ where: { userEmail: event.userEmail } });
+    const inferredDevice = inferLikelyDevice(event.occurredAt, devices);
+    const location = formatLocationForAlert(event.regionCode, event.subdivisionCode);
+    const deviceLabel = formatInferredDeviceForAlert(inferredDevice);
+    const detailParts = [
+      event.ipAddress ? `IP: ${event.ipAddress}` : null,
+      location ? `Location: ${location}` : null,
+      deviceLabel ? `Likely device: ${deviceLabel}` : null,
+    ].filter((p): p is string => !!p);
+    return {
+      flagged: true,
+      notifType: "WORKSPACE_LOGIN_FAILURE",
+      detail: detailParts.length ? detailParts.join("\n") : undefined,
+    };
+  }
+
   if (event.eventType === "suspicious_login") {
     return { flagged: true, notifType: "WORKSPACE_SUSPICIOUS_LOGIN", detail: event.ipAddress ?? undefined };
   }
@@ -760,7 +816,7 @@ export async function evaluateAlert(event: NormalizedActivityEvent): Promise<Ale
     };
   }
 
-  if (event.eventType === "login_success" || event.eventType === "login_failure") {
+  if (event.eventType === "login_success") {
     const [ipPolicy, countryPolicy] = await Promise.all([
       prisma.organizationPolicy.findFirst({ where: { name: "WORKSPACE_ALLOWED_IPS" } }),
       prisma.organizationPolicy.findFirst({ where: { name: "WORKSPACE_ALLOWED_COUNTRIES" } }),
@@ -807,10 +863,13 @@ async function alreadyIngested(event: NormalizedActivityEvent): Promise<boolean>
   return !!existing;
 }
 
-const CHAT_EVENT_BY_NOTIF: Partial<Record<NotifType, "WORKSPACE_SUSPICIOUS_LOGIN" | "WORKSPACE_NEW_OAUTH_APP" | "WORKSPACE_LOGIN_ALLOWLIST_VIOLATION">> = {
+// WORKSPACE_NEW_OAUTH_APP is deliberately absent — still recorded/flagged
+// in-app (notifyAdmins below), just no longer sent to Discord/Google Chat;
+// it was flooding the channel (every OAuth grant fired one).
+const CHAT_EVENT_BY_NOTIF: Partial<Record<NotifType, "WORKSPACE_SUSPICIOUS_LOGIN" | "WORKSPACE_LOGIN_ALLOWLIST_VIOLATION" | "WORKSPACE_LOGIN_FAILURE">> = {
   WORKSPACE_SUSPICIOUS_LOGIN: "WORKSPACE_SUSPICIOUS_LOGIN",
-  WORKSPACE_NEW_OAUTH_APP: "WORKSPACE_NEW_OAUTH_APP",
   WORKSPACE_LOGIN_ALLOWLIST_VIOLATION: "WORKSPACE_LOGIN_ALLOWLIST_VIOLATION",
+  WORKSPACE_LOGIN_FAILURE: "WORKSPACE_LOGIN_FAILURE",
 };
 
 /**

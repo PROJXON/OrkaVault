@@ -90,23 +90,32 @@ const formatInferredDevice = (inferredDevice) => {
 function ActivityLogTab() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [filterEventType, setFilterEventType] = useState("");
   const [filterUser, setFilterUser] = useState("");
   const [filterFlagged, setFilterFlagged] = useState("");
 
+  const fetchEvents = async () => {
+    try {
+      const { data } = await api.get("/workspace-activity?limit=200");
+      setEvents(data);
+    } catch (e) {
+      console.error("Failed to load workspace activity");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const { data } = await api.get("/workspace-activity?limit=200");
-        setEvents(data);
-      } catch (e) {
-        console.error("Failed to load workspace activity");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchEvents();
   }, []);
+
+  const handleRefresh = () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    fetchEvents();
+  };
 
   const uniqueEventTypes = useMemo(
     () => [...new Set(events.map((e) => e.eventType).filter(Boolean))],
@@ -129,9 +138,20 @@ function ActivityLogTab() {
 
   return (
     <>
-      <p className="mt-2 mb-6 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
-        Google Workspace logins and OAuth app grants ingested for your organization.
-      </p>
+      <div className="mt-2 mb-6 flex items-start justify-between gap-4">
+        <p className="text-sm text-gray-700 dark:text-[var(--text-secondary)]">
+          Google Workspace logins and OAuth app grants ingested for your organization.
+          New activity is pulled from Google every 30 minutes — use Refresh to check for
+          anything ingested since this page loaded.
+        </p>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="shrink-0 text-xs text-brand-blue hover:underline disabled:opacity-50 whitespace-nowrap"
+        >
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
 
       <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="flex-1 min-w-[160px]">

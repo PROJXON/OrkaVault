@@ -39,7 +39,30 @@ router.get(
           orderBy: { submittedAt: "desc" },
         });
         res.json(requests);
+      } else if (req.user!.role === "MANAGER") {
+        // Scoped the same way as approve/deny (services/accessRequests.ts's
+        // isInManagerScope) — a Manager only sees requests for accounts in
+        // one of their assigned collections. Accounts with no collection
+        // are out of scope for every manager, matching that same rule.
+        const managedCollectionIds = req.user!.managedCollections.map((c: any) => c.id);
+        const requests = await prisma.accessRequest.findMany({
+          where: { account: { collectionId: { in: managedCollectionIds } } },
+          include: {
+            account: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                platformType: true,
+              },
+            },
+            requester: { select: { id: true, name: true, email: true } },
+          },
+          orderBy: { submittedAt: "desc" },
+        });
+        res.json(requests);
       } else {
+        // ADMIN — unrestricted.
         const requests = await prisma.accessRequest.findMany({
           include: {
             account: {

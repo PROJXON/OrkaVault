@@ -227,6 +227,7 @@ export default function RevealOtp({ accountId, isAdmin, onRequestAccess, onGrant
   // Idle — OTP icon button
   return (
     <div className="flex items-center space-x-2 justify-end">
+      <span className="text-gray-400 dark:text-[var(--text-tertiary)] text-xs select-none">Reveal:</span>
       <button
         onClick={handleReveal}
         disabled={loading}

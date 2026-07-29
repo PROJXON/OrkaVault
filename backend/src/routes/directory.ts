@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireRole } from "../middleware/auth";
 
 const router = Router();
 const prisma = new PrismaClient();
 
-router.get("/", requireAuth, async (req, res, next) => {
+router.get("/", requireAuth, requireRole("ADMIN"), async (req, res, next) => {
   try {
     const users = await prisma.user.findMany({
       where: { active: true },
