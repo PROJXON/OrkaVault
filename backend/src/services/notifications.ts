@@ -10,9 +10,8 @@
  * A notification failure must NEVER block the main action.
  */
 
-import { PrismaClient, NotifType, User } from "@prisma/client";
+import { prisma, NotifType, User } from "../lib/prismaClient";
 
-const prisma = new PrismaClient();
 
 // Rate-limiting tracker: key = `${userId}:${type}`, value = last sent timestamp
 const emailRateMap = new Map<string, number>();

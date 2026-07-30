@@ -196,7 +196,7 @@ export default function RevealOtp({ accountId, isAdmin, onRequestAccess, onGrant
           type="button"
           onClick={handleCopy}
           title="Click to copy"
-          className="font-mono text-gray-900 text-sm tracking-widest hover:bg-amber-100 rounded px-1 -mx-1 transition-colors flex items-center gap-1"
+          className="font-mono text-gray-900 text-sm tracking-widest hover:bg-amber-100 rounded-sm px-1 -mx-1 transition-colors flex items-center gap-1"
           style={{ userSelect: "none", WebkitUserSelect: "none", MozUserSelect: "none" }}
         >
           {otp.slice(0, 3)} {otp.slice(3)}
@@ -209,7 +209,7 @@ export default function RevealOtp({ accountId, isAdmin, onRequestAccess, onGrant
           </span>
         )}
         {screenTimeLeft !== null && screenTimeLeft > 0 && (
-          <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white border border-amber-300 text-xs font-bold text-amber-600 shadow-sm shrink-0">
+          <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white border border-amber-300 text-xs font-bold text-amber-600 shadow-xs shrink-0">
             {formatTime(screenTimeLeft)}
           </div>
         )}
@@ -231,7 +231,7 @@ export default function RevealOtp({ accountId, isAdmin, onRequestAccess, onGrant
       <button
         onClick={handleReveal}
         disabled={loading}
-        className="p-1 text-brand-blue hover:bg-blue-50 rounded transition-colors disabled:opacity-50 inline-flex items-center gap-1 text-xs font-medium"
+        className="p-1 text-brand-blue hover:bg-blue-50 rounded-sm transition-colors disabled:opacity-50 inline-flex items-center gap-1 text-xs font-medium"
         title="Show current OTP"
       >
         <Timer className="h-4 w-4" /> OTP

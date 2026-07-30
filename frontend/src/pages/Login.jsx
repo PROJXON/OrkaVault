@@ -161,7 +161,7 @@ export default function Login() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white dark:bg-[var(--bg-surface)] py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white dark:bg-[var(--bg-surface)] py-8 px-4 shadow-sm sm:rounded-lg sm:px-10">
           {error && (
             <div className="mb-6 bg-red-50 border-l-4 border-brand-red p-4">
               <p className="text-sm text-brand-red">{error}</p>
@@ -190,7 +190,7 @@ export default function Login() {
                     inputMode="numeric"
                     value={totpCode}
                     onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                    className="appearance-none block w-full text-center tracking-widest text-lg font-bold px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    className="appearance-none block w-full text-center tracking-widest text-lg font-bold px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-xs placeholder-gray-400 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                     placeholder="123456"
                     disabled={isLoading}
                   />
@@ -204,7 +204,7 @@ export default function Login() {
                   type="checkbox"
                   checked={rememberDevice}
                   onChange={(e) => setRememberDevice(e.target.checked)}
-                  className="h-4 w-4 text-brand-blue focus:ring-brand-blue border-gray-300 rounded"
+                  className="h-4 w-4 text-brand-blue focus:ring-brand-blue border-gray-300 rounded-sm"
                   disabled={isLoading}
                 />
                 <label htmlFor="remember-device" className="ml-2 block text-sm text-gray-900 dark:text-[var(--text-secondary)]">
@@ -216,7 +216,7 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue disabled:opacity-50"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-brand-blue hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue disabled:opacity-50"
                 >
                   {isLoading ? "Verifying..." : "Verify Code"}
                 </button>
@@ -249,7 +249,7 @@ export default function Login() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-xs placeholder-gray-400 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   />
                 </div>
               </div>
@@ -264,7 +264,7 @@ export default function Login() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-xs placeholder-gray-400 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   />
                   <button
                     type="button"
@@ -283,7 +283,7 @@ export default function Login() {
               <div>
                 <button
                   type="submit"
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-brand-blue hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue"
                 >
                   Sign in
                 </button>

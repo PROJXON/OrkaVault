@@ -62,7 +62,7 @@ export default function RequestModal({ isOpen, onClose, account, onSuccess, pref
         <form onSubmit={handleSubmit}>
           <div className="modal-b">
             {error && (
-              <div className="p-3 text-sm rounded" style={{ color: "var(--error-text)", background: "var(--error-subtle)", border: "1px solid var(--error-border)" }}>
+              <div className="p-3 text-sm rounded-sm" style={{ color: "var(--error-text)", background: "var(--error-subtle)", border: "1px solid var(--error-border)" }}>
                 {error}
               </div>
             )}
@@ -117,7 +117,7 @@ export default function RequestModal({ isOpen, onClose, account, onSuccess, pref
                 type="checkbox"
                 checked={internationalAccessRequested}
                 onChange={(e) => setInternationalAccessRequested(e.target.checked)}
-                className="h-4 w-4 rounded"
+                className="h-4 w-4 rounded-sm"
                 style={{ accentColor: "var(--brand)" }}
               />
               Requires International Access

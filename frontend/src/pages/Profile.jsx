@@ -287,7 +287,7 @@ export default function Profile() {
       </div>
 
       {isMfaRequiredAndMissing && (
-        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded shadow-sm">
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-sm shadow-xs">
           <p className="text-sm text-amber-800 font-semibold">
             Action Required: Two-Factor Authentication (MFA) Setup
           </p>
@@ -298,12 +298,12 @@ export default function Profile() {
       )}
 
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-sm">
           <p className="text-sm text-red-700">{error}</p>
         </div>
       )}
       {success && (
-        <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+        <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-sm">
           <p className="text-sm text-green-700">{success}</p>
         </div>
       )}
@@ -311,7 +311,7 @@ export default function Profile() {
       {!isMfaRequiredAndMissing && (
         <>
           {/* Avatar Section */}
-          <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-sm border border-gray-200 dark:border-[var(--border-subtle)] p-6">
+          <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-xs border border-gray-200 dark:border-[var(--border-subtle)] p-6">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--text-secondary)] uppercase tracking-wider mb-4">
               Profile Photo
             </h2>
@@ -351,7 +351,7 @@ export default function Profile() {
                   {profile?.name}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-[var(--text-tertiary)]">{profile?.email}</p>
-                <span className="mt-1 inline-block bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-700 dark:text-[var(--text-secondary)] text-xs px-2 py-1 rounded capitalize">
+                <span className="mt-1 inline-block bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-700 dark:text-[var(--text-secondary)] text-xs px-2 py-1 rounded-sm capitalize">
                   {profile?.role?.toLowerCase()}
                 </span>
                 {avatarUploading && (
@@ -362,7 +362,7 @@ export default function Profile() {
           </div>
 
           {/* Profile Info Section */}
-          <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-sm border border-gray-200 dark:border-[var(--border-subtle)] p-6">
+          <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-xs border border-gray-200 dark:border-[var(--border-subtle)] p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--text-secondary)] uppercase tracking-wider">
                 Personal Information
@@ -416,7 +416,7 @@ export default function Profile() {
                     type="text"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue"
                   />
                 ) : (
                   <p className="text-sm text-gray-900 dark:text-[var(--text-primary)]">{profile?.name}</p>
@@ -445,7 +445,7 @@ export default function Profile() {
                     onChange={(e) =>
                       setForm({ ...form, department: e.target.value })
                     }
-                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue"
                   >
                     {!form.department && <option value="">-- Select --</option>}
                     {departments.map((d) => (
@@ -473,7 +473,7 @@ export default function Profile() {
                     onChange={(e) =>
                       setForm({ ...form, startDate: e.target.value })
                     }
-                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue"
                   />
                 ) : (
                   <p className="text-sm text-gray-900 dark:text-[var(--text-primary)]">
@@ -509,18 +509,18 @@ export default function Profile() {
           </div>
 
           {/* Change Password Section */}
-          <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-sm border border-gray-200 dark:border-[var(--border-subtle)] p-6">
+          <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-xs border border-gray-200 dark:border-[var(--border-subtle)] p-6">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--text-secondary)] uppercase tracking-wider mb-6">
               Security Settings
             </h2>
             <form onSubmit={handlePasswordSave} className="space-y-4">
               {passwordError && (
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-sm">
                   <p className="text-sm text-red-700">{passwordError}</p>
                 </div>
               )}
               {passwordSuccess && (
-                <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-sm">
                   <p className="text-sm text-green-700">{passwordSuccess}</p>
                 </div>
               )}
@@ -535,7 +535,7 @@ export default function Profile() {
                     required
                     value={passwordForm.current}
                     onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue"
                   />
                 </div>
                 <div>
@@ -547,7 +547,7 @@ export default function Profile() {
                     required
                     value={passwordForm.new}
                     onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue"
                   />
                 </div>
                 <div>
@@ -559,7 +559,7 @@ export default function Profile() {
                     required
                     value={passwordForm.confirm}
                     onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue"
                   />
                 </div>
                 <div className="pt-2">
@@ -578,19 +578,19 @@ export default function Profile() {
       )}
 
       {/* Two-Factor Authentication (MFA) Section */}
-      <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-sm border border-gray-200 dark:border-[var(--border-subtle)] p-6">
+      <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-xs border border-gray-200 dark:border-[var(--border-subtle)] p-6">
         <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--text-secondary)] uppercase tracking-wider mb-4 flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-brand-blue" />
           Two-Factor Authentication (MFA)
         </h2>
 
         {mfaError && (
-          <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4 rounded">
+          <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-sm">
             <p className="text-sm text-red-700">{mfaError}</p>
           </div>
         )}
         {mfaSuccess && (
-          <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4 rounded">
+          <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4 rounded-sm">
             <p className="text-sm text-green-700">{mfaSuccess}</p>
           </div>
         )}
@@ -629,7 +629,7 @@ export default function Profile() {
                     placeholder="Enter 6-digit code"
                     value={totpCode}
                     onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                    className="w-full text-center tracking-widest text-lg font-bold border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                    className="w-full text-center tracking-widest text-lg font-bold border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue"
                     disabled={mfaLoading}
                   />
                   <div className="flex gap-2">
@@ -696,7 +696,7 @@ export default function Profile() {
                             <Smartphone className="w-3.5 h-3.5 text-gray-400" />
                             {dev.name}
                             {localStorage.getItem("mfaDeviceId") === dev.id && (
-                              <span className="bg-blue-100 text-blue-800 text-[10px] font-semibold px-1.5 py-0.5 rounded">Current</span>
+                              <span className="bg-blue-100 text-blue-800 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm">Current</span>
                             )}
                           </td>
                           <td className="px-4 py-2 text-xs text-gray-500 dark:text-[var(--text-secondary)]">
@@ -708,7 +708,7 @@ export default function Profile() {
                           <td className="px-4 py-2 text-right">
                             <button
                               onClick={() => handleRevokeDevice(dev.id)}
-                              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/20"
+                              className="text-red-600 hover:text-red-900 p-1 rounded-sm hover:bg-red-50 dark:hover:bg-red-950/20"
                               title="Revoke Device"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -731,7 +731,7 @@ export default function Profile() {
             {mfaStep === "setup" && mfaSetupData ? (
               <form onSubmit={handleMfaEnable} className="bg-gray-50 dark:bg-[var(--bg-muted)] border border-gray-200 dark:border-[var(--border-default)] rounded-md p-6 space-y-6">
                 <div className="flex flex-col md:flex-row items-center gap-6">
-                  <div className="bg-white p-3 rounded-md border border-gray-200 shadow-sm flex-shrink-0">
+                  <div className="bg-white p-3 rounded-md border border-gray-200 shadow-xs flex-shrink-0">
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(mfaSetupData.otpauth)}`}
                       alt="MFA QR Code"
@@ -748,7 +748,7 @@ export default function Profile() {
                     </p>
                     <div className="pt-2">
                       <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Or enter key manually</p>
-                      <code className="block select-all font-mono text-xs bg-white dark:bg-[var(--bg-surface)] border border-gray-300 dark:border-[var(--border-default)] px-2 py-1.5 rounded mt-1 break-all tracking-wider text-center text-brand-blue font-bold">
+                      <code className="block select-all font-mono text-xs bg-white dark:bg-[var(--bg-surface)] border border-gray-300 dark:border-[var(--border-default)] px-2 py-1.5 rounded-sm mt-1 break-all tracking-wider text-center text-brand-blue font-bold">
                         {mfaSetupData.secret}
                       </code>
                     </div>
@@ -772,7 +772,7 @@ export default function Profile() {
                     placeholder="123456"
                     value={totpCode}
                     onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                    className="w-full text-center tracking-widest text-lg font-bold border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+                    className="w-full text-center tracking-widest text-lg font-bold border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue"
                     disabled={mfaLoading}
                   />
                   <div className="flex gap-2">
@@ -816,14 +816,14 @@ export default function Profile() {
       </div>
 
       {(authUser?.role === "MANAGER" || authUser?.role === "ADMIN") && (
-        <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-sm border border-gray-200 dark:border-[var(--border-subtle)] p-6 mt-6">
+        <div className="bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-xs border border-gray-200 dark:border-[var(--border-subtle)] p-6 mt-6">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--text-secondary)] uppercase tracking-wider mb-2">
             Link Discord
           </h2>
           <p className="text-sm text-gray-500 dark:text-[var(--text-tertiary)] mb-4">
             Linking your Discord account lets you approve or deny access requests directly from the
             Discord alert, without opening OrkaVault. Generate a code below, then run{" "}
-            <code className="font-mono bg-gray-100 dark:bg-[var(--bg-muted)] px-1 rounded">
+            <code className="font-mono bg-gray-100 dark:bg-[var(--bg-muted)] px-1 rounded-sm">
               /orkavault link &lt;code&gt;
             </code>{" "}
             in Discord within 10 minutes.

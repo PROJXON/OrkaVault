@@ -2,7 +2,7 @@
  * Grants, Notifications, Audit, Health Routes
  */
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import {
   requireAuth,
   requireRole,
@@ -11,8 +11,8 @@ import {
 } from "../middleware/auth";
 import { scorePassword } from "../services/health";
 import { fetchSecret } from "../services/secretManager";
+import { asString } from "../utils/reqValue";
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // ─── GRANTS ────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ router.patch(
     }
 
     const grant = await prisma.accessGrant.findUnique({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
     });
     if (!grant || !grant.active) {
       res.status(404).json({ error: "Active grant not found." });
@@ -61,7 +61,7 @@ router.patch(
     let expiresAt: Date | null = null;
 
     const updated = await prisma.accessGrant.update({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
       data: { accessType, expiresAt },
     });
 
@@ -85,7 +85,7 @@ router.delete(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     const grant = await prisma.accessGrant.findUnique({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
     });
     if (!grant) {
       res.status(404).json({ error: "Grant not found." });
@@ -100,7 +100,7 @@ router.delete(
     }
 
     await prisma.accessGrant.update({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
       data: { active: false },
     });
     await prisma.auditLog.create({
@@ -151,7 +151,7 @@ router.patch(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     await prisma.notification.update({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
       data: { read: true },
     });
     res.json({ message: "Marked as read." });
@@ -219,7 +219,7 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const account = await prisma.account.findUnique({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       if (!account) {
         res.status(404).json({ error: "Account not found." });
@@ -240,7 +240,7 @@ router.post(
       const { score, label } = scorePassword(password);
 
       await prisma.account.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { healthScore: score, healthLabel: label },
       });
 

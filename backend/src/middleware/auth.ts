@@ -8,9 +8,8 @@
 
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { PrismaClient, Role } from "@prisma/client";
+import { prisma, Role } from "../lib/prismaClient";
 
-const prisma = new PrismaClient();
 
 // No insecure hardcoded fallback: a deployment that forgets to set either
 // of these would otherwise sign/verify tokens with a secret that's public

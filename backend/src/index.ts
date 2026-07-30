@@ -5,7 +5,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import path from "path";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "./lib/prismaClient";
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
 import accountRoutes from "./routes/accounts";
@@ -24,7 +24,6 @@ import { ingestWorkspaceActivity, syncConnectedApps, syncWorkspaceDevices } from
 import { runAuditRetentionSweep } from "./services/auditBackup";
 import { errorHandler } from "./middleware/errorHandler";
 
-const prisma = new PrismaClient();
 const app = express();
 const PORT = process.env.PORT || 5000;
 // Log Events

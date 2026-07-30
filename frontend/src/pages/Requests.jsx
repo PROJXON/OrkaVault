@@ -61,7 +61,7 @@ export default function Requests() {
         </p>
       </div>
 
-      <div className="bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
+      <div className="bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="overflow-x-auto custom-scrollbar">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
           <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">

@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { webcrypto } from "crypto";
 import { generateSecret, generateURI, verifySync } from "otplib";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import {
   requireAuth,
   generateAccessToken,
@@ -18,10 +18,10 @@ import {
 } from "../middleware/auth";
 import { notifyAdmins, notifyUser } from "../services/notifications";
 import { OAuth2Client } from "google-auth-library";
+import { asString } from "../utils/reqValue";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // POST /api/auth/register
@@ -572,7 +572,7 @@ router.get("/mfa/devices", requireAuth, async (req: AuthenticatedRequest, res: R
 
 // DELETE /api/auth/mfa/devices/:id
 router.delete("/mfa/devices/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
+  const id = asString(req.params.id);
   try {
     const device = await prisma.mfaDevice.findUnique({
       where: { id },

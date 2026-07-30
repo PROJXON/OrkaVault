@@ -5,11 +5,11 @@
  * see the comment on the Department model in schema.prisma.
  */
 import { Router, Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middleware/auth";
+import { asString } from "../utils/reqValue";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/departments - list all departments [PUBLIC — Register.jsx needs
 // the list before the user is authenticated, same reasoning as
@@ -77,7 +77,7 @@ router.patch(
     }
     try {
       const department = await prisma.department.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { name: name.trim() },
       });
       res.json(department);
@@ -95,7 +95,7 @@ router.delete(
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const department = await prisma.department.findUnique({ where: { id: req.params.id } });
+      const department = await prisma.department.findUnique({ where: { id: asString(req.params.id) } });
       if (!department) {
         res.status(404).json({ error: "Department not found." });
         return;
@@ -125,7 +125,7 @@ router.delete(
         });
       }
 
-      await prisma.department.delete({ where: { id: req.params.id } });
+      await prisma.department.delete({ where: { id: asString(req.params.id) } });
       res.json({ message: "Department deleted successfully." });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete department." });

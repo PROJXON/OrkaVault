@@ -24,11 +24,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { google, cloudidentity_v1 } from "googleapis";
 import { JWT } from "google-auth-library";
-import { PrismaClient, NotifType } from "@prisma/client";
+import { prisma, NotifType } from "../lib/prismaClient";
 import { notifyAdmins } from "./notifications";
 import { sendChatAlert } from "./webhookAlerts";
 
-const prisma = new PrismaClient();
 
 const ADMIN_EMAIL = process.env.GOOGLE_WORKSPACE_ADMIN_EMAIL || "";
 const SA_KEY_PATH = path.resolve(

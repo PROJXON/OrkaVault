@@ -152,7 +152,7 @@ export default function Directory() {
       </div>
 
       {/* Search & Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8 items-center justify-between bg-white dark:bg-[var(--bg-surface)] p-4 rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] shadow-sm">
+      <div className="flex flex-col md:flex-row gap-4 mb-8 items-center justify-between bg-white dark:bg-[var(--bg-surface)] p-4 rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] shadow-xs">
         <div className="relative w-full md:w-96">
           <Search className="w-5 h-5 absolute left-3 top-2.5 text-gray-400 dark:text-[var(--text-tertiary)]" />
           <input
@@ -160,14 +160,14 @@ export default function Directory() {
             placeholder="Search personnel..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-gray-50 dark:bg-[var(--bg-canvas)] border border-gray-300 dark:border-[var(--border-default)] rounded-lg py-2 pl-10 pr-4 text-gray-900 dark:text-[var(--text-primary)] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            className="w-full bg-gray-50 dark:bg-[var(--bg-canvas)] border border-gray-300 dark:border-[var(--border-default)] rounded-lg py-2 pl-10 pr-4 text-gray-900 dark:text-[var(--text-primary)] placeholder-gray-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
           />
         </div>
         <div className="block md:hidden w-full">
           <select
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
-            className="w-full bg-gray-50 dark:bg-[var(--bg-canvas)] border border-gray-300 dark:border-[var(--border-default)] rounded-lg py-2 px-3 text-sm text-gray-900 dark:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full bg-gray-50 dark:bg-[var(--bg-canvas)] border border-gray-300 dark:border-[var(--border-default)] rounded-lg py-2 px-3 text-sm text-gray-900 dark:text-[var(--text-primary)] focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             {["All", "ADMIN", "MANAGER", "USER"].map((role) => (
               <option key={role} value={role}>
@@ -201,7 +201,7 @@ export default function Directory() {
             <div
               key={user.id}
               onClick={() => setSelectedUser(user)}
-              className="group bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 cursor-pointer shadow-sm hover:shadow-md hover:border-blue-300 transition-all"
+              className="group bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 cursor-pointer shadow-xs hover:shadow-md hover:border-blue-300 transition-all"
             >
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg">
@@ -213,9 +213,9 @@ export default function Directory() {
                 </div>
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
-                <span className="px-2.5 py-1 bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-600 dark:text-[var(--text-secondary)] text-xs font-medium rounded border border-gray-200 dark:border-[var(--border-subtle)]">{formatRole(user.role)}</span>
+                <span className="px-2.5 py-1 bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-600 dark:text-[var(--text-secondary)] text-xs font-medium rounded-sm border border-gray-200 dark:border-[var(--border-subtle)]">{formatRole(user.role)}</span>
                 {user.internationalAccess && (
-                  <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium rounded flex items-center">
+                  <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium rounded-sm flex items-center">
                     <Globe className="w-3 h-3 mr-1" /> Global
                   </span>
                 )}
@@ -228,7 +228,7 @@ export default function Directory() {
       {/* Slide-over Detail Panel */}
       {selectedUser && (
         <>
-          <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-40" onClick={() => setSelectedUser(null)} />
+          <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-xs z-40" onClick={() => setSelectedUser(null)} />
           <div className="fixed inset-y-0 right-0 w-full max-w-md bg-white dark:bg-[var(--bg-surface)] shadow-2xl z-50 flex flex-col overflow-y-auto">
             <div className="p-6 bg-white dark:bg-[var(--bg-surface)] border-b border-gray-100 sticky top-0 z-10 flex justify-between items-center">
               <h2 className="text-sm font-bold text-gray-500 dark:text-[var(--text-tertiary)] uppercase tracking-widest">Personnel Dossier</h2>
@@ -240,7 +240,7 @@ export default function Directory() {
             <div className="p-8 flex-1">
               {/* Avatar */}
               <div className="flex items-center mb-8">
-                <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-black text-3xl shadow-sm border-4 border-white">
+                <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-black text-3xl shadow-xs border-4 border-white">
                   {getInitials(selectedUser.name)}
                 </div>
                 <div className="ml-5">
@@ -343,7 +343,7 @@ export default function Directory() {
                               <select
                                 value={editType}
                                 onChange={(e) => setEditType(e.target.value)}
-                                className="w-full text-xs border border-gray-300 dark:border-[var(--border-default)] rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                className="w-full text-xs border border-gray-300 dark:border-[var(--border-default)] rounded-md px-2 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                               >
                                 <option value="VIEW_90S">Single View (90 seconds)</option>
                                 <option value="TEMP_24H">Temporary (24 hours)</option>
@@ -372,7 +372,7 @@ export default function Directory() {
                                 <Shield className="w-4 h-4 text-gray-400 dark:text-[var(--text-tertiary)] mr-2 shrink-0" />
                                 <div className="truncate">
                                   <span className="text-sm text-gray-700 dark:text-[var(--text-secondary)] truncate block">{res.name}</span>
-                                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1 ${ACCESS_TYPE_COLORS[res.accessType] || "bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-600 dark:text-[var(--text-secondary)]"}`}>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded-sm font-medium inline-flex items-center gap-1 ${ACCESS_TYPE_COLORS[res.accessType] || "bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-600 dark:text-[var(--text-secondary)]"}`}>
                                     <Clock className="w-2.5 h-2.5" />
                                     {ACCESS_TYPE_LABELS[res.accessType] || res.accessType}
                                   </span>
@@ -381,14 +381,14 @@ export default function Directory() {
                               <div className="flex items-center gap-1 shrink-0">
                                 <button
                                   onClick={() => openEditGrant(res.id, res.accessType)}
-                                  className="p-1.5 text-gray-400 dark:text-[var(--text-tertiary)] hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                  className="p-1.5 text-gray-400 dark:text-[var(--text-tertiary)] hover:text-blue-600 hover:bg-blue-50 rounded-sm transition-colors"
                                   title="Edit Access Type"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   onClick={() => openRevokeModal(res.id, res.name)}
-                                  className="p-1.5 text-gray-400 dark:text-[var(--text-tertiary)] hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  className="p-1.5 text-gray-400 dark:text-[var(--text-tertiary)] hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                                   title="Revoke Access"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -424,7 +424,7 @@ export default function Directory() {
                       }
                     }
                   }}
-                  className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                  className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-xs text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                 >
                   <UserX className="-ml-1 mr-2 h-4 w-4" />
                   Deactivate Personnel

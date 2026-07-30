@@ -153,13 +153,13 @@ function ActivityLogTab() {
         </button>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
+      <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow-sm rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="flex-1 min-w-[160px]">
           <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)] mb-1">Event Type</label>
           <select
             value={filterEventType}
             onChange={(e) => setFilterEventType(e.target.value)}
-            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
           >
             <option value="">All Types</option>
             {uniqueEventTypes.map((type) => (
@@ -172,7 +172,7 @@ function ActivityLogTab() {
           <select
             value={filterUser}
             onChange={(e) => setFilterUser(e.target.value)}
-            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
           >
             <option value="">All Users</option>
             {uniqueUsers.map((user) => (
@@ -185,7 +185,7 @@ function ActivityLogTab() {
           <select
             value={filterFlagged}
             onChange={(e) => setFilterFlagged(e.target.value)}
-            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
           >
             <option value="">All</option>
             <option value="true">Flagged only</option>
@@ -195,7 +195,7 @@ function ActivityLogTab() {
         <div className="flex items-end">
           <button
             onClick={() => { setFilterEventType(""); setFilterUser(""); setFilterFlagged(""); }}
-            className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-none whitespace-nowrap"
+            className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-xs text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-hidden whitespace-nowrap"
           >
             Clear Filters
           </button>
@@ -266,7 +266,7 @@ function ConnectedAppRow({ app }) {
           {app.appName || app.clientId}
         </span>
         {app.nativeApp && (
-          <span className="shrink-0 bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-0.5 rounded text-xs font-medium">
+          <span className="shrink-0 bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-0.5 rounded-sm text-xs font-medium">
             Native
           </span>
         )}
@@ -397,7 +397,7 @@ function ConnectedAppsTab() {
         Every active Workspace account and its currently connected third-party apps.
       </p>
 
-      <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
+      <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow-sm rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="flex-1 min-w-[200px]">
           <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)] mb-1">Search Accounts</label>
           <input
@@ -405,13 +405,13 @@ function ConnectedAppsTab() {
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             placeholder="Filter by email..."
-            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
           />
         </div>
         <div className="flex items-end">
           <button
             onClick={() => setFilterText("")}
-            className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-none whitespace-nowrap"
+            className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-xs text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-hidden whitespace-nowrap"
           >
             Clear
           </button>
@@ -430,7 +430,7 @@ function ConnectedAppsTab() {
               <button type="button" onClick={() => toggleUser(u.userEmail)} className="w-full text-left">
                 <div className="row-card-title">
                   <span className="badge-pill font-mono">{u.userEmail}</span>
-                  <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-1 rounded text-xs font-medium">
+                  <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-1 rounded-sm text-xs font-medium">
                     {u.appCount} app{u.appCount === 1 ? "" : "s"}
                   </span>
                 </div>
@@ -441,7 +441,7 @@ function ConnectedAppsTab() {
         )}
       </div>
 
-      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
+      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="overflow-x-auto custom-scrollbar">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
           <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">
@@ -484,7 +484,7 @@ function ConnectedAppsTab() {
                       {u.userEmail}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-1 rounded text-xs font-medium">
+                      <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-1 rounded-sm text-xs font-medium">
                         {u.appCount} app{u.appCount === 1 ? "" : "s"}
                       </span>
                     </td>
@@ -514,7 +514,7 @@ function DeviceRow({ device }) {
         <span className="text-sm font-medium text-gray-900 dark:text-[var(--text-primary)]">
           {formatDeviceType(device.deviceType)}
         </span>
-        <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-0.5 rounded text-xs font-medium">
+        <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-0.5 rounded-sm text-xs font-medium">
           {formatManagementState(device.managementState)}
         </span>
       </div>
@@ -636,7 +636,7 @@ function DevicesTab() {
         Devices associated with each Workspace account, synced from Google.
       </p>
 
-      <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
+      <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow-sm rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="flex-1 min-w-[200px]">
           <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)] mb-1">Search Accounts</label>
           <input
@@ -644,13 +644,13 @@ function DevicesTab() {
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             placeholder="Filter by email..."
-            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
           />
         </div>
         <div className="flex items-end">
           <button
             onClick={() => setFilterText("")}
-            className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-none whitespace-nowrap"
+            className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-xs text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-hidden whitespace-nowrap"
           >
             Clear
           </button>
@@ -668,7 +668,7 @@ function DevicesTab() {
               <button type="button" onClick={() => toggleUser(u.userEmail)} className="w-full text-left">
                 <div className="row-card-title">
                   <span className="badge-pill font-mono">{u.userEmail}</span>
-                  <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-1 rounded text-xs font-medium">
+                  <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-1 rounded-sm text-xs font-medium">
                     {u.deviceCount} device{u.deviceCount === 1 ? "" : "s"}
                   </span>
                 </div>

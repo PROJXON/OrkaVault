@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 /* ============================================================================
    OrkaOS design tokens (Light default · 60/30/10 · Deep Navy + Orka Blue)

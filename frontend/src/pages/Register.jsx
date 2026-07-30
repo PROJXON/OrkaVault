@@ -126,7 +126,7 @@ export default function Register() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white dark:bg-[var(--bg-surface)] py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white dark:bg-[var(--bg-surface)] py-8 px-4 shadow-sm sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border-l-4 border-brand-red p-4">
@@ -148,7 +148,7 @@ export default function Register() {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-xs placeholder-gray-400 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                 />
               </div>
             </div>
@@ -163,7 +163,7 @@ export default function Register() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-xs placeholder-gray-400 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                 />
               </div>
             </div>
@@ -178,7 +178,7 @@ export default function Register() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-xs placeholder-gray-400 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                 />
                 <button
                   type="button"
@@ -203,7 +203,7 @@ export default function Register() {
                   required
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-xs focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                 >
                   {departments.map((d) => (
                     <option key={d.id} value={d.name}>{d.name}</option>
@@ -223,7 +223,7 @@ export default function Register() {
                     required
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-[var(--border-default)] rounded-md shadow-xs focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   />
                 </div>
               </div>
@@ -232,7 +232,7 @@ export default function Register() {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-brand-blue hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue"
               >
                 Register
               </button>

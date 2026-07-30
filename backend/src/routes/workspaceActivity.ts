@@ -3,8 +3,9 @@
  * login/OAuth-grant events (see services/googleWorkspace.ts).
  */
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middleware/auth";
+import { asString } from "../utils/reqValue";
 import {
   syncConnectedApps,
   syncConnectedAppsForUser,
@@ -14,7 +15,6 @@ import {
   inferLikelyDevice,
 } from "../services/googleWorkspace";
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // Only login-type events get a device guess attached — an oauth_token_grant's
@@ -185,7 +185,7 @@ router.post(
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const apps = await syncConnectedAppsForUser(req.params.userEmail);
+      const apps = await syncConnectedAppsForUser(asString(req.params.userEmail)!);
       res.json(apps);
     } catch (error) {
       console.error("[ConnectedApps]", error);
@@ -279,7 +279,7 @@ router.post(
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const devices = await syncWorkspaceDevicesForUser(req.params.userEmail);
+      const devices = await syncWorkspaceDevicesForUser(asString(req.params.userEmail)!);
       res.json(devices);
     } catch (error) {
       console.error("[WorkspaceDevices]", error);

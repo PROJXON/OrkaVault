@@ -1,7 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import { notifyAdmins } from "../services/notifications";
 
-const prisma = new PrismaClient();
 
 async function runOffboardingCheck() {
   console.log("Starting offboarding check...");

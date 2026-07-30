@@ -133,19 +133,19 @@ export default function Approvals() {
               {(req.deviceName || req.location || req.internationalAccessRequested) && (
                 <div className="flex flex-wrap gap-1 justify-end mt-2">
                   {req.deviceName && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)]">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)]">
                       <MonitorSmartphone className="w-3 h-3 mr-1" />
                       {req.deviceName}
                     </span>
                   )}
                   {req.location && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-blue-100 text-blue-800">
                       <MapPin className="w-3 h-3 mr-1" />
                       {req.location}
                     </span>
                   )}
                   {req.internationalAccessRequested && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-amber-100 text-amber-800">
                       <Globe className="w-3 h-3 mr-1" />
                       Global
                     </span>
@@ -173,7 +173,7 @@ export default function Approvals() {
         )}
       </div>
 
-      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
+      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="overflow-x-auto custom-scrollbar">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
           <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">
@@ -230,19 +230,19 @@ export default function Approvals() {
                     <div className="truncate mb-1">{req.reason}</div>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {req.deviceName && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)]">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)]">
                           <MonitorSmartphone className="w-3 h-3 mr-1" />
                           {req.deviceName}
                         </span>
                       )}
                       {req.location && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-blue-100 text-blue-800">
                           <MapPin className="w-3 h-3 mr-1" />
                           {req.location}
                         </span>
                       )}
                       {req.internationalAccessRequested && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-amber-100 text-amber-800">
                           <Globe className="w-3 h-3 mr-1" />
                           Global
                         </span>
@@ -300,7 +300,7 @@ export default function Approvals() {
               </p>
               <p className="text-sm text-gray-600 dark:text-[var(--text-secondary)] mb-4">
                 Type{" "}
-                <span className="font-mono bg-green-50 text-brand-green px-1.5 py-0.5 rounded text-xs font-bold">
+                <span className="font-mono bg-green-50 text-brand-green px-1.5 py-0.5 rounded-sm text-xs font-bold">
                   approve
                 </span>{" "}
                 below to confirm.
@@ -313,7 +313,7 @@ export default function Approvals() {
                   setApproveError("");
                 }}
                 placeholder='Type "approve" to confirm'
-                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-green focus:border-brand-green"
+                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-hidden focus:ring-brand-green focus:border-brand-green"
                 autoFocus
               />
               {approveError && (
@@ -370,7 +370,7 @@ export default function Approvals() {
                 }}
                 placeholder="Reason for denial..."
                 rows={3}
-                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-red focus:border-brand-red resize-none"
+                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-hidden focus:ring-brand-red focus:border-brand-red resize-none"
                 autoFocus
               />
               {denyError && (

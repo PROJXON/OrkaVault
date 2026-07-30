@@ -5,6 +5,7 @@ import { Router, Response } from "express";
 import path from "path";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middleware/auth";
 import { listBackups, isValidBackupFilename, runAuditRetentionSweep, BACKUPS_DIR } from "../services/auditBackup";
+import { asString } from "../utils/reqValue";
 
 const router = Router();
 
@@ -19,11 +20,12 @@ router.get(
   requireAuth,
   requireRole("ADMIN"),
   (req: AuthenticatedRequest, res: Response) => {
-    if (!isValidBackupFilename(req.params.filename)) {
+    const filename = asString(req.params.filename);
+    if (!filename || !isValidBackupFilename(filename)) {
       res.status(400).json({ error: "Invalid backup filename." });
       return;
     }
-    res.download(path.join(BACKUPS_DIR, req.params.filename), (err) => {
+    res.download(path.join(BACKUPS_DIR, filename), (err) => {
       if (err) res.status(404).json({ error: "Backup not found." });
     });
   },

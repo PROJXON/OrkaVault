@@ -2,15 +2,15 @@
  * User Routes — List, Approve, Role Change, End Date, Deactivate, Notification Toggle
  */
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import {
   requireAuth,
   requireRole,
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { notifyUser } from "../services/notifications";
+import { asString } from "../utils/reqValue";
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // GET /api/users — list all users [ADMIN]
@@ -35,7 +35,7 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { active: true, revoked: false },
       });
       // Notify the approved user
@@ -63,7 +63,7 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { active: false, revoked: true },
       });
       res.json({
@@ -98,7 +98,7 @@ router.patch(
     }
     try {
       const user = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { role },
       });
       res.json({
@@ -120,7 +120,7 @@ router.patch(
     const { endDate } = req.body;
     try {
       const user = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { endDate: endDate ? new Date(endDate) : null },
       });
       res.json({
@@ -146,11 +146,11 @@ router.delete(
     try {
       await prisma.$transaction([
         prisma.user.update({
-          where: { id: req.params.id },
+          where: { id: asString(req.params.id) },
           data: { active: false, revoked: true },
         }),
         prisma.accessGrant.updateMany({
-          where: { userId: req.params.id, active: true },
+          where: { userId: asString(req.params.id), active: true },
           data: { active: false },
         }),
       ]);
@@ -239,7 +239,7 @@ router.patch(
     console.log("PROFILE UPDATE BODY:", req.body);
     try {
       const updated = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: {
           ...(department !== undefined && { department }),
           ...(startDate !== undefined && {
@@ -320,7 +320,7 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = await prisma.user.findUnique({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       if (!user) {
         res.status(404).json({ error: "User not found." });
@@ -329,7 +329,7 @@ router.patch(
 
       // Reset the start date to today, so offboarding is pushed 6 months out
       const updated = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { startDate: new Date() },
       });
 

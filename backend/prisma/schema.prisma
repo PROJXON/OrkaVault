@@ -1,11 +1,16 @@
+// Connection URLs live in prisma.config.ts (backend/) as of Prisma 7 —
+// the CLI (generate/db push/studio) reads them from there, and the app's
+// own runtime connection goes through the driver adapter in
+// src/lib/prismaClient.ts instead of a schema `url`.
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
 }
 
 model User {

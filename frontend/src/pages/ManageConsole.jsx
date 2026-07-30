@@ -170,7 +170,7 @@ export default function ManageConsole() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-gray-500 dark:text-[var(--text-tertiary)] bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] mb-8 shadow-sm">
+        <div className="py-12 text-center text-gray-500 dark:text-[var(--text-tertiary)] bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] mb-8 shadow-xs">
           Loading system metrics...
         </div>
       ) : data ? (
@@ -183,7 +183,7 @@ export default function ManageConsole() {
               { icon: Activity, label: "7-Day Audit Events", value: data.metrics.sevenDayAuditCount || 0, color: "text-indigo-600", bg: "bg-indigo-50" },
               { icon: Globe, label: "Global Access Requested", value: internationalCount, color: "text-violet-600", bg: "bg-violet-50" },
             ].map((stat, i) => (
-              <div key={i} className="bg-white dark:bg-[var(--bg-surface)] rounded-xl p-6 border border-gray-200 dark:border-[var(--border-subtle)] shadow-sm hover:shadow-md transition-shadow">
+              <div key={i} className="bg-white dark:bg-[var(--bg-surface)] rounded-xl p-6 border border-gray-200 dark:border-[var(--border-subtle)] shadow-xs hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-sm font-medium text-gray-500 dark:text-[var(--text-tertiary)]">{stat.label}</span>
                   <div className={`p-2 rounded-lg ${stat.bg}`}><stat.icon className={`w-5 h-5 ${stat.color}`} /></div>
@@ -195,13 +195,13 @@ export default function ManageConsole() {
 
           {/* Charts Section */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-            <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-sm flex flex-col">
+            <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-xs flex flex-col">
               <h3 className="text-sm font-bold text-gray-900 dark:text-[var(--text-primary)] uppercase tracking-wide mb-6 flex items-center">
                 <Activity className="w-4 h-4 mr-2 text-gray-400 dark:text-[var(--text-tertiary)]" /> Audit Activity (7 Days)
               </h3>
               <div className="flex-1 min-h-[200px]"><Bar data={barData} options={barOptions} /></div>
             </div>
-            <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-sm flex flex-col items-center">
+            <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-xs flex flex-col items-center">
               <h3 className="text-sm font-bold text-gray-900 dark:text-[var(--text-primary)] uppercase tracking-wide mb-6 flex items-center self-start">
                 <HeartPulse className="w-4 h-4 mr-2 text-gray-400 dark:text-[var(--text-tertiary)]" /> Health Distribution
               </h3>
@@ -215,7 +215,7 @@ export default function ManageConsole() {
                 ))}
               </div>
             </div>
-            <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-sm flex flex-col items-center">
+            <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-xs flex flex-col items-center">
               <h3 className="text-sm font-bold text-gray-900 dark:text-[var(--text-primary)] uppercase tracking-wide mb-6 flex items-center self-start">
                 <Globe className="w-4 h-4 mr-2 text-gray-400 dark:text-[var(--text-tertiary)]" /> Global Access Ratio
               </h3>
@@ -237,12 +237,12 @@ export default function ManageConsole() {
 
       {user.role === "ADMIN" && (
         connectedAppsLoading ? (
-          <div className="py-12 text-center text-gray-500 dark:text-[var(--text-tertiary)] bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] mb-8 shadow-sm">
+          <div className="py-12 text-center text-gray-500 dark:text-[var(--text-tertiary)] bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] mb-8 shadow-xs">
             Loading connected apps summary...
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
-            <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-sm flex flex-col items-center">
+            <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-xs flex flex-col items-center">
               <h3 className="text-sm font-bold text-gray-900 dark:text-[var(--text-primary)] uppercase tracking-wide mb-6 flex items-center self-start">
                 <Link2 className="w-4 h-4 mr-2 text-gray-400 dark:text-[var(--text-tertiary)]" /> Connected Apps by Account
               </h3>
@@ -278,7 +278,7 @@ export default function ManageConsole() {
                 View full account list &rarr;
               </button>
             </div>
-            <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-sm flex flex-col">
+            <div className="bg-white dark:bg-[var(--bg-surface)] rounded-xl border border-gray-200 dark:border-[var(--border-subtle)] p-6 shadow-xs flex flex-col">
               <h3 className="text-sm font-bold text-gray-900 dark:text-[var(--text-primary)] uppercase tracking-wide mb-6 flex items-center">
                 <Link2 className="w-4 h-4 mr-2 text-gray-400 dark:text-[var(--text-tertiary)]" /> Top 5 Connected Apps
               </h3>

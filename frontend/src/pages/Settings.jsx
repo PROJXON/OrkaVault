@@ -51,7 +51,7 @@ function PoliciesTab() {
   };
 
   return (
-    <div className="bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)] mb-6">
+    <div className="bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)] mb-6">
       <div className="px-6 py-5 border-b border-gray-200 dark:border-[var(--border-subtle)] flex justify-between items-center">
         <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-[var(--text-primary)]">
           Security Policies
@@ -75,7 +75,7 @@ function PoliciesTab() {
             type="number"
             value={settings.MIN_HEALTH_SCORE}
             onChange={(e) => setSettings({ ...settings, MIN_HEALTH_SCORE: e.target.value })}
-            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-32"
+            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-xs focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-32"
           />
         </div>
 
@@ -93,7 +93,7 @@ function PoliciesTab() {
             type="number"
             value={settings.ROTATION_WARNING_DAYS}
             onChange={(e) => setSettings({ ...settings, ROTATION_WARNING_DAYS: e.target.value })}
-            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-32"
+            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-xs focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-32"
           />
         </div>
 
@@ -110,7 +110,7 @@ function PoliciesTab() {
             type="number"
             value={settings.OFFBOARDING_ALERT_DAYS}
             onChange={(e) => setSettings({ ...settings, OFFBOARDING_ALERT_DAYS: e.target.value })}
-            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-32"
+            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-xs focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-32"
           />
         </div>
 
@@ -139,12 +139,12 @@ function PoliciesTab() {
                 REQUIRE_TOTP_QR: settings.REQUIRE_TOTP_QR === "false" ? "true" : "false",
               })
             }
-            className={`relative inline-flex shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-brand-blue ${
+            className={`relative inline-flex shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors focus:outline-hidden focus:ring-2 focus:ring-brand-blue ${
               settings.REQUIRE_TOTP_QR !== "false" ? "bg-brand-blue" : "bg-gray-200"
             }`}
           >
             <span
-              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white dark:bg-[var(--bg-surface)] shadow transform transition-transform ${
+              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white dark:bg-[var(--bg-surface)] shadow-sm transform transition-transform ${
                 settings.REQUIRE_TOTP_QR !== "false" ? "translate-x-5" : "translate-x-0"
               }`}
             />
@@ -213,7 +213,7 @@ function AlertsTab() {
   };
 
   return (
-    <div className="bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)] mb-6">
+    <div className="bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)] mb-6">
       <div className="px-6 py-5 border-b border-gray-200 dark:border-[var(--border-subtle)] flex justify-between items-center">
         <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-[var(--text-primary)]">
           Chat Alerts
@@ -239,7 +239,7 @@ function AlertsTab() {
             placeholder="https://discord.com/api/webhooks/..."
             value={urls.DISCORD_WEBHOOK_URL}
             onChange={(e) => setUrls({ ...urls, DISCORD_WEBHOOK_URL: e.target.value })}
-            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
+            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-xs focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
           />
         </div>
 
@@ -259,7 +259,7 @@ function AlertsTab() {
             placeholder="https://chat.googleapis.com/v1/spaces/..."
             value={urls.GCHAT_WEBHOOK_URL}
             onChange={(e) => setUrls({ ...urls, GCHAT_WEBHOOK_URL: e.target.value })}
-            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
+            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-xs focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
           />
         </div>
 
@@ -279,7 +279,7 @@ function AlertsTab() {
             placeholder="203.0.113.4, 198.51.100.0"
             value={urls.WORKSPACE_ALLOWED_IPS}
             onChange={(e) => setUrls({ ...urls, WORKSPACE_ALLOWED_IPS: e.target.value })}
-            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
+            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-xs focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
           />
         </div>
 
@@ -299,7 +299,7 @@ function AlertsTab() {
             placeholder="US, CA"
             value={urls.WORKSPACE_ALLOWED_COUNTRIES}
             onChange={(e) => setUrls({ ...urls, WORKSPACE_ALLOWED_COUNTRIES: e.target.value })}
-            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
+            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-xs focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-full"
           />
         </div>
       </div>
@@ -390,7 +390,7 @@ function BackupsTab() {
 
   return (
     <>
-      <div className="bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)] mb-6">
+      <div className="bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)] mb-6">
         <div className="px-6 py-5 border-b border-gray-200 dark:border-[var(--border-subtle)] flex justify-between items-center">
           <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-[var(--text-primary)]">
             Audit Log Retention
@@ -416,7 +416,7 @@ function BackupsTab() {
               placeholder="e.g. 365"
               value={settings.AUDIT_LOG_RETENTION_DAYS}
               onChange={(e) => setSettings({ ...settings, AUDIT_LOG_RETENTION_DAYS: e.target.value })}
-              className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-32"
+              className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-xs focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-32"
             />
           </div>
 
@@ -434,7 +434,7 @@ function BackupsTab() {
               min="1"
               value={settings.MAX_AUDIT_BACKUPS}
               onChange={(e) => setSettings({ ...settings, MAX_AUDIT_BACKUPS: e.target.value })}
-              className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-32"
+              className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 shadow-xs focus:ring-brand-blue focus:border-brand-blue sm:text-sm w-32"
             />
           </div>
         </div>
@@ -456,7 +456,7 @@ function BackupsTab() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)] mb-6">
+      <div className="bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)] mb-6">
         <div className="px-6 py-5 border-b border-gray-200 dark:border-[var(--border-subtle)]">
           <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-[var(--text-primary)]">Backups</h3>
         </div>
@@ -576,7 +576,7 @@ function DepartmentsTab() {
   };
 
   return (
-    <div className="bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)] mb-6">
+    <div className="bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)] mb-6">
       <div className="px-6 py-5 border-b border-gray-200 dark:border-[var(--border-subtle)]">
         <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-[var(--text-primary)]">
           Departments
@@ -610,7 +610,7 @@ function DepartmentsTab() {
                   value={editingName}
                   onChange={(e) => setEditingName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleRename(d.id)}
-                  className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-brand-blue focus:border-brand-blue flex-1 min-w-[140px] max-w-xs"
+                  className="border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-1.5 text-sm shadow-xs focus:ring-brand-blue focus:border-brand-blue flex-1 min-w-[140px] max-w-xs"
                 />
               ) : (
                 <span className="text-sm text-gray-900 dark:text-[var(--text-primary)]">{d.name}</span>
@@ -663,7 +663,7 @@ function DepartmentsTab() {
           placeholder="New department name..."
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          className="flex-1 border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm shadow-sm focus:ring-brand-blue focus:border-brand-blue"
+          className="flex-1 border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm shadow-xs focus:ring-brand-blue focus:border-brand-blue"
         />
         <button
           type="submit"
@@ -688,7 +688,7 @@ function DepartmentsTab() {
             <div className="modal-b space-y-4">
               {deletingDept.userCount > 0 ? (
                 <>
-                  <div className="p-3 text-sm rounded bg-red-50 dark:bg-red-950/20 text-brand-red border border-red-200 dark:border-red-900/30">
+                  <div className="p-3 text-sm rounded-sm bg-red-50 dark:bg-red-950/20 text-brand-red border border-red-200 dark:border-red-900/30">
                     <p className="font-semibold mb-1">Warning: Active Users Affected</p>
                     <p>
                       There are <strong>{deletingDept.userCount}</strong> user(s) assigned to this department.
@@ -703,7 +703,7 @@ function DepartmentsTab() {
                     placeholder='Type "Yes" to confirm'
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value)}
-                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm shadow-sm focus:ring-brand-blue focus:border-brand-blue"
+                    className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm shadow-xs focus:ring-brand-blue focus:border-brand-blue"
                   />
                 </>
               ) : (
@@ -716,7 +716,7 @@ function DepartmentsTab() {
                 <button
                   type="button"
                   onClick={() => setDeletingDept(null)}
-                  className="btn btn-secondary px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="btn btn-secondary px-4 py-2 text-sm rounded-sm border border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
                   Cancel
                 </button>

@@ -13,14 +13,13 @@
  * before any business logic runs.
  */
 import { Router, Request, Response } from "express";
-import { PrismaClient, Role } from "@prisma/client";
+import { prisma, Role } from "../lib/prismaClient";
 import { OAuth2Client } from "google-auth-library";
 import { verifyDiscordSignature } from "../services/discordSignature";
 import { createLinkCode, consumeLinkCode } from "../services/discordLink";
 import { approveAccessRequest, denyAccessRequest, RequestActionError, RequestActor } from "../services/accessRequests";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 
-const prisma = new PrismaClient();
 const router = Router();
 const gchatAuthClient = new OAuth2Client();
 

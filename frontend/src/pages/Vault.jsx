@@ -395,12 +395,12 @@ export default function Vault() {
                         setSelectedForDelete(new Set());
                       }
                     }}
-                    className={`relative inline-flex shrink-0 h-5 w-9 border-2 border-transparent rounded-full cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-brand-red ${
+                    className={`relative inline-flex shrink-0 h-5 w-9 border-2 border-transparent rounded-full cursor-pointer transition-colors focus:outline-hidden focus:ring-2 focus:ring-brand-red ${
                       showBulkSelect ? "bg-brand-red" : "bg-gray-200 dark:bg-gray-700"
                     }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                      className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform ${
                         showBulkSelect ? "translate-x-4" : "translate-x-0"
                       }`}
                     />
@@ -419,7 +419,7 @@ export default function Vault() {
                         prev.size === sortedAccounts.length ? new Set() : new Set(sortedAccounts.map((a) => a.id)),
                       )
                     }
-                    className="rounded border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
+                    className="rounded-sm border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
                   />
                   Select all
                 </label>
@@ -456,7 +456,7 @@ export default function Vault() {
                             checked={selectedForDelete.has(account.id)}
                             onChange={() => toggleSelectForDelete(account.id)}
                             onClick={(e) => e.stopPropagation()}
-                            className="mt-1 shrink-0 rounded border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
+                            className="mt-1 shrink-0 rounded-sm border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
                           />
                         )}
                         <div className="min-w-0">
@@ -591,7 +591,7 @@ export default function Vault() {
                               {isExpiringSoon && (
                                 <button
                                   onClick={() => handleRequestRenewal(selected.id)}
-                                  className="text-xs font-semibold px-2 py-1 rounded bg-amber-100 dark:bg-amber-900 hover:bg-amber-200 dark:hover:bg-amber-800 text-amber-900 dark:text-amber-100 border border-amber-300 dark:border-amber-700 transition-colors"
+                                  className="text-xs font-semibold px-2 py-1 rounded-sm bg-amber-100 dark:bg-amber-900 hover:bg-amber-200 dark:hover:bg-amber-800 text-amber-900 dark:text-amber-100 border border-amber-300 dark:border-amber-700 transition-colors"
                                 >
                                   Request Renewal
                                 </button>

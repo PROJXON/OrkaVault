@@ -9,9 +9,8 @@
  * never block the request/approve/deny handler that triggered the alert.
  */
 
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 
-const prisma = new PrismaClient();
 
 const DISCORD_POLICY_NAME = "DISCORD_WEBHOOK_URL";
 const GCHAT_POLICY_NAME = "GCHAT_WEBHOOK_URL";

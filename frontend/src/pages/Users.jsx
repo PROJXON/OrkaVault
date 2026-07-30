@@ -230,12 +230,12 @@ export default function Users() {
             placeholder="Search by name or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue w-full sm:w-64"
+            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 text-sm focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue w-full sm:w-64"
           />
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue"
+            className="border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 text-sm focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue"
           >
             <option value="">All Departments</option>
             {departments.map((d) => (
@@ -257,12 +257,12 @@ export default function Users() {
                   setSelectedIds(new Set());
                 }
               }}
-              className={`relative inline-flex shrink-0 h-5 w-9 border-2 border-transparent rounded-full cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-brand-red ${
+              className={`relative inline-flex shrink-0 h-5 w-9 border-2 border-transparent rounded-full cursor-pointer transition-colors focus:outline-hidden focus:ring-2 focus:ring-brand-red ${
                 showBulkSelect ? "bg-brand-red" : "bg-gray-200 dark:bg-gray-700"
               }`}
             >
               <span
-                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform ${
                   showBulkSelect ? "translate-x-4" : "translate-x-0"
                 }`}
               />
@@ -304,7 +304,7 @@ export default function Users() {
                     type="checkbox"
                     checked={selectedIds.has(u.id)}
                     onChange={() => toggleSelect(u.id)}
-                    className="rounded border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
+                    className="rounded-sm border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
                   />
                 )}
                 {u.name}
@@ -384,7 +384,7 @@ export default function Users() {
         )}
       </div>
 
-      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)] overflow-hidden">
+      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg border border-gray-200 dark:border-[var(--border-subtle)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
           <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">
@@ -395,7 +395,7 @@ export default function Users() {
                     type="checkbox"
                     checked={selectedIds.size > 0 && selectedIds.size === selectableUsers().length}
                     onChange={toggleSelectAll}
-                    className="rounded border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
+                    className="rounded-sm border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
                   />
                 </th>
               )}
@@ -439,7 +439,7 @@ export default function Users() {
                           type="checkbox"
                           checked={selectedIds.has(u.id)}
                           onChange={() => toggleSelect(u.id)}
-                          className="rounded border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
+                          className="rounded-sm border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
                         />
                       )}
                     </td>
@@ -589,7 +589,7 @@ export default function Users() {
                     onChange={(e) =>
                       setEditingUser({ ...editingUser, role: e.target.value })
                     }
-                    className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   >
                     <option value="USER">User</option>
                     <option value="MANAGER">Manager</option>
@@ -605,7 +605,7 @@ export default function Users() {
                     onChange={(e) =>
                       setEditingUser({ ...editingUser, department: e.target.value })
                     }
-                    className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   >
                     <option value="">-- Not set --</option>
                     {departments.map((d) => (
@@ -631,7 +631,7 @@ export default function Users() {
                                 : editingUser.managedCollectionIds.filter(id => id !== c.id);
                               setEditingUser({...editingUser, managedCollectionIds: newIds});
                             }}
-                            className="rounded border-gray-300 dark:border-[var(--border-default)] text-brand-blue focus:ring-brand-blue"
+                            className="rounded-sm border-gray-300 dark:border-[var(--border-default)] text-brand-blue focus:ring-brand-blue"
                           />
                           <span>{c.name}</span>
                         </label>
@@ -652,7 +652,7 @@ export default function Users() {
                     onChange={(e) =>
                       setEditingUser({ ...editingUser, startDate: e.target.value })
                     }
-                    className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   />
                 </div>
                 <div>
@@ -664,7 +664,7 @@ export default function Users() {
                     onChange={(e) =>
                       setEditingUser({ ...editingUser, clearanceLevel: e.target.value })
                     }
-                    className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   >
                     <option value="">-- Not set --</option>
                     {CLEARANCE_TIERS.map((tier) => (
@@ -685,7 +685,7 @@ export default function Users() {
                         endDate: e.target.value,
                       })
                     }
-                    className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                    className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
                   />
                 </div>
               </div>
@@ -693,14 +693,14 @@ export default function Users() {
               <div className="mt-5 pt-4 border-t sm:flex sm:flex-row-reverse">
                 <button
                   onClick={handleEditSave}
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-brand-blue text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-xs px-4 py-2 bg-brand-blue text-base font-medium text-white hover:bg-blue-700 focus:outline-hidden sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Save Changes
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingUser(null)}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-[var(--border-default)] shadow-sm px-4 py-2 bg-white dark:bg-[var(--bg-surface)] text-base font-medium text-gray-700 dark:text-[var(--text-secondary)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-none sm:mt-0 sm:w-auto sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-[var(--border-default)] shadow-xs px-4 py-2 bg-white dark:bg-[var(--bg-surface)] text-base font-medium text-gray-700 dark:text-[var(--text-secondary)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-hidden sm:mt-0 sm:w-auto sm:text-sm"
                 >
                   Cancel
                 </button>
@@ -733,13 +733,13 @@ export default function Users() {
                 value={bulkConfirmText}
                 onChange={(e) => setBulkConfirmText(e.target.value)}
                 placeholder="approve"
-                className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-red focus:border-brand-red sm:text-sm mb-4"
+                className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-red focus:border-brand-red sm:text-sm mb-4"
               />
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => { setBulkConfirmOpen(false); setBulkConfirmText(""); }}
-                  className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-none"
+                  className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-xs text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-hidden"
                 >
                   Cancel
                 </button>
@@ -747,7 +747,7 @@ export default function Users() {
                   type="button"
                   disabled={bulkConfirmText.trim().toLowerCase() !== "approve" || bulkDeleting}
                   onClick={handleBulkDelete}
-                  className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-brand-red hover:bg-red-700 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 border border-transparent shadow-xs text-sm font-medium rounded-md text-white bg-brand-red hover:bg-red-700 focus:outline-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {bulkDeleting ? "Deleting..." : "Yes, Delete"}
                 </button>

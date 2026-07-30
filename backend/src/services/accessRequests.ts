@@ -5,12 +5,11 @@
  * side effects (grant creation, notifications, chat alerts, audit log)
  * can't drift between the two call paths.
  */
-import { PrismaClient, Role } from "@prisma/client";
+import { prisma, Role } from "../lib/prismaClient";
 import { notifyUser } from "./notifications";
 import { meetsClearance } from "./clearance";
 import { sendChatAlert } from "./webhookAlerts";
 
-const prisma = new PrismaClient();
 
 export type RequestActor = {
   id: string;

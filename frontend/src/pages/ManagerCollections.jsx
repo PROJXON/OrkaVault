@@ -81,7 +81,7 @@ export default function ManagerCollections() {
           <select
             value={selectedCollection}
             onChange={(e) => setSelectedCollection(e.target.value)}
-            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-[var(--border-default)] focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm rounded-md"
+            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-[var(--border-default)] focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm rounded-md"
           >
             <option value="">All Managed Collections</option>
             {user.managedCollections.map(c => (
@@ -91,7 +91,7 @@ export default function ManagerCollections() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
+      <div className="bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
             <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">

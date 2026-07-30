@@ -59,13 +59,13 @@ export default function Audit() {
         </p>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
+      <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow-sm rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="flex-1 min-w-[160px]">
           <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)] mb-1">Action</label>
           <select
             value={filterAction}
             onChange={(e) => setFilterAction(e.target.value)}
-            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
           >
             <option value="">All Actions</option>
             {uniqueActions.map(action => (
@@ -78,7 +78,7 @@ export default function Audit() {
           <select
             value={filterUser}
             onChange={(e) => setFilterUser(e.target.value)}
-            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
           >
             <option value="">All Users</option>
             {uniqueUsers.map(user => (
@@ -92,13 +92,13 @@ export default function Audit() {
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
-            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
           />
         </div>
         <div className="flex items-end">
           <button
              onClick={() => { setFilterAction(""); setFilterUser(""); setFilterDate(""); }}
-             className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-none whitespace-nowrap"
+             className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-xs text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-hidden whitespace-nowrap"
           >
             Clear Filters
           </button>
@@ -144,7 +144,7 @@ export default function Audit() {
         )}
       </div>
 
-      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
+      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="overflow-x-auto custom-scrollbar">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
           <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">
@@ -197,7 +197,7 @@ export default function Audit() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-1 rounded text-xs font-mono">
+                    <span className="bg-gray-100 dark:bg-[var(--bg-muted)] text-gray-800 dark:text-[var(--text-primary)] px-2 py-1 rounded-sm text-xs font-mono">
                       {formatAction(log.action)}
                     </span>
                   </td>

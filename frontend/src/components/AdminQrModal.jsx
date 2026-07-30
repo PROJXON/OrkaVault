@@ -63,7 +63,7 @@ export default function AdminQrModal({ accountId }) {
               <img
                 src={qrCodeBase64.startsWith("data:") ? qrCodeBase64 : `data:image/png;base64,${qrCodeBase64}`}
                 alt="TOTP QR Code"
-                className="w-48 h-48 select-none bg-white rounded"
+                className="w-48 h-48 select-none bg-white rounded-sm"
                 style={{ userSelect: "none", WebkitUserSelect: "none" }}
                 draggable={false}
               />

@@ -13,10 +13,9 @@
  * how its name/owner/etc. has drifted from what Workspace now reports.
  * Admin-triggered only (POST /api/accounts/sync-workspace) — no cron.
  */
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import { listActiveWorkspaceUsers } from "./googleWorkspace";
 
-const prisma = new PrismaClient();
 
 export interface WorkspaceAccountSyncResult {
   created: number;

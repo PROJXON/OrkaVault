@@ -17,7 +17,7 @@ export default function DashboardLayout() {
   if (user && !user.mfaEnabled) {
     return (
       <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-canvas)" }}>
-        <header className="bg-white dark:bg-[var(--bg-surface)] border-b border-gray-200 dark:border-[var(--border-subtle)] px-6 py-4 flex items-center justify-between shadow-sm">
+        <header className="bg-white dark:bg-[var(--bg-surface)] border-b border-gray-200 dark:border-[var(--border-subtle)] px-6 py-4 flex items-center justify-between shadow-xs">
           <span className="text-xl font-extrabold text-gray-900 dark:text-[var(--text-primary)]">OrkaVault Security</span>
           <button 
             onClick={logout}
@@ -26,7 +26,7 @@ export default function DashboardLayout() {
             Logout
           </button>
         </header>
-        <main className="flex-1 relative overflow-y-auto focus:outline-none p-6 min-h-0">
+        <main className="flex-1 relative overflow-y-auto focus:outline-hidden p-6 min-h-0">
           <Outlet />
         </main>
       </div>
@@ -42,7 +42,7 @@ export default function DashboardLayout() {
       />
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <TopBar onMenuClick={() => setMobileNavOpen((o) => !o)} />
-        <main className="flex-1 relative overflow-y-auto focus:outline-none p-6 min-h-0">
+        <main className="flex-1 relative overflow-y-auto focus:outline-hidden p-6 min-h-0">
           <Outlet />
         </main>
       </div>

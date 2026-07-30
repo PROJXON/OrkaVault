@@ -1,9 +1,9 @@
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middleware/auth";
+import { asString } from "../utils/reqValue";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/collections - list all collections
 router.get("/", requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
@@ -64,7 +64,7 @@ router.patch(
     const { name, description, managerIds } = req.body;
     try {
       const collection = await prisma.collection.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: {
           ...(name && { name }),
           ...(description !== undefined && { description }),
@@ -96,11 +96,11 @@ router.delete(
     try {
       // Unlink accounts first
       await prisma.account.updateMany({
-        where: { collectionId: req.params.id },
+        where: { collectionId: asString(req.params.id) },
         data: { collectionId: null }
       });
       await prisma.collection.delete({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       res.json({ message: "Collection deleted successfully." });
     } catch (error) {

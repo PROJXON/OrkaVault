@@ -2,7 +2,7 @@
  * Account Routes — CRUD, QA Approval, Reveal
  */
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import crypto from "crypto";
 import multer from "multer";
 import {
@@ -23,8 +23,8 @@ import { parseCsv } from "../services/csvImport";
 import { meetsClearance } from "../services/clearance";
 import { validateTotpQrImage, generateOtpFromQrImage } from "../services/totp";
 import { syncWorkspaceAccountsToVault } from "../services/workspaceAccountSync";
+import { asString } from "../utils/reqValue";
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // Bulk-import CSVs are parsed in memory and never written to disk —
@@ -130,7 +130,7 @@ router.get(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     const account = await prisma.account.findUnique({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
       include: {
         accessGrants: {
           where: { active: true },
@@ -668,7 +668,7 @@ router.patch(
     }
     try {
       const account = await prisma.account.findUnique({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       if (!account || account.qaStatus !== "PENDING") {
         res.status(400).json({ error: "Account is not in PENDING QA status." });
@@ -691,12 +691,12 @@ router.patch(
 
         await prisma.$transaction([
           prisma.account.update({
-            where: { id: req.params.id },
+            where: { id: asString(req.params.id) },
             data: { qaStatus: "APPROVED" },
           }),
           prisma.rotationSchedule.create({
             data: {
-              accountId: req.params.id,
+              accountId: asString(req.params.id)!,
               cycle: account.refreshCycle,
               nextDue,
             },
@@ -704,7 +704,7 @@ router.patch(
         ]);
       } else {
         await prisma.account.update({
-          where: { id: req.params.id },
+          where: { id: asString(req.params.id) },
           data: { qaStatus: "REJECTED" },
         });
       }
@@ -712,7 +712,7 @@ router.patch(
       await prisma.auditLog.create({
         data: {
           userId: req.user!.id,
-          accountId: req.params.id,
+          accountId: asString(req.params.id),
           action: `QA_${qaStatus}`,
           ipAddress: req.ip,
         },
@@ -730,7 +730,7 @@ router.post(
   "/:id/reveal",
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = req.params.id;
+    const accountId = asString(req.params.id);
     const userId = req.user!.id;
 
     let validatedGrant: any = null;
@@ -857,7 +857,7 @@ router.post(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = req.params.id;
+    const accountId = asString(req.params.id);
 
     try {
       const account = await prisma.account.findUnique({
@@ -897,7 +897,7 @@ router.post(
   "/:id/reveal-otp",
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = req.params.id;
+    const accountId = asString(req.params.id);
     const userId = req.user!.id;
 
     let validatedGrant: any = null;
@@ -1029,7 +1029,7 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const account = await prisma.account.findUnique({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       if (!account) {
         res.status(404).json({ error: "Account not found." });
@@ -1073,7 +1073,7 @@ router.patch(
 
     try {
       const account = await prisma.account.findUnique({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       if (!account) {
         res.status(404).json({ error: "Account not found." });
@@ -1153,7 +1153,7 @@ router.patch(
       }
 
       const updated = await prisma.account.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: updateData,
       });
 
@@ -1183,7 +1183,7 @@ router.delete(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const account = await prisma.account.findUnique({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       if (!account) {
         res.status(404).json({ error: "Account not found." });
@@ -1193,7 +1193,7 @@ router.delete(
       await deleteSecret(account.secretRef);
 
       await prisma.account.delete({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
 
       // Log audit

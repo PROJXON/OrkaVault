@@ -2,7 +2,7 @@
  * Access Request Routes — Submit, Approve (with race-condition lock), Deny
  */
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import {
   requireAuth,
   requireRole,
@@ -12,8 +12,8 @@ import { notifyManagersAndAdmins } from "../services/notifications";
 import { meetsClearance } from "../services/clearance";
 import { sendChatAlert } from "../services/webhookAlerts";
 import { approveAccessRequest, denyAccessRequest, RequestActionError } from "../services/accessRequests";
+import { asString } from "../utils/reqValue";
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // GET /api/requests — list requests filtered by role
@@ -93,7 +93,7 @@ router.get(
     try {
       const request = await prisma.accessRequest.findFirst({
         where: {
-          accountId: req.params.accountId,
+          accountId: asString(req.params.accountId),
           requesterId: req.user!.id,
           status: "APPROVED",
         },
@@ -204,7 +204,7 @@ router.patch(
   requireRole("MANAGER", "ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const result = await approveAccessRequest(req.user!, req.params.id, req.ip, "web");
+      const result = await approveAccessRequest(req.user!, asString(req.params.id)!, req.ip, "web");
       res.json({
         message: "Request approved and grant provisioned.",
         grantId: result.grantId,
@@ -230,7 +230,7 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     const { reason } = req.body;
     try {
-      await denyAccessRequest(req.user!, req.params.id, reason, req.ip, "web");
+      await denyAccessRequest(req.user!, asString(req.params.id)!, reason, req.ip, "web");
       res.json({ message: "Request denied." });
     } catch (error: any) {
       if (error instanceof RequestActionError) {

@@ -125,7 +125,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
 
           <form onSubmit={handleSubmit} className="modal-b">
             {error && (
-              <div className="p-3 text-sm rounded" style={{ color: "var(--error-text)", background: "var(--error-subtle)", border: "1px solid var(--error-border)" }}>
+              <div className="p-3 text-sm rounded-sm" style={{ color: "var(--error-text)", background: "var(--error-subtle)", border: "1px solid var(--error-border)" }}>
                 {error}
               </div>
             )}
@@ -240,7 +240,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                 type="checkbox"
                 checked={formData.isGoogleSSO}
                 onChange={(e) => setFormData({ ...formData, isGoogleSSO: e.target.checked, password: "" })}
-                className="h-4 w-4 rounded"
+                className="h-4 w-4 rounded-sm"
                 style={{ accentColor: "var(--brand)" }}
               />
               Sign in via Google Account (No password required)

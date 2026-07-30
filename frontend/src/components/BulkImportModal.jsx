@@ -94,7 +94,7 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess }) {
           </div>
 
           {error && (
-            <div className="p-3 text-sm rounded" style={{ color: "var(--error-text)", background: "var(--error-subtle)", border: "1px solid var(--error-border)" }}>
+            <div className="p-3 text-sm rounded-sm" style={{ color: "var(--error-text)", background: "var(--error-subtle)", border: "1px solid var(--error-border)" }}>
               {error}
             </div>
           )}

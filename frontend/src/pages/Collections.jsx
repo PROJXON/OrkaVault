@@ -116,7 +116,7 @@ export default function Collections() {
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+          className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 shadow-xs focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
         />
       </div>
       <div>
@@ -124,7 +124,7 @@ export default function Collections() {
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 shadow-sm focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+          className="mt-1 block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 shadow-xs focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
           rows="2"
         />
       </div>
@@ -146,7 +146,7 @@ export default function Collections() {
                       : managerIds.filter((id) => id !== m.id);
                     setManagerIds(newIds);
                   }}
-                  className="rounded border-gray-300 dark:border-[var(--border-default)] text-brand-blue focus:ring-brand-blue"
+                  className="rounded-sm border-gray-300 dark:border-[var(--border-default)] text-brand-blue focus:ring-brand-blue"
                 />
                 <span>{m.name}</span>
               </label>
@@ -164,13 +164,13 @@ export default function Collections() {
         <button
           type="button"
           onClick={resetForm}
-          className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-none"
+          className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-xs text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-hidden"
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-brand-blue hover:bg-blue-700 focus:outline-none"
+          className="px-4 py-2 border border-transparent shadow-xs text-sm font-medium rounded-md text-white bg-brand-blue hover:bg-blue-700 focus:outline-hidden"
         >
           {isEdit ? "Update" : "Create"}
         </button>
@@ -220,7 +220,7 @@ export default function Collections() {
         <button
           onClick={toggleCreate}
           title="New Collection"
-          className="shrink-0 mt-1 flex items-center justify-center w-10 h-10 rounded-full bg-brand-blue text-white hover:bg-blue-700 transition-colors shadow-sm"
+          className="shrink-0 mt-1 flex items-center justify-center w-10 h-10 rounded-full bg-brand-blue text-white hover:bg-blue-700 transition-colors shadow-xs"
         >
           {creating ? <X className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
         </button>
@@ -228,7 +228,7 @@ export default function Collections() {
 
       {/* New collection form — expands below the header when "+" is clicked */}
       {creating && (
-        <div className="mb-6 bg-white dark:bg-[var(--bg-surface)] p-6 shadow rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
+        <div className="mb-6 bg-white dark:bg-[var(--bg-surface)] p-6 shadow-sm rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
           <h3 className="text-lg font-medium text-gray-900 dark:text-[var(--text-primary)] mb-4">New Collection</h3>
           {renderForm(false)}
         </div>
@@ -288,7 +288,7 @@ export default function Collections() {
         )}
       </div>
 
-      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
+      <div className="hidden md:block bg-white dark:bg-[var(--bg-surface)] shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-[var(--border-subtle)]">
         <div className="overflow-x-auto custom-scrollbar">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-[var(--border-subtle)]">
           <thead className="bg-gray-50 dark:bg-[var(--bg-canvas)]">

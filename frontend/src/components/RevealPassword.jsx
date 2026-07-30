@@ -158,7 +158,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
             Use the Google account in the email field to login
           </span>
           {screenTimeLeft !== null && screenTimeLeft > 0 && (
-            <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white dark:bg-[var(--bg-surface)] border border-brand-blue text-xs font-bold text-brand-blue shadow-sm shrink-0">
+            <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white dark:bg-[var(--bg-surface)] border border-brand-blue text-xs font-bold text-brand-blue shadow-xs shrink-0">
               {formatTime(screenTimeLeft)}
             </div>
           )}
@@ -186,7 +186,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
           type="button"
           onClick={handleCopy}
           title="Click to copy"
-          className="font-mono text-gray-900 dark:text-[var(--text-primary)] text-sm hover:bg-amber-100 rounded px-1 -mx-1 transition-colors flex items-center gap-1"
+          className="font-mono text-gray-900 dark:text-[var(--text-primary)] text-sm hover:bg-amber-100 rounded-sm px-1 -mx-1 transition-colors flex items-center gap-1"
           style={{ userSelect: "none", WebkitUserSelect: "none", MozUserSelect: "none" }}
         >
           {password}
@@ -194,7 +194,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
         </button>
         {copied && <span className="text-xs text-green-600 font-medium">Copied!</span>}
         {screenTimeLeft !== null && screenTimeLeft > 0 && (
-          <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white dark:bg-[var(--bg-surface)] border border-amber-300 text-xs font-bold text-amber-600 shadow-sm shrink-0">
+          <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white dark:bg-[var(--bg-surface)] border border-amber-300 text-xs font-bold text-amber-600 shadow-xs shrink-0">
             {formatTime(screenTimeLeft)}
           </div>
         )}
@@ -216,7 +216,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
       <button
         onClick={handleReveal}
         disabled={loading}
-        className="p-1 text-brand-blue hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+        className="p-1 text-brand-blue hover:bg-blue-50 rounded-sm transition-colors disabled:opacity-50"
         title="View Password"
       >
         <Eye className="h-4 w-4" />
