@@ -13,7 +13,7 @@
   "dependencies": {
     "@google-cloud/secret-manager": "^6.3.0",
     "@prisma/client": "^5.22.0",
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.6",
