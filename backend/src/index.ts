@@ -25,7 +25,7 @@ import { runAuditRetentionSweep } from "./services/auditBackup";
 import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 // Log Events
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -163,7 +163,7 @@ async function checkAuditRetention() {
 }
 
 // ─── Start Server ──────────────────────────────────────────────────────
-app.listen(PORT, "0.0.0.0" () => {
+app.listen(PORT, async () => {
   console.log(`🚀 OrkaVault API running on http://localhost:${PORT}`);
 
   // One-time (no-op after the first successful run) — see seedDefaultDepartments jsdoc

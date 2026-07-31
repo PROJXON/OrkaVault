@@ -7,8 +7,10 @@ RUN npm ci --only=production
 
 COPY . .
 
-# Set the environment variable and expose port 5001
-ENV PORT=5001
+RUN npx prisma generate
+RUN npx tsc
+
+# Cloud Run injects PORT itself at runtime — don't hardcode it here.
 EXPOSE 5001
 
 CMD ["npm", "start"]
