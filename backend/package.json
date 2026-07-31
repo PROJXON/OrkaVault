@@ -4,8 +4,8 @@
   "description": "OrkaVault Secure Password Manager Backend",
   "main": "dist/index.js",
   "scripts": {
-    "build": "prisma generate && prisma db push && tsc",
-    "start": "prisma generate && node dist/index.js",
+    "build": "tsc",
+    "start": "prisma generate && prisma db push && node dist/index.js",
     "dev": "ts-node src/index.ts",
     "postinstall": "",
     "prisma:generate": "prisma generate",
