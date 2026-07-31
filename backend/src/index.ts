@@ -163,7 +163,7 @@ async function checkAuditRetention() {
 }
 
 // ─── Start Server ──────────────────────────────────────────────────────
-app.listen(PORT, async () => {
+app.listen(PORT, "0.0.0.0" () => {
   console.log(`🚀 OrkaVault API running on http://localhost:${PORT}`);
 
   // One-time (no-op after the first successful run) — see seedDefaultDepartments jsdoc
