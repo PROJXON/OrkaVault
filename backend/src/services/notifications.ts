@@ -11,6 +11,7 @@
  */
 
 import { prisma, NotifType, User } from "../lib/prismaClient";
+import { pushToUser } from "./sseHub";
 
 
 // Rate-limiting tracker: key = `${userId}:${type}`, value = last sent timestamp
@@ -30,9 +31,14 @@ export async function notifyUser(
 ): Promise<void> {
   try {
     // Create in-app notification record
-    await prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: { userId, title, body, type },
     });
+
+    // Push to any live SSE connection for this user immediately — the
+    // NotificationBell poll (60s) is the fallback for a tab that isn't
+    // connected/reconnecting, not the primary delivery path.
+    pushToUser(userId, notification);
 
     if (sendEmail) {
       // Fetch user to check notification preference

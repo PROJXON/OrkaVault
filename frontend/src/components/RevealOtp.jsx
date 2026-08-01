@@ -6,7 +6,7 @@ import api from "../lib/api";
 // (the raw QR image itself is admin-only — see AdminQrModal). The code
 // rotates every 30s; while revealed, this silently re-fetches a fresh
 // code at each rotation boundary so what's on screen is always valid.
-export default function RevealOtp({ accountId, isAdmin, onRequestAccess, onGrantExpired }) {
+export default function RevealOtp({ accountId, isAdmin, onRequestAccess, onGrantExpired, onRevealed }) {
   const [phase, setPhase] = useState("idle"); // idle | revealed | expired
   const [otp, setOtp] = useState(null);
   const [otpSecondsLeft, setOtpSecondsLeft] = useState(null);
@@ -99,6 +99,7 @@ export default function RevealOtp({ accountId, isAdmin, onRequestAccess, onGrant
       setOtp(token);
       setPhase("revealed");
       armOtpRotation(secondsRemaining);
+      if (onRevealed) onRevealed(grantExpiresAt);
 
       if (expiresIn !== null && expiresIn > 0) {
         let secs = expiresIn;

@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Standardize the API base URL (ensures /api is appended if omitted)
 const rawBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:5001";
-const API_BASE_URL = rawBaseUrl.endsWith("/api")
+export const API_BASE_URL = rawBaseUrl.endsWith("/api")
   ? rawBaseUrl
   : `${rawBaseUrl.replace(/\/$/, "")}/api`;
 

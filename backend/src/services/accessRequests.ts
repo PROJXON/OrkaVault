@@ -111,15 +111,18 @@ export async function approveAccessRequest(
       }
     }
 
-    // All grants start with an infinite activation window; they're shrunk
-    // down to 90s/24h upon first reveal.
+    // Every grant gets a 24h "must view by" deadline starting now — if the
+    // user never reveals within that window, services/staleApprovals.ts
+    // deactivates it and they have to submit a fresh request. Once they DO
+    // reveal, the accounts.ts reveal/reveal-otp routes replace this deadline
+    // with the real access window (90s/24h/unlimited, per accessType).
     const grant = await tx.accessGrant.create({
       data: {
         accountId: request.accountId,
         userId: request.requesterId,
         grantedBy: actor.id,
         accessType: request.requestType,
-        expiresAt: null,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
         active: true,
       },
     });

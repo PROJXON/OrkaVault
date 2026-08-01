@@ -2,6 +2,15 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development';
 
+// Required on Windows for `new Notification()` in the renderer to actually
+// surface as a native toast — without a registered AppUserModelID, Windows
+// silently drops notifications from unpackaged/dev Electron apps instead of
+// erroring, which looks like "the popup code runs but nothing shows".
+// No-op on macOS/Linux. Must run before app.whenReady().
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.projxon.orkavault');
+}
+
 // ── Memory & Performance Optimization ──────────────────────────────────────
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
 app.commandLine.appendSwitch('disable-features', 'TranslateUI');

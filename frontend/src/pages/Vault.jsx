@@ -178,6 +178,22 @@ export default function Vault() {
     setAccounts((prev) => prev.map((a) => (a.id === accountId ? { ...a, hasGrant: false } : a)));
   };
 
+  // A fresh reveal always returns the up-to-date expiresAt (the real access
+  // window for this accessType, replacing the pre-reveal 24h "must view by"
+  // deadline — see backend/src/services/accessRequests.ts + routes/accounts.ts)
+  // and marks the grant as revealed. The accounts list was fetched before this
+  // reveal happened, so it needs to be told about both directly, or the
+  // Temporary Access countdown/wording below goes stale until a full refetch.
+  const handleGrantRevealed = (accountId, grantExpiresAt) => {
+    setAccounts((prev) =>
+      prev.map((a) =>
+        a.id === accountId
+          ? { ...a, grantExpiresAt: grantExpiresAt || null, grantFirstRevealedAt: a.grantFirstRevealedAt || new Date().toISOString() }
+          : a,
+      ),
+    );
+  };
+
   const handleRequestRenewal = async (accountId) => {
     const account = accounts.find((a) => a.id === accountId);
     if (!account) return;
@@ -210,11 +226,13 @@ export default function Vault() {
     const minutes = Math.floor((totalSecs % 3600) / 60);
     const seconds = totalSecs % 60;
 
+    // Always include seconds — this is re-rendered every second (see the
+    // `tick` interval below) specifically so the countdown visibly moves.
     let text = "";
     if (hours > 0) {
-      text = `${hours}h ${minutes}m remaining`;
+      text = `${hours}h ${minutes}m ${seconds}s remaining`;
     } else if (minutes > 0) {
-      text = `${minutes}m remaining`;
+      text = `${minutes}m ${seconds}s remaining`;
     } else {
       text = `${seconds}s remaining`;
     }
@@ -224,6 +242,14 @@ export default function Vault() {
   useEffect(() => {
     fetchAccounts();
     fetchDashboard();
+  }, []);
+
+  // Re-render every second so the expiration countdowns (computed from
+  // Date.now() at render time) visibly tick rather than sitting stale.
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((t) => t + 1), 1000);
+    return () => clearInterval(id);
   }, []);
 
   // Deep link from elsewhere in the app (e.g. Collections Management)
@@ -273,6 +299,7 @@ export default function Vault() {
   const favoriteAccounts = accounts.filter((a) => favorites.includes(a.id));
   const unreadNotifs = notifications.filter((n) => !n.read).slice(0, 5);
   const recentRequests = myRequests.slice(0, 4);
+  const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts]);
 
   const hasSufficientClearance = (account) =>
     user.role === "ADMIN" || meetsClearance(user.clearanceLevel, account.requiredClearance);
@@ -563,7 +590,13 @@ export default function Vault() {
                       <div className="space-y-3">
                         <div className="flex items-center gap-3 flex-wrap">
                           {selected.hasTotpQr && (
-                            <RevealOtp key={`otp-${selected.id}`} accountId={selected.id} isAdmin={hasDirectAccess(selected)} onGrantExpired={() => handleGrantExpired(selected.id)} />
+                            <RevealOtp
+                              key={`otp-${selected.id}`}
+                              accountId={selected.id}
+                              isAdmin={hasDirectAccess(selected)}
+                              onGrantExpired={() => handleGrantExpired(selected.id)}
+                              onRevealed={(grantExpiresAt) => handleGrantRevealed(selected.id, grantExpiresAt)}
+                            />
                           )}
                           <RevealPassword
                             key={`pw-${selected.id}`}
@@ -571,6 +604,7 @@ export default function Vault() {
                             isAdmin={hasDirectAccess(selected)}
                             onRequestAccess={() => setRequestModal({ isOpen: true, account: selected })}
                             onGrantExpired={() => handleGrantExpired(selected.id)}
+                            onRevealed={(grantExpiresAt) => handleGrantRevealed(selected.id, grantExpiresAt)}
                           />
                           {user.role === "ADMIN" && selected.hasTotpQr && (
                             <AdminQrModal key={`qr-${selected.id}`} accountId={selected.id} />
@@ -581,12 +615,17 @@ export default function Vault() {
                           const info = getGrantExpirationInfo(selected.grantExpiresAt);
                           if (!info || info.expired) return null;
 
-                          const isExpiringSoon = info.msRemaining <= 2 * 60 * 60 * 1000; // 2 hours
+                          // Before the first reveal, grantExpiresAt is the 24h
+                          // "must view by" deadline (see services/staleApprovals.ts)
+                          // rather than the real access window, so the wording
+                          // and the renewal action (nothing to renew yet) differ.
+                          const notYetViewed = !selected.grantFirstRevealedAt;
+                          const isExpiringSoon = !notYetViewed && info.msRemaining <= 2 * 60 * 60 * 1000; // 2 hours
 
                           return (
                             <div className="w-full flex items-center justify-between p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-amber-800 dark:text-amber-300">
                               <span className="text-xs font-medium">
-                                Temporary Access: {info.text}
+                                {notYetViewed ? "View before it expires: " : "Temporary Access: "}{info.text}
                               </span>
                               {isExpiringSoon && (
                                 <button
@@ -691,15 +730,50 @@ export default function Vault() {
               {recentRequests.length === 0 ? (
                 <div className="text-xs text-muted">No requests submitted yet.</div>
               ) : (
-                recentRequests.map((r) => (
-                  <div key={r.id} className="mini-row">
-                    <span className="mr-ic"><Clock width={14} height={14} /></span>
-                    <div className="mr-main">
-                      <div className="mr-t">{r.account?.name}</div>
-                      <div className="mr-m">{formatRequestType(r.requestType)} · {r.status.toLowerCase()}</div>
+                recentRequests.map((r) => {
+                  const acct = r.account?.id ? accountsById[r.account.id] : null;
+
+                  // grantExpiresAt is always populated once approved — a 24h
+                  // "must view by" deadline pre-reveal, then the real access
+                  // window post-reveal (see services/accessRequests.ts +
+                  // routes/accounts.ts). Only ONGOING clears it entirely, and
+                  // only once actually revealed.
+                  let expiryText = null;
+                  if (r.status === "APPROVED") {
+                    if (!acct?.hasGrant) {
+                      expiryText = "expired — request again";
+                    } else if (acct.grantExpiresAt) {
+                      const info = getGrantExpirationInfo(acct.grantExpiresAt);
+                      if (info) {
+                        expiryText = info.expired
+                          ? "expired"
+                          : acct.grantFirstRevealedAt
+                          ? info.text
+                          : `view within ${info.text}`;
+                      }
+                    } else {
+                      expiryText = "ongoing access";
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={r.id}
+                      className="mini-row"
+                      style={acct ? { cursor: "pointer" } : undefined}
+                      onClick={acct ? () => selectAccount(acct.id) : undefined}
+                    >
+                      <span className="mr-ic"><Clock width={14} height={14} /></span>
+                      <div className="mr-main">
+                        <div className="mr-t">{r.account?.name}</div>
+                        <div className="mr-m">
+                          {formatRequestType(r.requestType)} · {r.status.toLowerCase()}
+                          {expiryText && ` · ${expiryText}`}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

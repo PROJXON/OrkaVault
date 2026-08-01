@@ -111,7 +111,7 @@
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     font-size: var(--fs-base); font-weight: var(--fw-semibold); line-height: 1; letter-spacing: var(--ls-tight);
     height: 38px; padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid transparent;
-    background: transparent; color: var(--text-primary); white-space: nowrap;
+    background: transparent; color: var(--text-primary); white-space: nowrap; cursor: pointer;
     transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast), transform var(--dur-fast), box-shadow var(--dur-fast);
   }
   .btn:active { transform: translateY(.5px); }

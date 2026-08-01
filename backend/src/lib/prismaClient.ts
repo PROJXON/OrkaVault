@@ -25,13 +25,21 @@ import { PrismaPg } from "@prisma/adapter-pg";
 // would accept any certificate from anyone and defeat TLS's protection
 // against a machine-in-the-middle — unacceptable for an app that moves
 // vault credentials over this connection.
+//
+// Only do this when DATABASE_URL is actually Supabase's pooler, though —
+// a local/Docker Postgres (dev) has no SSL listener at all, and forcing
+// this ssl block against it fails the handshake outright ("the server
+// does not support SSL connections", P1011) before a single query runs.
 const SUPABASE_CA_PATH = path.join(__dirname, "../../certs/supabase-root-2021-ca.pem");
+const isSupabase = (process.env.DATABASE_URL || "").includes(".pooler.supabase.com");
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    ca: fs.readFileSync(SUPABASE_CA_PATH, "utf-8"),
-    rejectUnauthorized: true,
-  },
+  ...(isSupabase && {
+    ssl: {
+      ca: fs.readFileSync(SUPABASE_CA_PATH, "utf-8"),
+      rejectUnauthorized: true,
+    },
+  }),
 });
 
 export const prisma = new PrismaClient({ adapter });

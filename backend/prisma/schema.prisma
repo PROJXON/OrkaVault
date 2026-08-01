@@ -127,6 +127,14 @@ model AccessGrant {
   expiresAt   DateTime?
   accessType  String    @default("ONGOING")
   active      Boolean   @default(true)
+  // Set the first time reveal/reveal-otp succeeds for this grant — null means
+  // "approved but never viewed yet". Distinguishes that state from expiresAt
+  // itself, since expiresAt is now populated immediately on approval (a 24h
+  // "must view by" deadline, see services/accessRequests.ts) rather than only
+  // once revealed, so `expiresAt === null` alone no longer means "not viewed".
+  // services/staleApprovals.ts deactivates grants left in this state past
+  // their deadline, forcing a fresh request.
+  firstRevealedAt DateTime?
 
   account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -211,6 +219,7 @@ enum NotifType {
   WORKSPACE_NEW_OAUTH_APP
   WORKSPACE_LOGIN_ALLOWLIST_VIOLATION
   WORKSPACE_LOGIN_FAILURE
+  ACCESS_APPROVAL_EXPIRED
 }
 
 model WorkspaceActivityEvent {

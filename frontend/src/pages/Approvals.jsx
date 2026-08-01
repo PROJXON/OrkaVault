@@ -16,11 +16,7 @@ export default function Approvals() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
-
-  // Modal state
-  const [approveModal, setApproveModal] = useState(null); // { id, requesterName, accountName }
-  const [approveText, setApproveText] = useState("");
-  const [approveError, setApproveError] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const [denyModal, setDenyModal] = useState(null); // { id, requesterName, accountName }
   const [denyReason, setDenyReason] = useState("");
@@ -42,28 +38,17 @@ export default function Approvals() {
   }, []);
 
   // ── Approve Flow ──
-  const openApproveModal = (req) => {
-    setApproveModal({
-      id: req.id,
-      requesterName: req.requester.name,
-      accountName: req.account.name,
-    });
-    setApproveText("");
-    setApproveError("");
-  };
-
-  const confirmApprove = async () => {
-    if (approveText.trim().toLowerCase() !== "approve") {
-      setApproveError('Please type "approve" exactly to confirm.');
-      return;
-    }
-    setActionLoading(approveModal.id);
+  // One click, no confirmation step — a manager/admin approving is not a
+  // destructive action worth gating behind typed confirmation, and doing so
+  // was a real bottleneck when there's a queue of requests to clear.
+  const handleApprove = async (req) => {
+    setActionError("");
+    setActionLoading(req.id);
     try {
-      await api.patch(`/requests/${approveModal.id}/approve`);
-      setApproveModal(null);
+      await api.patch(`/requests/${req.id}/approve`);
       await fetchRequests();
     } catch (e) {
-      setApproveError(e.response?.data?.error || "Failed to approve request");
+      setActionError(e.response?.data?.error || "Failed to approve request");
     } finally {
       setActionLoading(null);
     }
@@ -107,6 +92,13 @@ export default function Approvals() {
           Review and action pending access requests.
         </p>
       </div>
+
+      {actionError && (
+        <div className="mb-4 flex items-center justify-between gap-3 px-4 py-3 rounded-md bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 text-brand-red text-sm">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError("")} className="text-brand-red font-medium">Dismiss</button>
+        </div>
+      )}
 
       {/* Mobile: one card per request instead of a wide table */}
       <div className="row-cards md:hidden">
@@ -154,7 +146,7 @@ export default function Approvals() {
               )}
               <div className="row-card-actions">
                 <button
-                  onClick={() => openApproveModal(req)}
+                  onClick={() => handleApprove(req)}
                   disabled={actionLoading === req.id}
                   className="btn btn-success btn-sm flex-1"
                 >
@@ -251,9 +243,9 @@ export default function Approvals() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                     <button
-                      onClick={() => openApproveModal(req)}
+                      onClick={() => handleApprove(req)}
                       disabled={actionLoading === req.id}
-                      className="text-brand-green hover:text-green-700 disabled:opacity-50 inline-flex"
+                      className="text-brand-green hover:text-green-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex cursor-pointer"
                       title="Approve"
                     >
                       <Check className="h-5 w-5" />
@@ -261,7 +253,7 @@ export default function Approvals() {
                     <button
                       onClick={() => openDenyModal(req)}
                       disabled={actionLoading === req.id}
-                      className="text-brand-red hover:text-red-700 disabled:opacity-50 inline-flex"
+                      className="text-brand-red hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex cursor-pointer"
                       title="Deny"
                     >
                       <XIcon className="h-5 w-5" />
@@ -274,70 +266,6 @@ export default function Approvals() {
         </table>
         </div>
       </div>
-
-      {/* ── Approve Confirmation Modal ── */}
-      {approveModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-75"
-              onClick={() => setApproveModal(null)}
-            />
-            <div className="relative bg-white dark:bg-[var(--bg-surface)] rounded-lg shadow-xl max-w-md w-full p-6 z-10">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--text-primary)] mb-2">
-                Confirm Approval
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-[var(--text-secondary)] mb-1">
-                You are approving access for{" "}
-                <span className="font-medium text-gray-900 dark:text-[var(--text-primary)]">
-                  {approveModal.requesterName}
-                </span>{" "}
-                to{" "}
-                <span className="font-medium text-gray-900 dark:text-[var(--text-primary)]">
-                  {approveModal.accountName}
-                </span>
-                .
-              </p>
-              <p className="text-sm text-gray-600 dark:text-[var(--text-secondary)] mb-4">
-                Type{" "}
-                <span className="font-mono bg-green-50 text-brand-green px-1.5 py-0.5 rounded-sm text-xs font-bold">
-                  approve
-                </span>{" "}
-                below to confirm.
-              </p>
-              <input
-                type="text"
-                value={approveText}
-                onChange={(e) => {
-                  setApproveText(e.target.value);
-                  setApproveError("");
-                }}
-                placeholder='Type "approve" to confirm'
-                className="w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md px-3 py-2 text-sm focus:outline-hidden focus:ring-brand-green focus:border-brand-green"
-                autoFocus
-              />
-              {approveError && (
-                <p className="text-xs text-brand-red mt-2">{approveError}</p>
-              )}
-              <div className="mt-5 flex justify-end space-x-3">
-                <button
-                  onClick={() => setApproveModal(null)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] border border-gray-300 dark:border-[var(--border-default)] rounded-md hover:bg-gray-50 dark:bg-[var(--bg-canvas)]"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmApprove}
-                  disabled={actionLoading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-brand-green rounded-md hover:bg-green-700 disabled:opacity-50"
-                >
-                  Approve
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Deny Confirmation Modal ── */}
       {denyModal && (

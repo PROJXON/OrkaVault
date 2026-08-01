@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Eye, ShieldOff, CheckCircle, Copy, Check } from "lucide-react";
 import api from "../lib/api";
 
-export default function RevealPassword({ accountId, isAdmin, onRequestAccess, onGrantExpired }) {
+export default function RevealPassword({ accountId, isAdmin, onRequestAccess, onGrantExpired, onRevealed }) {
   const [phase, setPhase] = useState("idle"); // idle | revealed | expired
   const [password, setPassword] = useState(null);
   const [screenTimeLeft, setScreenTimeLeft] = useState(null);
@@ -56,6 +56,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
       grantExpiredRef.current = false;
       setPassword(pw);
       setPhase("revealed");
+      if (onRevealed) onRevealed(grantExpiresAt);
 
       // ── Screen security timer (≤90s display, null = infinite for ONGOING/Admin) ──
       if (expiresIn !== null && expiresIn > 0) {

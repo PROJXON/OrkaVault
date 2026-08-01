@@ -119,6 +119,7 @@ router.get(
         isGoogleSSO: a.isGoogleSSO,
         hasGrant: a.accessGrants.length > 0,
         grantExpiresAt: a.accessGrants[0]?.expiresAt || null,
+        grantFirstRevealedAt: a.accessGrants[0]?.firstRevealedAt || null,
       })),
     );
   },
@@ -148,7 +149,14 @@ router.get(
     // reveal-otp/reveal-qr are the only routes allowed to hand those out, and
     // only after their own grant/clearance/manager-scope checks), and other
     // grant-holders' identities are ADMIN-only, matching ownersById above.
-    const myGrant = account.accessGrants.find((g) => g.userId === req.user!.id);
+    // Also excludes a grant past its expiresAt (the 24h "must view by"
+    // deadline pre-reveal, or the real access window post-reveal) — it's
+    // still `active: true` in the DB until services/staleApprovals.ts's
+    // sweep catches up, but shouldn't read as a live grant in the meantime.
+    const now = new Date();
+    const myGrant = account.accessGrants.find(
+      (g) => g.userId === req.user!.id && (g.expiresAt === null || g.expiresAt > now),
+    );
     res.json({
       id: account.id,
       name: account.name,
@@ -169,6 +177,7 @@ router.get(
       isGoogleSSO: account.isGoogleSSO,
       hasGrant: !!myGrant,
       grantExpiresAt: myGrant?.expiresAt || null,
+      grantFirstRevealedAt: myGrant?.firstRevealedAt || null,
       accessGrants:
         req.user!.role === "ADMIN"
           ? account.accessGrants.map((g) => ({
@@ -813,22 +822,23 @@ router.post(
         let grant = validatedGrant;
 
         if (grant) {
-          // First view shrink logic
-          if (grant.expiresAt === null) {
+          // First-ever view: replace the 24h "must view by" deadline (set at
+          // approval, see services/accessRequests.ts) with the real access
+          // window for this accessType. Keyed off firstRevealedAt, NOT
+          // expiresAt === null, since expiresAt is already populated at
+          // approval time now.
+          if (!(grant as any).firstRevealedAt) {
             const accessType = (grant as any).accessType || "ONGOING";
-            if (accessType === "VIEW_90S") {
-              const newExpires = new Date(Date.now() + 90 * 1000);
-              grant = await prisma.accessGrant.update({
-                where: { id: grant.id },
-                data: { expiresAt: newExpires },
-              });
-            } else if (accessType === "TEMP_24H") {
-              const newExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-              grant = await prisma.accessGrant.update({
-                where: { id: grant.id },
-                data: { expiresAt: newExpires },
-              });
-            }
+            const newExpires =
+              accessType === "VIEW_90S"
+                ? new Date(Date.now() + 90 * 1000)
+                : accessType === "TEMP_24H"
+                ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+                : null; // ONGOING — no expiry once actually viewed
+            grant = await prisma.accessGrant.update({
+              where: { id: grant.id },
+              data: { expiresAt: newExpires, firstRevealedAt: new Date() },
+            });
           }
 
           // Calculate remaining seconds
@@ -986,22 +996,23 @@ router.post(
         let grant = validatedGrant;
 
         if (grant) {
-          // First view shrink logic
-          if (grant.expiresAt === null) {
+          // First-ever view: replace the 24h "must view by" deadline (set at
+          // approval, see services/accessRequests.ts) with the real access
+          // window for this accessType. Keyed off firstRevealedAt, NOT
+          // expiresAt === null, since expiresAt is already populated at
+          // approval time now.
+          if (!(grant as any).firstRevealedAt) {
             const accessType = (grant as any).accessType || "ONGOING";
-            if (accessType === "VIEW_90S") {
-              const newExpires = new Date(Date.now() + 90 * 1000);
-              grant = await prisma.accessGrant.update({
-                where: { id: grant.id },
-                data: { expiresAt: newExpires },
-              });
-            } else if (accessType === "TEMP_24H") {
-              const newExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-              grant = await prisma.accessGrant.update({
-                where: { id: grant.id },
-                data: { expiresAt: newExpires },
-              });
-            }
+            const newExpires =
+              accessType === "VIEW_90S"
+                ? new Date(Date.now() + 90 * 1000)
+                : accessType === "TEMP_24H"
+                ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+                : null; // ONGOING — no expiry once actually viewed
+            grant = await prisma.accessGrant.update({
+              where: { id: grant.id },
+              data: { expiresAt: newExpires, firstRevealedAt: new Date() },
+            });
           }
 
           // Calculate remaining seconds

@@ -1,16 +1,19 @@
 /**
  * Grants, Notifications, Audit, Health Routes
  */
-import { Router, Response } from "express";
+import { Router, Request, Response } from "express";
 import { prisma } from "../lib/prismaClient";
 import {
   requireAuth,
   requireRole,
   isAccountInManagerScope,
+  verifyAccessToken,
+  JwtPayload,
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { scorePassword } from "../services/health";
 import { fetchSecret } from "../services/secretManager";
+import { addClient, removeClient } from "../services/sseHub";
 import { asString } from "../utils/reqValue";
 
 const router = Router();
@@ -128,6 +131,61 @@ router.get(
       take: 20,
     });
     res.json(notifications);
+  },
+);
+
+// GET /api/notifications/stream — live SSE feed of this user's notifications
+//
+// Not behind requireAuth: the browser's native EventSource can't set an
+// Authorization header, so the access token travels as a query param
+// instead and is verified by hand here (same verifyAccessToken() + active-user
+// check requireAuth does, just without the header). Short-lived (8h) access
+// token, so the exposure window matches any other bearer-token use in this
+// app; there's just no header to put it in for this one request type.
+router.get(
+  "/notifications/stream",
+  async (req: Request, res: Response) => {
+    const token = req.query.token as string | undefined;
+    if (!token) {
+      res.status(401).end();
+      return;
+    }
+
+    let decoded: JwtPayload;
+    try {
+      decoded = verifyAccessToken(token);
+    } catch {
+      res.status(401).end();
+      return;
+    }
+    if ((decoded as JwtPayload & { purpose?: string }).purpose) {
+      res.status(401).end();
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    if (!user || !user.active) {
+      res.status(401).end();
+      return;
+    }
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    res.write(": connected\n\n");
+
+    addClient(user.id, res);
+
+    // Keep intermediary proxies/load balancers from timing out an idle
+    // connection and silently dropping it.
+    const heartbeat = setInterval(() => res.write(": ping\n\n"), 30000);
+
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      removeClient(user.id, res);
+    });
   },
 );
 

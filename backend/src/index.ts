@@ -22,6 +22,7 @@ import integrationsRoutes from "./routes/integrations";
 import { notifyAdmins } from "./services/notifications";
 import { ingestWorkspaceActivity, syncConnectedApps, syncWorkspaceDevices } from "./services/googleWorkspace";
 import { runAuditRetentionSweep } from "./services/auditBackup";
+import { expireStaleApprovals } from "./services/staleApprovals";
 import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
@@ -178,6 +179,9 @@ app.listen(PORT, async () => {
   await ingestWorkspaceActivity();
   await syncConnectedApps();
   await syncWorkspaceDevices();
+  await expireStaleApprovals().catch((error) =>
+    console.error("[Cron] Stale approval sweep failed:", error),
+  );
 
   // Run daily (every 24 hours)
   setInterval(checkOffboarding, 24 * 60 * 60 * 1000);
@@ -190,4 +194,11 @@ app.listen(PORT, async () => {
   // event feeds — both change far less often, so a longer interval is enough.
   setInterval(syncConnectedApps, 6 * 60 * 60 * 1000);
   setInterval(syncWorkspaceDevices, 6 * 60 * 60 * 1000);
+  // Hourly, not daily — the deadline it's enforcing is only 24h, so a
+  // day-long check interval would let an expired approval sit visibly
+  // "active" for up to a full extra day before being caught.
+  setInterval(
+    () => expireStaleApprovals().catch((error) => console.error("[Cron] Stale approval sweep failed:", error)),
+    60 * 60 * 1000,
+  );
 });
