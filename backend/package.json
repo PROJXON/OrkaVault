@@ -13,7 +13,7 @@
     "prisma:db": "prisma db push"
   },
   "dependencies": {
-    "@google-cloud/secret-manager": "^6.3.0",
+    "@google-cloud/secret-manager": "^7.0.0",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@types/bcryptjs": "^3.0.0",
