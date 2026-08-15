@@ -2,7 +2,7 @@
  * Profile Routes — Self-service profile management for all authenticated users
  */
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -10,7 +10,6 @@ import bcrypt from "bcryptjs";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ── Avatar Upload Config ──────────────────────────────────────────────
 const uploadDir = path.join(process.cwd(), "uploads", "avatars");
@@ -53,6 +52,7 @@ router.get("/me", requireAuth, async (req: AuthenticatedRequest, res: Response) 
         clearanceLevel: true,
         internationalAccess: true,
         avatarUrl: true,
+        mfaEnabled: true,
         createdAt: true,
       },
     });

@@ -1,11 +1,10 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
-import { requireAuth } from "../middleware/auth";
+import { prisma } from "../lib/prismaClient";
+import { requireAuth, requireRole } from "../middleware/auth";
 
 const router = Router();
-const prisma = new PrismaClient();
 
-router.get("/", requireAuth, async (req, res, next) => {
+router.get("/", requireAuth, requireRole("ADMIN"), async (req, res, next) => {
   try {
     const users = await prisma.user.findMany({
       where: { active: true },
@@ -18,6 +17,12 @@ router.get("/", requireAuth, async (req, res, next) => {
         clearanceLevel: true,
         internationalAccess: true,
         devices: true,
+        createdAt: true,
+        auditLogs: {
+          orderBy: { timestamp: "desc" },
+          take: 1,
+          select: { timestamp: true },
+        },
         accessGrants: {
           where: { active: true },
           select: {
@@ -101,8 +106,11 @@ router.get("/", requireAuth, async (req, res, next) => {
             });
           }
         });
+        const lastActive = user.auditLogs[0]?.timestamp || null;
         return {
           ...user,
+          auditLogs: undefined,
+          lastActive,
           resources: Array.from(uniqueResources.values()),
         };
       }),

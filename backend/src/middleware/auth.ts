@@ -8,16 +8,26 @@
 
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { PrismaClient, Role } from "@prisma/client";
+import { prisma, Role } from "../lib/prismaClient";
 
-const prisma = new PrismaClient();
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+// No insecure hardcoded fallback: a deployment that forgets to set either
+// of these would otherwise sign/verify tokens with a secret that's public
+// in this source tree, letting anyone forge a valid access or refresh
+// token for any userId. Fail loudly at startup instead.
+const rawJwtSecret = process.env.JWT_SECRET;
+const rawJwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
 
-if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
-  throw new Error("FATAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in the environment.");
+if (!rawJwtSecret || !rawJwtRefreshSecret) {
+  throw new Error(
+    "JWT_SECRET and JWT_REFRESH_SECRET must both be set in the environment. " +
+      "Copy backend/.env.example to .env and fill in strong random values for both " +
+      "— refusing to start with an insecure default secret.",
+  );
 }
+
+export const JWT_SECRET: string = rawJwtSecret;
+const JWT_REFRESH_SECRET: string = rawJwtRefreshSecret;
 
 export interface JwtPayload {
   userId: string;
@@ -39,6 +49,8 @@ export interface AuthenticatedRequest extends Request {
     avatarUrl: string | null;
     favorites: string[];
     managedCollections: any[];
+    clearanceLevel: string | null;
+    mfaEnabled: boolean;
   };
 }
 
@@ -100,6 +112,18 @@ export async function requireAuth(
       return;
     }
 
+    // Reject MFA-challenge tokens here. /api/auth/login and /api/auth/google
+    // sign a short-lived tempToken (userId + purpose: "mfa_verification")
+    // with this same JWT_SECRET so /api/auth/mfa/verify can validate it —
+    // but a real access token (see JwtPayload) never carries a `purpose`
+    // claim. Without this check, a tempToken passes verifyAccessToken like
+    // any other valid token and would grant full API access before the
+    // second factor is ever provided.
+    if ((decoded as JwtPayload & { purpose?: string }).purpose) {
+      res.status(401).json({ error: "Invalid or expired token." });
+      return;
+    }
+
     // BUG 3: Re-fetch user from DB to check active status
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -133,7 +157,28 @@ export async function requireAuth(
       avatarUrl: user.avatarUrl,
       favorites: user.favorites,
       managedCollections: user.managedCollections,
+      clearanceLevel: user.clearanceLevel,
+      mfaEnabled: user.mfaEnabled,
     };
+
+    // If user does not have MFA enabled, restrict them to MFA setup and basic profile endpoints
+    const allowedUrls = [
+      "/api/auth/me",
+      "/api/auth/mfa/setup",
+      "/api/auth/mfa/enable",
+      "/api/auth/logout",
+      "/api/profile/me",
+      "/api/departments"
+    ];
+
+    const cleanUrl = req.originalUrl.split("?")[0];
+    if (!user.mfaEnabled && !allowedUrls.includes(cleanUrl)) {
+      res.status(403).json({
+        error: "Two-Factor Authentication (MFA) setup is required before you can access this resource.",
+        mfaSetupRequired: true,
+      });
+      return;
+    }
 
     next();
   } catch (error) {
@@ -168,4 +213,26 @@ export function requireRole(...roles: Role[]) {
 
     next();
   };
+}
+
+/**
+ * Collection-scoping check for Manager-reachable routes that act on an
+ * Account (reveal, approve/deny, health re-check, etc).
+ *
+ * ADMIN is unrestricted. MANAGER is limited to accounts whose
+ * `collectionId` is one of their assigned `managedCollections` — an
+ * account with no collection assigned is out of scope for every manager
+ * (only ADMIN can act on unassigned accounts). Any other role is denied;
+ * callers are expected to have already handled USER-role logic (e.g.
+ * AccessGrant checks) separately.
+ */
+export function isAccountInManagerScope(
+  user: AuthenticatedRequest["user"],
+  accountCollectionId: string | null | undefined,
+): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN") return true;
+  if (user.role !== "MANAGER") return false;
+  if (!accountCollectionId) return false;
+  return user.managedCollections.some((c: any) => c.id === accountCollectionId);
 }

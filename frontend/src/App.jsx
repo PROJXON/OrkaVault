@@ -14,15 +14,20 @@ import Requests from "./pages/Requests";
 import Approvals from "./pages/Approvals";
 import Users from "./pages/Users";
 import Audit from "./pages/Audit";
+import WorkspaceActivity from "./pages/WorkspaceActivity";
 import Health from "./pages/Health";
 import Settings from "./pages/Settings";
 import Directory from "./pages/Directory";
 import Profile from "./pages/Profile";
 import Collections from "./pages/Collections";
 import ManagerCollections from "./pages/ManagerCollections";
+import ManageConsole from "./pages/ManageConsole";
+
+import { useLocation } from "react-router-dom";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading)
     return (
@@ -31,6 +36,12 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
       </div>
     );
   if (!user) return <Navigate to="/login" />;
+
+  // Force MFA setup redirect
+  if (!user.mfaEnabled && location.pathname !== "/profile") {
+    return <Navigate to="/profile" replace />;
+  }
+
   if (allowedRoles && !allowedRoles.includes(user.role))
     return <Navigate to="/vault" />;
 
@@ -57,6 +68,14 @@ const AppRoutes = () => {
         <Route path="profile" element={<Profile />} />
 
         {/* MANAGER & ADMIN routes */}
+        <Route
+          path="manage"
+          element={
+            <ProtectedRoute allowedRoles={["MANAGER", "ADMIN"]}>
+              <ManageConsole />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="approvals"
           element={
@@ -104,6 +123,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["ADMIN"]}>
               <Audit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="workspace-activity"
+          element={
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
+              <WorkspaceActivity />
             </ProtectedRoute>
           }
         />

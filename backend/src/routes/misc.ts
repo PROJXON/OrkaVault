@@ -1,17 +1,21 @@
 /**
  * Grants, Notifications, Audit, Health Routes
  */
-import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { Router, Request, Response } from "express";
+import { prisma } from "../lib/prismaClient";
 import {
   requireAuth,
   requireRole,
+  isAccountInManagerScope,
+  verifyAccessToken,
+  JwtPayload,
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { scorePassword } from "../services/health";
 import { fetchSecret } from "../services/secretManager";
+import { addClient, removeClient } from "../services/sseHub";
+import { asString } from "../utils/reqValue";
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // ─── GRANTS ────────────────────────────────────────────────────────────
@@ -48,7 +52,7 @@ router.patch(
     }
 
     const grant = await prisma.accessGrant.findUnique({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
     });
     if (!grant || !grant.active) {
       res.status(404).json({ error: "Active grant not found." });
@@ -60,7 +64,7 @@ router.patch(
     let expiresAt: Date | null = null;
 
     const updated = await prisma.accessGrant.update({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
       data: { accessType, expiresAt },
     });
 
@@ -84,7 +88,7 @@ router.delete(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     const grant = await prisma.accessGrant.findUnique({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
     });
     if (!grant) {
       res.status(404).json({ error: "Grant not found." });
@@ -99,7 +103,7 @@ router.delete(
     }
 
     await prisma.accessGrant.update({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
       data: { active: false },
     });
     await prisma.auditLog.create({
@@ -130,6 +134,61 @@ router.get(
   },
 );
 
+// GET /api/notifications/stream — live SSE feed of this user's notifications
+//
+// Not behind requireAuth: the browser's native EventSource can't set an
+// Authorization header, so the access token travels as a query param
+// instead and is verified by hand here (same verifyAccessToken() + active-user
+// check requireAuth does, just without the header). Short-lived (8h) access
+// token, so the exposure window matches any other bearer-token use in this
+// app; there's just no header to put it in for this one request type.
+router.get(
+  "/notifications/stream",
+  async (req: Request, res: Response) => {
+    const token = req.query.token as string | undefined;
+    if (!token) {
+      res.status(401).end();
+      return;
+    }
+
+    let decoded: JwtPayload;
+    try {
+      decoded = verifyAccessToken(token);
+    } catch {
+      res.status(401).end();
+      return;
+    }
+    if ((decoded as JwtPayload & { purpose?: string }).purpose) {
+      res.status(401).end();
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    if (!user || !user.active) {
+      res.status(401).end();
+      return;
+    }
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    res.write(": connected\n\n");
+
+    addClient(user.id, res);
+
+    // Keep intermediary proxies/load balancers from timing out an idle
+    // connection and silently dropping it.
+    const heartbeat = setInterval(() => res.write(": ping\n\n"), 30000);
+
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      removeClient(user.id, res);
+    });
+  },
+);
+
 // PATCH /api/notifications/read-all — mark all as read
 // IMPORTANT: must be registered BEFORE /:id/read to avoid Express matching "read-all" as an :id
 router.patch(
@@ -150,7 +209,7 @@ router.patch(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     await prisma.notification.update({
-      where: { id: req.params.id },
+      where: { id: asString(req.params.id) },
       data: { read: true },
     });
     res.json({ message: "Marked as read." });
@@ -174,7 +233,7 @@ router.get(
     const logs = await prisma.auditLog.findMany({
       where,
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, department: true } },
         account: { select: { id: true, name: true } },
       },
       orderBy: { timestamp: "desc" },
@@ -201,6 +260,8 @@ router.get(
         healthScore: true,
         healthLabel: true,
         nextRotationDue: true,
+        lastUpdatedAt: true,
+        createdAt: true,
       },
       orderBy: { healthScore: "asc" },
     });
@@ -216,10 +277,20 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const account = await prisma.account.findUnique({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       if (!account) {
         res.status(404).json({ error: "Account not found." });
+        return;
+      }
+
+      if (
+        req.user!.role === "MANAGER" &&
+        !isAccountInManagerScope(req.user, account.collectionId)
+      ) {
+        res.status(403).json({
+          error: "This account is outside your assigned collections.",
+        });
         return;
       }
 
@@ -227,7 +298,7 @@ router.post(
       const { score, label } = scorePassword(password);
 
       await prisma.account.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { healthScore: score, healthLabel: label },
       });
 

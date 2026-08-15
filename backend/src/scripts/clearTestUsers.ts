@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 
-const prisma = new PrismaClient();
 
 async function main() {
   // Find all non-admin users first

@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: orkavault-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: orkavault
+      POSTGRES_PASSWORD: orkavault
+      POSTGRES_DB: orkavault
+    ports:
+      - "5432:5432"
+    volumes:
+      - orkavault-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  orkavault-postgres-data:

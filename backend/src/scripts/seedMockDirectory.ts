@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 
-const prisma = new PrismaClient();
 
 const DEPARTMENTS = ["IT", "HR", "Marketing", "Business", "GAP", "Operation"];
 const CLEARANCES = [
