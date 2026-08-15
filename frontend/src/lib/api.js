@@ -10,15 +10,9 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
-// Request interceptor to attach token
+// Request interceptor
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
+  (config) => config,
   (error) => Promise.reject(error),
 );
 
@@ -44,8 +38,6 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
         return api(originalRequest);
       } catch (err) {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
         if (
           window.location.pathname !== "/login" &&
           window.location.pathname !== "/register"

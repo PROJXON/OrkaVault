@@ -50,6 +50,7 @@ app.use("/api/accounts", express.json({ limit: "10mb" }));
 // express.json() below, same pattern as the /api/accounts override above.
 app.use("/api/integrations/discord/interactions", express.raw({ type: "application/json" }));
 app.use(express.json());
+app.use(cookieParser());
 
 // ─── Serve uploaded avatars as static files ────────────────────────────
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));

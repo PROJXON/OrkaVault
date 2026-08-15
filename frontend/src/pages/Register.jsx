@@ -25,6 +25,7 @@ export default function Register() {
   const [googleId, setGoogleId] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [isFirstUser, setIsFirstUser] = useState(false);
+  const [setupToken, setSetupToken] = useState("");
 
   useEffect(() => {
     api.get("/auth/setup-status").then((res) => {
@@ -73,6 +74,7 @@ export default function Register() {
         startDate,
         googleId,
         avatarUrl,
+        setupToken: isFirstUser ? setupToken : undefined,
       });
       if (res.data.active) {
         setSuccess(
@@ -211,6 +213,24 @@ export default function Register() {
                 </select>
               </div>
             </div>
+
+            {isFirstUser && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Admin Setup Token
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="password"
+                    required
+                    value={setupToken}
+                    onChange={(e) => setSetupToken(e.target.value)}
+                    placeholder="Enter the secret token from the server"
+                    className="appearance-none block w-full px-3 py-2 border border-brand-blue rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+                  />
+                </div>
+              </div>
+            )}
 
             {!isFirstUser && (
               <div>

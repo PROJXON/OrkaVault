@@ -33,13 +33,14 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const register = async (name, email, password, department, startDate) => {
+  const register = async (name, email, password, department, startDate, setupToken) => {
     const { data } = await api.post("/auth/register", {
       name,
       email,
       password,
       department,
       startDate,
+      setupToken,
     });
     return data;
   };
@@ -79,8 +80,6 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.post("/auth/logout");
     } catch (e) {}
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
     setUser(null);
   };
 
