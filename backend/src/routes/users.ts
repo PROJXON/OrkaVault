@@ -2,15 +2,15 @@
  * User Routes — List, Approve, Role Change, End Date, Deactivate, Notification Toggle
  */
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import {
   requireAuth,
   requireRole,
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { notifyUser } from "../services/notifications";
+import { asString } from "../utils/reqValue";
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // GET /api/users — list all users [ADMIN]
@@ -35,7 +35,7 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { active: true, revoked: false },
       });
       // Notify the approved user
@@ -63,7 +63,7 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { active: false, revoked: true },
       });
       res.json({
@@ -98,7 +98,7 @@ router.patch(
     }
     try {
       const user = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { role },
       });
       res.json({
@@ -120,7 +120,7 @@ router.patch(
     const { endDate } = req.body;
     try {
       const user = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { endDate: endDate ? new Date(endDate) : null },
       });
       res.json({
@@ -146,17 +146,67 @@ router.delete(
     try {
       await prisma.$transaction([
         prisma.user.update({
-          where: { id: req.params.id },
+          where: { id: asString(req.params.id) },
           data: { active: false, revoked: true },
         }),
         prisma.accessGrant.updateMany({
-          where: { userId: req.params.id, active: true },
+          where: { userId: asString(req.params.id), active: true },
           data: { active: false },
         }),
       ]);
       res.json({ message: "User deactivated and all grants revoked." });
     } catch {
       res.status(404).json({ error: "User not found." });
+    }
+  },
+);
+
+// POST /api/users/bulk-delete — deactivate multiple users + revoke grants [ADMIN]
+// Requires the caller to have already confirmed via the "type approve" UI flow;
+// each deactivation is written to the immutable AuditLog.
+router.post(
+  "/bulk-delete",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { userIds } = req.body;
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      res.status(400).json({ error: "userIds must be a non-empty array." });
+      return;
+    }
+    if (userIds.includes(req.user!.id)) {
+      res.status(403).json({ error: "You cannot deactivate yourself." });
+      return;
+    }
+    try {
+      const targets = await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, name: true, email: true },
+      });
+
+      await prisma.$transaction([
+        prisma.user.updateMany({
+          where: { id: { in: userIds } },
+          data: { active: false, revoked: true },
+        }),
+        prisma.accessGrant.updateMany({
+          where: { userId: { in: userIds }, active: true },
+          data: { active: false },
+        }),
+        prisma.auditLog.createMany({
+          data: targets.map((t) => ({
+            userId: req.user!.id,
+            action: "USER_BULK_DEACTIVATED",
+            metadata: { targetUserId: t.id, targetName: t.name, targetEmail: t.email },
+            ipAddress: req.ip,
+          })),
+        }),
+      ]);
+
+      res.json({ message: `${targets.length} user(s) deactivated and grants revoked.` });
+    } catch (error) {
+      console.error("[Bulk Deactivate Users]", error);
+      res.status(500).json({ error: "Failed to deactivate users." });
     }
   },
 );
@@ -189,7 +239,7 @@ router.patch(
     console.log("PROFILE UPDATE BODY:", req.body);
     try {
       const updated = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: {
           ...(department !== undefined && { department }),
           ...(startDate !== undefined && {
@@ -270,7 +320,7 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = await prisma.user.findUnique({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       if (!user) {
         res.status(404).json({ error: "User not found." });
@@ -279,7 +329,7 @@ router.patch(
 
       // Reset the start date to today, so offboarding is pushed 6 months out
       const updated = await prisma.user.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: { startDate: new Date() },
       });
 

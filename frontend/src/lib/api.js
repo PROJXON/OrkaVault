@@ -1,8 +1,13 @@
 import axios from "axios";
 
+// Standardize the API base URL (ensures /api is appended if omitted)
+const rawBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:5001";
+export const API_BASE_URL = rawBaseUrl.endsWith("/api")
+  ? rawBaseUrl
+  : `${rawBaseUrl.replace(/\/$/, "")}/api`;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5001/api",
-  withCredentials: true,
+  baseURL: API_BASE_URL,
 });
 
 // Request interceptor
@@ -21,11 +26,16 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const { data } = await axios.post(
-          `${import.meta.env.VITE_API_URL || "http://localhost:5001/api"}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
+        const refreshToken = localStorage.getItem("refreshToken");
+        if (!refreshToken) throw new Error("No refresh token");
+
+        // Use the standardized API_BASE_URL for the refresh request
+        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          refreshToken,
+        });
+        localStorage.setItem("accessToken", data.accessToken);
+
+        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
         return api(originalRequest);
       } catch (err) {
         if (

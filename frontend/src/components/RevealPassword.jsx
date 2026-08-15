@@ -1,13 +1,28 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Eye, ShieldOff, CheckCircle } from "lucide-react";
+import { Eye, ShieldOff, CheckCircle, Copy, Check } from "lucide-react";
 import api from "../lib/api";
 
-export default function RevealPassword({ accountId, isAdmin, onRequestAccess, onGrantExpired }) {
+export default function RevealPassword({ accountId, isAdmin, onRequestAccess, onGrantExpired, onRevealed }) {
   const [phase, setPhase] = useState("idle"); // idle | revealed | expired
   const [password, setPassword] = useState(null);
   const [screenTimeLeft, setScreenTimeLeft] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef(null);
+  const containerRef = useRef(null);
+
+  const handleCopy = async () => {
+    if (!password || password === "USE_GOOGLE_SSO") return;
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError("Failed to copy to clipboard");
+    }
+  };
 
   const screenTimerRef = useRef(null);
   const grantTimerRef = useRef(null);
@@ -22,6 +37,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
   const clearAllTimers = () => {
     clearScreenTimers();
     clearTimeout(grantTimerRef.current);
+    clearTimeout(copiedTimerRef.current);
   };
 
   const handleReveal = async () => {
@@ -40,6 +56,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
       grantExpiredRef.current = false;
       setPassword(pw);
       setPhase("revealed");
+      if (onRevealed) onRevealed(grantExpiresAt);
 
       // ── Screen security timer (≤90s display, null = infinite for ONGOING/Admin) ──
       if (expiresIn !== null && expiresIn > 0) {
@@ -104,6 +121,18 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
 
   useEffect(() => () => clearAllTimers(), []);
 
+  // Auto-hide when the user clicks anywhere outside the revealed pill.
+  useEffect(() => {
+    if (phase !== "revealed") return;
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        handleDone();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [phase]);
+
   const formatTime = (secs) => {
     if (secs == null) return null;
     if (secs >= 3600) return `${Math.floor(secs / 3600)}h`;
@@ -123,13 +152,14 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
     if (password === "USE_GOOGLE_SSO") {
       return (
         <div
+          ref={containerRef}
           className="inline-flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-md border border-brand-blue"
         >
           <span className="text-brand-blue text-xs font-medium">
             Use the Google account in the email field to login
           </span>
           {screenTimeLeft !== null && screenTimeLeft > 0 && (
-            <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white border border-brand-blue text-xs font-bold text-brand-blue shadow-sm shrink-0">
+            <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white dark:bg-[var(--bg-surface)] border border-brand-blue text-xs font-bold text-brand-blue shadow-xs shrink-0">
               {formatTime(screenTimeLeft)}
             </div>
           )}
@@ -146,20 +176,26 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
 
     return (
       <div
+        ref={containerRef}
         className="inline-flex items-center space-x-2 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200"
         onCopy={(e) => e.preventDefault()}
         onContextMenu={(e) => e.preventDefault()}
         onDragStart={(e) => e.preventDefault()}
       >
         <ShieldOff className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-        <span
-          className="font-mono text-gray-900 text-sm"
+        <button
+          type="button"
+          onClick={handleCopy}
+          title="Click to copy"
+          className="font-mono text-gray-900 dark:text-[var(--text-primary)] text-sm hover:bg-amber-100 rounded-sm px-1 -mx-1 transition-colors flex items-center gap-1"
           style={{ userSelect: "none", WebkitUserSelect: "none", MozUserSelect: "none" }}
         >
           {password}
-        </span>
+          {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3 opacity-50" />}
+        </button>
+        {copied && <span className="text-xs text-green-600 font-medium">Copied!</span>}
         {screenTimeLeft !== null && screenTimeLeft > 0 && (
-          <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white border border-amber-300 text-xs font-bold text-amber-600 shadow-sm shrink-0">
+          <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white dark:bg-[var(--bg-surface)] border border-amber-300 text-xs font-bold text-amber-600 shadow-xs shrink-0">
             {formatTime(screenTimeLeft)}
           </div>
         )}
@@ -177,11 +213,11 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
   // ── IDLE: dots + eye ──────────────────────────────────────────────────────
   return (
     <div className="flex items-center space-x-2 justify-end">
-      <span className="text-gray-400 select-none tracking-widest">••••••••</span>
+      <span className="text-gray-400 dark:text-[var(--text-tertiary)] select-none tracking-widest">••••••••</span>
       <button
         onClick={handleReveal}
         disabled={loading}
-        className="p-1 text-brand-blue hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+        className="p-1 text-brand-blue hover:bg-blue-50 rounded-sm transition-colors disabled:opacity-50"
         title="View Password"
       >
         <Eye className="h-4 w-4" />

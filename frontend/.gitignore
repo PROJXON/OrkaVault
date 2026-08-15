@@ -19,3 +19,4 @@ release/
 
 .vercel
 .env*
+commands.txt

@@ -1,16 +1,23 @@
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middleware/auth";
+import { asString } from "../utils/reqValue";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/collections - list all collections
 router.get("/", requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
   try {
     const collections = await prisma.collection.findMany({
       orderBy: { name: "asc" },
-      include: { _count: { select: { accounts: true } } }
+      include: {
+        _count: { select: { accounts: true } },
+        managers: { select: { id: true, name: true, email: true } },
+        accounts: {
+          select: { id: true, name: true, username: true, platformType: true, healthLabel: true },
+          orderBy: { name: "asc" },
+        },
+      },
     });
     res.json(collections);
   } catch (error) {
@@ -54,15 +61,24 @@ router.patch(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
-    const { name, description } = req.body;
+    const { name, description, managerIds } = req.body;
     try {
       const collection = await prisma.collection.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: {
           ...(name && { name }),
           ...(description !== undefined && { description }),
+          // Reciprocal to PATCH /api/users/:id/profile's managedCollectionIds
+          // — this is the same User<->Collection relation, editable from
+          // either side. `set` replaces the full manager list each time.
+          ...(managerIds !== undefined && {
+            managers: { set: managerIds.map((id: string) => ({ id })) },
+          }),
         },
-        include: { _count: { select: { accounts: true } } }
+        include: {
+          _count: { select: { accounts: true } },
+          managers: { select: { id: true, name: true, email: true } },
+        },
       });
       res.json(collection);
     } catch (error) {
@@ -80,11 +96,11 @@ router.delete(
     try {
       // Unlink accounts first
       await prisma.account.updateMany({
-        where: { collectionId: req.params.id },
+        where: { collectionId: asString(req.params.id) },
         data: { collectionId: null }
       });
       await prisma.collection.delete({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       res.json({ message: "Collection deleted successfully." });
     } catch (error) {

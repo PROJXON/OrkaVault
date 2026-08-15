@@ -1,10 +1,16 @@
+// Connection URLs live in prisma.config.ts (backend/) as of Prisma 7 —
+// the CLI (generate/db push/studio) reads them from there, and the app's
+// own runtime connection goes through the driver adapter in
+// src/lib/prismaClient.ts instead of a schema `url`.
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
 }
 
 model User {
@@ -25,6 +31,10 @@ model User {
   devices          String[]  @default([])
   avatarUrl        String?
   favorites        String[]  @default([])
+  discordUserId    String?   @unique // linked via Profile "Link Discord" flow; enables /orkavault approve|deny from Discord
+  mfaEnabled       Boolean   @default(false)
+  mfaSecret        String?
+  mfaDevices       MfaDevice[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -33,6 +43,16 @@ model User {
   auditLogs        AuditLog[]
   notifications    Notification[]
   managedCollections Collection[] @relation("ManagedCollections")
+}
+
+model MfaDevice {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  publicKey  String   // JSON string of JWK public key
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
 }
 
 enum Role {
@@ -59,6 +79,7 @@ model Account {
   passwordHash    String?
   totpQrBase64    String?
   isGoogleSSO     Boolean   @default(false)
+  requiredClearance String? // one of the free-text tiers on User.clearanceLevel; null = no requirement
   createdAt       DateTime  @default(now())
   createdBy       String
 
@@ -106,6 +127,14 @@ model AccessGrant {
   expiresAt   DateTime?
   accessType  String    @default("ONGOING")
   active      Boolean   @default(true)
+  // Set the first time reveal/reveal-otp succeeds for this grant — null means
+  // "approved but never viewed yet". Distinguishes that state from expiresAt
+  // itself, since expiresAt is now populated immediately on approval (a 24h
+  // "must view by" deadline, see services/accessRequests.ts) rather than only
+  // once revealed, so `expiresAt === null` alone no longer means "not viewed".
+  // services/staleApprovals.ts deactivates grants left in this state past
+  // their deadline, forcing a fresh request.
+  firstRevealedAt DateTime?
 
   account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -186,6 +215,74 @@ enum NotifType {
   OFFBOARDING_ALERT
   REGISTRATION_APPROVED
   NEW_ENTRY_QA
+  WORKSPACE_SUSPICIOUS_LOGIN
+  WORKSPACE_NEW_OAUTH_APP
+  WORKSPACE_LOGIN_ALLOWLIST_VIOLATION
+  WORKSPACE_LOGIN_FAILURE
+  ACCESS_APPROVAL_EXPIRED
+}
+
+model WorkspaceActivityEvent {
+  id              String   @id @default(uuid())
+  userEmail       String
+  eventType       String // "login_success" | "login_failure" | "suspicious_login" | "oauth_token_grant" | "oauth_token_revoke"
+  appName         String?
+  ipAddress       String?
+  regionCode      String? // ISO 3166-1 alpha-2, from Google's networkInfo.regionCode — approximate, not always present. NOTE: this is the IP that made *this specific Google API call* — for an oauth_token_grant via third-party SSO, that's the third-party app's server, not necessarily the end user's location.
+  subdivisionCode String? // ISO 3166-2 (state/province), from networkInfo.subdivisionCode
+  flagged         Boolean  @default(false)
+  occurredAt      DateTime
+  uniqueQualifier String?
+  raw             Json
+  createdAt       DateTime @default(now())
+
+  @@index([occurredAt])
+  @@index([userEmail])
+}
+
+// Current-state snapshot of a user's connected third-party OAuth apps
+// (Directory API tokens.list), distinct from WorkspaceActivityEvent's
+// append-only audit trail of grant/revoke actions. Each sync upserts on
+// (userEmail, clientId) and deletes rows no longer returned by Google
+// (= app was disconnected) — see services/googleWorkspace.ts.
+model ConnectedApp {
+  id         String   @id @default(uuid())
+  userEmail  String
+  clientId   String
+  appName    String?
+  scopes     String[]
+  nativeApp  Boolean  @default(false)
+  anonymous  Boolean  @default(false)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@unique([userEmail, clientId])
+  @@index([userEmail])
+}
+
+// Current-state snapshot of devices associated with each Workspace user,
+// from the Cloud Identity Devices API (devices.list + devices.deviceUsers.list)
+// — a genuinely different Google API/credential requirement than the
+// Reports API events above (needs Endpoint Verification/GCPW/Drive for
+// Desktop actually installed on the device, plus the cloud-identity.devices
+// scope). This is deliberately NOT correlated to individual
+// WorkspaceActivityEvent rows — Google's Reports API login/token events
+// don't carry per-event device info at all, so there's no reliable way to
+// tie a specific login to a specific row here. Each sync upserts on
+// (userEmail, deviceId) and deletes rows no longer returned by Google.
+model WorkspaceDevice {
+  id              String    @id @default(uuid())
+  userEmail       String
+  deviceId        String
+  deviceType      String? // WINDOWS | MAC_OS | IOS | ANDROID | CHROME_OS | LINUX | GOOGLE_SYNC | DEVICE_TYPE_UNSPECIFIED
+  model           String?
+  osVersion       String?
+  managementState String? // APPROVED | BLOCKED | PENDING | UNPROVISIONED | WIPING | WIPED
+  lastSyncTime    DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([userEmail, deviceId])
+  @@index([userEmail])
 }
 
 model OrganizationPolicy {
@@ -208,5 +305,16 @@ model Collection {
 
   accounts    Account[]
   managers    User[]   @relation("ManagedCollections")
+}
+
+// Configurable list of department names (Settings → Departments tab).
+// User.department stays a free-text String (not a relation) — it's just
+// validated/populated against this list, so existing user rows never need
+// a backfill/migration if a department is later renamed or removed.
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 

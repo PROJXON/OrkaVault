@@ -1,9 +1,9 @@
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middleware/auth";
+import { asString } from "../utils/reqValue";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/policies - list all policies
 router.get("/", requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
@@ -93,7 +93,7 @@ router.patch(
     const { enabled, name, description, type } = req.body;
     try {
       const policy = await prisma.organizationPolicy.update({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
         data: {
           ...(enabled !== undefined && { enabled }),
           ...(name && { name }),
@@ -117,7 +117,7 @@ router.delete(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       await prisma.organizationPolicy.delete({
-        where: { id: req.params.id },
+        where: { id: asString(req.params.id) },
       });
       res.json({ message: "Policy deleted successfully." });
     } catch (error) {

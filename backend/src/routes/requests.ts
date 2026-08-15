@@ -2,15 +2,18 @@
  * Access Request Routes — Submit, Approve (with race-condition lock), Deny
  */
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prismaClient";
 import {
   requireAuth,
   requireRole,
   AuthenticatedRequest,
 } from "../middleware/auth";
-import { notifyUser, notifyManagersAndAdmins } from "../services/notifications";
+import { notifyManagersAndAdmins } from "../services/notifications";
+import { meetsClearance } from "../services/clearance";
+import { sendChatAlert } from "../services/webhookAlerts";
+import { approveAccessRequest, denyAccessRequest, RequestActionError } from "../services/accessRequests";
+import { asString } from "../utils/reqValue";
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // GET /api/requests — list requests filtered by role
@@ -36,7 +39,30 @@ router.get(
           orderBy: { submittedAt: "desc" },
         });
         res.json(requests);
+      } else if (req.user!.role === "MANAGER") {
+        // Scoped the same way as approve/deny (services/accessRequests.ts's
+        // isInManagerScope) — a Manager only sees requests for accounts in
+        // one of their assigned collections. Accounts with no collection
+        // are out of scope for every manager, matching that same rule.
+        const managedCollectionIds = req.user!.managedCollections.map((c: any) => c.id);
+        const requests = await prisma.accessRequest.findMany({
+          where: { account: { collectionId: { in: managedCollectionIds } } },
+          include: {
+            account: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                platformType: true,
+              },
+            },
+            requester: { select: { id: true, name: true, email: true } },
+          },
+          orderBy: { submittedAt: "desc" },
+        });
+        res.json(requests);
       } else {
+        // ADMIN — unrestricted.
         const requests = await prisma.accessRequest.findMany({
           include: {
             account: {
@@ -59,6 +85,27 @@ router.get(
   },
 );
 
+// GET /api/requests/last-approved/:accountId — get last approved request for this account by user
+router.get(
+  "/last-approved/:accountId",
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const request = await prisma.accessRequest.findFirst({
+        where: {
+          accountId: asString(req.params.accountId),
+          requesterId: req.user!.id,
+          status: "APPROVED",
+        },
+        orderBy: { submittedAt: "desc" },
+      });
+      res.json(request);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch last approved request." });
+    }
+  }
+);
+
 // POST /api/requests — submit new access request [ALL]
 router.post(
   "/",
@@ -73,6 +120,22 @@ router.post(
     }
 
     try {
+      const account = await prisma.account.findUnique({ where: { id: accountId } });
+      if (!account) {
+        res.status(404).json({ error: "Account not found." });
+        return;
+      }
+
+      if (
+        req.user!.role !== "ADMIN" &&
+        !meetsClearance(req.user!.clearanceLevel, account.requiredClearance)
+      ) {
+        res.status(403).json({
+          error: "Your clearance level is insufficient to request this account.",
+        });
+        return;
+      }
+
       // Check if pending request already exists
       const existing = await prisma.accessRequest.findFirst({
         where: { accountId, requesterId: req.user!.id, status: "PENDING" },
@@ -105,10 +168,7 @@ router.post(
         },
       });
 
-      // Notify managers and admins
-      const account = await prisma.account.findUnique({
-        where: { id: accountId },
-      });
+      // Notify managers and admins (account already loaded above)
       const requestTypeLabels: Record<string, string> = {
         VIEW_90S: "Single View (90s)",
         TEMP_24H: "Temporary (24h)",
@@ -120,6 +180,13 @@ router.post(
         `${req.user!.name} requested ${label} access to "${account?.name || accountId}".`,
         "ACCESS_REQUEST",
       );
+      sendChatAlert("ACCESS_REQUESTED", {
+        requesterName: req.user!.name,
+        accountName: account?.name || accountId,
+        requestTypeLabel: label,
+        requestId: request.id,
+        reason: request.reason,
+      });
 
       res.status(201).json(request);
     } catch (error) {
@@ -136,119 +203,16 @@ router.patch(
   requireAuth,
   requireRole("MANAGER", "ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
-    const requestId = req.params.id;
-    const managerId = req.user!.id;
-
     try {
-      const result = await prisma.$transaction(async (tx) => {
-        // BUG 1: Lock the row and check status atomically
-        const requests = await tx.$queryRaw<
-          Array<{
-            id: string;
-            accountId: string;
-            requesterId: string;
-            requestType: string;
-            status: string;
-            deviceName: string | null;
-            location: string | null;
-            internationalAccessRequested: boolean;
-          }>
-        >`
-        SELECT id, "accountId", "requesterId", "requestType", status, "deviceName", "location", "internationalAccessRequested" 
-        FROM "AccessRequest" 
-        WHERE id = ${requestId} 
-        FOR UPDATE
-      `;
-
-        if (!requests.length || requests[0].status !== "PENDING") {
-          throw new Error("CONFLICT");
-        }
-
-        const request = requests[0];
-
-        // All grants start with an infinite activation window.
-        // They will be shrunk down to 90s or 24h upon first reveal.
-        let expiresAt: Date | null = null;
-        // ONGOING = null expiresAt
-
-        // Atomic: update request + create grant + audit log
-        await tx.accessRequest.update({
-          where: { id: requestId },
-          data: {
-            status: "APPROVED",
-            actionedBy: managerId,
-            actionedAt: new Date(),
-          },
-        });
-
-        // Update user if deviceName or internationalAccessRequested is present
-        if (request.deviceName || request.internationalAccessRequested) {
-          const user = await tx.user.findUnique({ where: { id: request.requesterId } });
-          if (user) {
-            const updateData: any = {};
-            if (request.internationalAccessRequested && !user.internationalAccess) {
-              updateData.internationalAccess = true;
-            }
-            if (request.deviceName && !user.devices.includes(request.deviceName)) {
-              updateData.devices = { push: request.deviceName };
-            }
-            if (Object.keys(updateData).length > 0) {
-              await tx.user.update({
-                where: { id: request.requesterId },
-                data: updateData
-              });
-            }
-          }
-        }
-
-        const grant = await tx.accessGrant.create({
-          data: {
-            accountId: request.accountId,
-            userId: request.requesterId,
-            grantedBy: managerId,
-            accessType: request.requestType,
-            expiresAt,
-            active: true,
-          },
-        });
-
-        await tx.auditLog.create({
-          data: {
-            userId: managerId,
-            accountId: request.accountId,
-            action: "ACCESS_APPROVED",
-            metadata: { requestId, requestType: request.requestType },
-            ipAddress: req.ip,
-          },
-        });
-
-        return {
-          grant,
-          requesterId: request.requesterId,
-          accountId: request.accountId,
-        };
-      });
-
-      // Notify requester (non-blocking, outside transaction)
-      const account = await prisma.account.findUnique({
-        where: { id: result.accountId },
-      });
-      notifyUser(
-        result.requesterId,
-        "Access Request Approved",
-        `Your access request for "${account?.name}" has been approved.`,
-        "ACCESS_APPROVED",
-      );
-
+      const result = await approveAccessRequest(req.user!, asString(req.params.id)!, req.ip, "web");
       res.json({
         message: "Request approved and grant provisioned.",
-        grantId: result.grant.id,
+        grantId: result.grantId,
       });
     } catch (error: any) {
-      if (error.message === "CONFLICT") {
-        res
-          .status(409)
-          .json({ error: "This request has already been actioned." });
+      if (error instanceof RequestActionError) {
+        const status = error.code === "NOT_FOUND" ? 404 : error.code === "CONFLICT" ? 409 : 403;
+        res.status(status).json({ error: error.message });
       } else {
         console.error("[Approve]", error);
         res.status(500).json({ error: "Failed to approve request." });
@@ -265,58 +229,13 @@ router.patch(
   requireRole("MANAGER", "ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
     const { reason } = req.body;
-    const requestId = req.params.id;
-
     try {
-      const result = await prisma.$transaction(async (tx) => {
-        // Lock the row and check status atomically
-        const requests = await tx.$queryRaw<
-          Array<{ id: string; accountId: string; requesterId: string; status: string }>
-        >`
-          SELECT id, "accountId", "requesterId", status
-          FROM "AccessRequest"
-          WHERE id = ${requestId}
-          FOR UPDATE
-        `;
-
-        if (!requests.length || requests[0].status !== "PENDING") {
-          throw new Error("CONFLICT");
-        }
-
-        const request = requests[0];
-
-        await tx.accessRequest.update({
-          where: { id: requestId },
-          data: {
-            status: "DENIED",
-            actionedBy: req.user!.id,
-            actionedAt: new Date(),
-          },
-        });
-
-        await tx.auditLog.create({
-          data: {
-            userId: req.user!.id,
-            accountId: request.accountId,
-            action: "ACCESS_DENIED",
-            metadata: { reason },
-            ipAddress: req.ip,
-          },
-        });
-
-        return { requesterId: request.requesterId };
-      });
-
-      notifyUser(
-        result.requesterId,
-        "Access Request Denied",
-        `Your access request has been denied. Reason: ${reason || "Not provided"}`,
-        "ACCESS_DENIED",
-      );
+      await denyAccessRequest(req.user!, asString(req.params.id)!, reason, req.ip, "web");
       res.json({ message: "Request denied." });
     } catch (error: any) {
-      if (error.message === "CONFLICT") {
-        res.status(409).json({ error: "This request has already been actioned." });
+      if (error instanceof RequestActionError) {
+        const status = error.code === "NOT_FOUND" ? 404 : error.code === "CONFLICT" ? 409 : 403;
+        res.status(status).json({ error: error.message });
       } else {
         console.error("[Deny]", error);
         res.status(500).json({ error: "Failed to deny request." });
