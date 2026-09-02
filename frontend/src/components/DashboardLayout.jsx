@@ -7,7 +7,8 @@ import { useAuth } from "../lib/authContext";
 export default function DashboardLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, realRole, viewAsRole, setViewAsRole } = useAuth();
+  const titleCase = (r) => r.charAt(0) + r.slice(1).toLowerCase();
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -42,6 +43,15 @@ export default function DashboardLayout() {
       />
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <TopBar onMenuClick={() => setMobileNavOpen((o) => !o)} />
+        {viewAsRole && (
+          <div className="preview-banner">
+            <span>
+              Previewing OrkaVault as <strong>{titleCase(viewAsRole)}</strong>
+              {realRole && <> — your account is still {titleCase(realRole)}.</>}
+            </span>
+            <button onClick={() => setViewAsRole(null)}>Exit preview</button>
+          </div>
+        )}
         <main className="flex-1 relative overflow-y-auto focus:outline-hidden p-6 min-h-0">
           <Outlet />
         </main>

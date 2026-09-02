@@ -491,14 +491,14 @@ export default function Users() {
                       <>
                         <button
                           onClick={() => handleApprove(u.id)}
-                          className="text-brand-green hover:text-green-700 inline-flex"
+                          className="text-brand-green hover:text-green-700 inline-flex cursor-pointer"
                           title="Approve"
                         >
                           <Check className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleDecline(u.id)}
-                          className="text-brand-red hover:text-red-700 inline-flex ml-2"
+                          className="text-brand-red hover:text-red-700 inline-flex ml-2 cursor-pointer"
                           title="Decline"
                         >
                           <X className="h-5 w-5" />
@@ -509,14 +509,14 @@ export default function Users() {
                       <>
                         <button
                           onClick={() => openEditModal(u)}
-                          className="text-brand-blue hover:text-blue-700 inline-flex"
+                          className="text-brand-blue hover:text-blue-700 inline-flex cursor-pointer"
                           title="Edit User"
                         >
                           <Edit2 className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleDeactivate(u.id)}
-                          className="text-brand-red hover:text-red-700 inline-flex ml-2"
+                          className="text-brand-red hover:text-red-700 inline-flex ml-2 cursor-pointer"
                           title="Deactivate"
                         >
                           <Trash2 className="h-5 w-5" />
@@ -526,7 +526,7 @@ export default function Users() {
                     {u.revoked && (
                       <button
                         onClick={() => handleRestore(u.id)}
-                        className="text-brand-green hover:text-green-700 inline-flex items-center gap-1"
+                        className="text-brand-green hover:text-green-700 inline-flex items-center gap-1 cursor-pointer"
                         title="Restore User"
                       >
                         <RefreshCw className="h-4 w-4" />

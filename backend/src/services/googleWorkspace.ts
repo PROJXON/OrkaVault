@@ -688,6 +688,118 @@ export async function syncWorkspaceDevicesForUser(userEmail: string) {
   return prisma.workspaceDevice.findMany({ where: { userEmail }, orderBy: { deviceType: "asc" } });
 }
 
+export interface NormalizedRecoveryInfo {
+  userEmail: string;
+  recoveryEmail: string | null;
+  recoveryPhone: string | null;
+}
+
+/**
+ * Directory API users.list, paginated, projecting only what's needed: the
+ * ADMIN-SET recoveryEmail / recoveryPhone for every non-suspended Workspace
+ * user. These are the contacts an admin configures in the Admin console —
+ * NOT the recovery info a user sets for themselves at myaccount.google.com,
+ * which Google keeps separate and exposes through no admin API, so it can
+ * never appear here. Readable with the admin.directory.user.readonly scope
+ * this client already has — no new scope / DWD re-authorization.
+ */
+export async function fetchWorkspaceRecoveryInfo(): Promise<NormalizedRecoveryInfo[]> {
+  const auth = getAuthClient();
+  const directory = google.admin({ version: "directory_v1", auth });
+
+  const rows: NormalizedRecoveryInfo[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await withRetry429(() =>
+      directory.users.list({
+        customer: "my_customer",
+        maxResults: 500,
+        projection: "full",
+        fields: "nextPageToken,users(primaryEmail,suspended,recoveryEmail,recoveryPhone)",
+        pageToken,
+      }),
+    );
+    for (const user of res.data.users || []) {
+      if (!user.primaryEmail || user.suspended) continue;
+      rows.push({
+        userEmail: user.primaryEmail,
+        recoveryEmail: user.recoveryEmail ?? null,
+        recoveryPhone: user.recoveryPhone ?? null,
+      });
+    }
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return rows;
+}
+
+/** Single-user Directory API users.get — the fast path for the Recovery tab's per-account "Refresh". */
+export async function fetchWorkspaceRecoveryInfoForUser(userEmail: string): Promise<NormalizedRecoveryInfo> {
+  const auth = getAuthClient();
+  const directory = google.admin({ version: "directory_v1", auth });
+
+  const res = await withRetry429(() =>
+    directory.users.get({
+      userKey: userEmail,
+      projection: "full",
+      fields: "primaryEmail,recoveryEmail,recoveryPhone",
+    }),
+  );
+
+  return {
+    userEmail: res.data.primaryEmail ?? userEmail,
+    recoveryEmail: res.data.recoveryEmail ?? null,
+    recoveryPhone: res.data.recoveryPhone ?? null,
+  };
+}
+
+async function upsertWorkspaceRecoveryInfo(rows: NormalizedRecoveryInfo[]): Promise<void> {
+  for (const r of rows) {
+    await prisma.workspaceRecoveryInfo.upsert({
+      where: { userEmail: r.userEmail },
+      update: { recoveryEmail: r.recoveryEmail, recoveryPhone: r.recoveryPhone, lastSyncedAt: new Date() },
+      create: { userEmail: r.userEmail, recoveryEmail: r.recoveryEmail, recoveryPhone: r.recoveryPhone },
+    });
+  }
+}
+
+/**
+ * Cron entry point: full org-wide upsert + delete-stale against
+ * WorkspaceRecoveryInfo, mirroring syncWorkspaceDevices()'s snapshot
+ * pattern. No-op until Workspace monitoring is configured; never throws —
+ * one bad poll must not take the process down.
+ */
+export async function syncWorkspaceRecovery(): Promise<void> {
+  if (!isWorkspaceMonitoringConfigured()) return;
+
+  try {
+    const rows = await fetchWorkspaceRecoveryInfo();
+    await upsertWorkspaceRecoveryInfo(rows);
+
+    // Full sweep every time, so a plain notIn delete-stale is safe.
+    if (rows.length > 0) {
+      await prisma.workspaceRecoveryInfo.deleteMany({
+        where: { userEmail: { notIn: rows.map((r) => r.userEmail) } },
+      });
+    }
+
+    console.log(`[WorkspaceRecovery] Synced recovery info for ${rows.length} accounts.`);
+  } catch (error) {
+    console.error("[WorkspaceRecovery] Sync failed:", describeGoogleApiError(error));
+  }
+}
+
+/**
+ * On-demand per-user sync, mirroring syncWorkspaceDevicesForUser() — used
+ * by the Recovery tab's per-account "Refresh". Can throw; the route maps
+ * that to a 500.
+ */
+export async function syncWorkspaceRecoveryForUser(userEmail: string) {
+  const row = await fetchWorkspaceRecoveryInfoForUser(userEmail);
+  await upsertWorkspaceRecoveryInfo([row]);
+  return prisma.workspaceRecoveryInfo.findUnique({ where: { userEmail } });
+}
+
 export interface InferredDevice {
   deviceType: string | null;
   model: string | null;

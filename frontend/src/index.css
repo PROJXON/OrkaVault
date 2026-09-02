@@ -212,6 +212,18 @@
     background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); z-index: var(--z-sticky); position: relative;
   }
   .brand-mark { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--fw-bold); letter-spacing: var(--ls-tight); white-space: nowrap; }
+
+  /* role-preview banner (frontend-only "View as" mode) */
+  .preview-banner {
+    display: flex; align-items: center; justify-content: center; gap: var(--space-3); flex-wrap: wrap;
+    padding: 7px 16px; flex: none; text-align: center;
+    font-size: var(--fs-sm); font-weight: var(--fw-medium);
+    background: var(--warning-subtle); color: var(--warning-text);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .preview-banner button {
+    font-weight: var(--fw-semibold); text-decoration: underline; cursor: pointer; color: inherit; white-space: nowrap;
+  }
   .brand-mark .brand-dot {
     width: 30px; height: 30px; border-radius: var(--radius-sm); overflow: hidden; flex: none;
     display: inline-flex; align-items: center; justify-content: center; background: var(--orka-neutral-0);
@@ -289,6 +301,16 @@
   .navitem.active { background: var(--brand-subtle); color: var(--brand-text); font-weight: var(--fw-semibold); }
   .navitem .tag { margin-left: auto; font-size: var(--fs-2xs); font-weight: var(--fw-semibold); color: var(--text-secondary); background: var(--bg-muted); border-radius: var(--radius-pill); padding: 2px 7px; }
   .navitem.active .tag { background: var(--brand); color: var(--text-on-brand); }
+  .navitem .nav-badge {
+    margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box;
+    font-size: var(--fs-2xs); font-weight: var(--fw-bold); line-height: 1; color: #fff;
+    background: var(--error-solid); border-radius: var(--radius-pill);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .sidenav.collapsed .navitem .nav-badge {
+    position: absolute; top: 2px; right: 2px; margin: 0; min-width: 15px; height: 15px; padding: 0 3px;
+    border: 2px solid var(--bg-surface);
+  }
   /* Collapsed (desktop icon-rail): CSS hides labels rather than React, so the
      mobile drawer override below can force them back on regardless of the
      desktop collapse preference. */
@@ -467,6 +489,9 @@
   .sidenav.collapsed .navitem, .sidenav.collapsed .collapse-btn { justify-content: flex-start; padding: 9px 11px; }
   .sidenav.collapsed .nav-grouphead { justify-content: flex-start; padding: 8px 10px; }
   .sidenav.collapsed [data-tip]:hover::after { display: none; }
+  .sidenav.collapsed .navitem .nav-badge {
+    position: static; margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border: 0;
+  }
 
   .mobile-scrim {
     display: block; position: fixed; inset: 56px 0 0 0; background: var(--bg-overlay);

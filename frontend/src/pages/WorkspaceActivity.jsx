@@ -682,6 +682,169 @@ function DevicesTab() {
   );
 }
 
+function RecoveryTab() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterText, setFilterText] = useState("");
+  const [syncingUser, setSyncingUser] = useState(null);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [error, setError] = useState(null);
+
+  const loadUsers = async () => {
+    try {
+      const { data } = await api.get("/workspace-activity/recovery/users");
+      setUsers(data);
+    } catch (e) {
+      setError("Failed to load Workspace accounts.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const filteredUsers = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(
+      (u) =>
+        u.userEmail.toLowerCase().includes(q) ||
+        (u.recoveryEmail || "").toLowerCase().includes(q) ||
+        (u.recoveryPhone || "").toLowerCase().includes(q),
+    );
+  }, [users, filterText]);
+
+  const syncUser = async (userEmail) => {
+    setSyncingUser(userEmail);
+    setError(null);
+    try {
+      const { data } = await api.post(
+        `/workspace-activity/recovery/sync/${encodeURIComponent(userEmail)}`,
+      );
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.userEmail === userEmail
+            ? {
+                ...u,
+                recoveryEmail: data?.recoveryEmail ?? null,
+                recoveryPhone: data?.recoveryPhone ?? null,
+                lastSyncedAt: data?.lastSyncedAt ?? new Date().toISOString(),
+              }
+            : u,
+        ),
+      );
+    } catch (e) {
+      setError(`Failed to refresh ${userEmail}.`);
+    } finally {
+      setSyncingUser(null);
+    }
+  };
+
+  const syncAll = async () => {
+    setSyncingAll(true);
+    setError(null);
+    try {
+      await api.post("/workspace-activity/recovery/sync");
+      await loadUsers();
+    } catch (e) {
+      setError("Failed to sync from Google.");
+    } finally {
+      setSyncingAll(false);
+    }
+  };
+
+  return (
+    <>
+      <p className="mt-2 mb-2 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
+        The recovery email and phone an <strong>administrator</strong> has set on each account in the
+        Google Admin console.
+      </p>
+      <p className="mb-6 text-xs text-gray-500 dark:text-[var(--text-tertiary)]">
+        Separate from any recovery info a user set for themselves at myaccount.google.com — Google
+        does not expose that through its admin API, so it can't be shown here. Blank means no
+        admin-managed recovery contact is set.
+      </p>
+
+      <div className="mb-6 flex flex-wrap gap-4 bg-white dark:bg-[var(--bg-surface)] p-4 shadow-sm rounded-lg border border-gray-200 dark:border-[var(--border-subtle)]">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-sm font-medium text-gray-700 dark:text-[var(--text-secondary)] mb-1">
+            Search
+          </label>
+          <input
+            type="text"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            placeholder="Filter by account, recovery email or phone..."
+            className="block w-full border border-gray-300 dark:border-[var(--border-default)] rounded-md py-2 px-3 focus:outline-hidden focus:ring-brand-blue focus:border-brand-blue sm:text-sm"
+          />
+        </div>
+        <div className="flex items-end gap-2">
+          <button
+            onClick={() => setFilterText("")}
+            className="px-4 py-2 border border-gray-300 dark:border-[var(--border-default)] shadow-xs text-sm font-medium rounded-md text-gray-700 dark:text-[var(--text-secondary)] bg-white dark:bg-[var(--bg-surface)] hover:bg-gray-50 dark:bg-[var(--bg-canvas)] focus:outline-hidden whitespace-nowrap"
+          >
+            Clear
+          </button>
+          <button
+            onClick={syncAll}
+            disabled={syncingAll}
+            className="px-4 py-2 border border-transparent shadow-xs text-sm font-medium rounded-md text-white bg-brand-blue hover:bg-blue-700 focus:outline-hidden whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {syncingAll ? "Syncing..." : "Sync all from Google"}
+          </button>
+        </div>
+      </div>
+
+      {error && <div className="mb-4 text-sm text-brand-red">{error}</div>}
+
+      <div className="row-cards">
+        {loading ? (
+          <div className="text-sm text-center py-6 text-muted">Loading...</div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="text-sm text-center py-6 text-muted">No accounts found</div>
+        ) : (
+          filteredUsers.map((u) => (
+            <div key={u.userEmail} className="row-card">
+              <div className="row-card-title flex-wrap justify-between">
+                <span className="badge-pill font-mono">{u.userEmail}</span>
+                <button
+                  onClick={() => syncUser(u.userEmail)}
+                  disabled={syncingUser === u.userEmail}
+                  className="text-xs text-brand-blue hover:underline disabled:opacity-50 disabled:no-underline"
+                >
+                  {syncingUser === u.userEmail ? "Refreshing..." : "Refresh"}
+                </button>
+              </div>
+              <div className="row-card-field">
+                <span className="rcf-label">Recovery email</span>
+                <span className="rcf-value">
+                  {u.recoveryEmail || <span className="text-muted">Not set</span>}
+                </span>
+              </div>
+              <div className="row-card-field">
+                <span className="rcf-label">Recovery phone</span>
+                <span className="rcf-value">
+                  {u.recoveryPhone || <span className="text-muted">Not set</span>}
+                </span>
+              </div>
+              <div className="row-card-field">
+                <span className="rcf-label">Last synced</span>
+                <span className="rcf-value">
+                  {u.lastSyncedAt
+                    ? format(new Date(u.lastSyncedAt), "MMM d, yyyy, h:mm a")
+                    : "Never"}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  );
+}
+
 export default function WorkspaceActivity() {
   const [tab, setTab] = useState("activity");
 
@@ -699,6 +862,7 @@ export default function WorkspaceActivity() {
             { key: "activity", label: "Activity Log" },
             { key: "connected-apps", label: "Connected Apps" },
             { key: "devices", label: "Devices" },
+            { key: "recovery", label: "Recovery" },
           ].map((t) => (
             <button
               key={t.key}
@@ -719,8 +883,10 @@ export default function WorkspaceActivity() {
         <ActivityLogTab />
       ) : tab === "connected-apps" ? (
         <ConnectedAppsTab />
-      ) : (
+      ) : tab === "devices" ? (
         <DevicesTab />
+      ) : (
+        <RecoveryTab />
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   Search, Plus, Edit2, Trash2, Heart, History, RefreshCw, UploadCloud,
   ShieldAlert, Lock, X, Bell, Star, Clock, KeyRound, LayoutGrid, Folder,
+  Copy, Check,
 } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
@@ -55,6 +56,17 @@ export default function Vault() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [syncingWorkspace, setSyncingWorkspace] = useState(false);
   const [showBulkSelect, setShowBulkSelect] = useState(false);
+  const [usernameCopied, setUsernameCopied] = useState(false);
+
+  const handleCopyUsername = async (username) => {
+    try {
+      await navigator.clipboard.writeText(username);
+      setUsernameCopied(true);
+      setTimeout(() => setUsernameCopied(false), 2000);
+    } catch (e) {
+      console.error("Failed to copy username to clipboard");
+    }
+  };
 
   const selectAccount = (id) => {
     setSelectedId(id);
@@ -329,6 +341,10 @@ export default function Vault() {
     }
   }, [accounts, selectedId, loading]);
 
+  useEffect(() => {
+    setUsernameCopied(false);
+  }, [selectedId]);
+
   return (
     <div className="-m-6 w-[calc(100%+48px)] h-[calc(100%+48px)] flex flex-col">
       <div className="pane-tabs">
@@ -543,6 +559,28 @@ export default function Vault() {
 
               <div className="pane-scroll scroll-area flex-1">
                 <div className="card p-5 mb-4">
+                  <div className="mb-4">
+                    <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--text-tertiary)" }}>
+                      Username
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyUsername(selected.username)}
+                      title="Click to copy"
+                      className="group inline-flex items-center gap-2 max-w-full rounded-md px-2 py-1.5 -mx-2 text-sm transition-colors cursor-pointer hover:bg-[var(--bg-muted)]"
+                    >
+                      <span className="font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                        {selected.username}
+                      </span>
+                      {usernameCopied ? (
+                        <span className="inline-flex items-center gap-1 shrink-0 text-xs font-semibold" style={{ color: "var(--success-text)" }}>
+                          <Check width={14} height={14} /> Copied
+                        </span>
+                      ) : (
+                        <Copy width={14} height={14} className="shrink-0" style={{ color: "var(--text-tertiary)" }} />
+                      )}
+                    </button>
+                  </div>
                   <div className="flex flex-wrap gap-2 mb-4">
                     <HealthPill label={selected.healthLabel} />
                     {selected.requiredClearance && <span className="badge-pill">{selected.requiredClearance}</span>}

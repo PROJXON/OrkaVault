@@ -12,6 +12,8 @@ import {
   listActiveWorkspaceUsers,
   syncWorkspaceDevices,
   syncWorkspaceDevicesForUser,
+  syncWorkspaceRecovery,
+  syncWorkspaceRecoveryForUser,
   inferLikelyDevice,
 } from "../services/googleWorkspace";
 
@@ -284,6 +286,105 @@ router.post(
     } catch (error) {
       console.error("[WorkspaceDevices]", error);
       res.status(500).json({ error: "Failed to sync devices for user." });
+    }
+  },
+);
+
+// GET /api/workspace-activity/recovery — stored snapshot of the ADMIN-SET
+// recovery email/phone on each Workspace account (WorkspaceRecoveryInfo —
+// Directory API users.list/get, populated by syncWorkspaceRecovery). Not
+// the user's own recovery info from myaccount.google.com, which Google
+// exposes through no admin API. [ADMIN]
+router.get(
+  "/recovery",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { userEmail } = req.query;
+    const where: any = {};
+    if (userEmail) where.userEmail = userEmail as string;
+
+    try {
+      const rows = await prisma.workspaceRecoveryInfo.findMany({
+        where,
+        orderBy: { userEmail: "asc" },
+      });
+      res.json(rows);
+    } catch (error) {
+      console.error("[WorkspaceRecovery]", error);
+      res.status(500).json({ error: "Failed to fetch workspace recovery info." });
+    }
+  },
+);
+
+// GET /api/workspace-activity/recovery/users — every active Workspace
+// account left-joined with its stored recovery snapshot (one users.list
+// call + one findMany, no per-user Google calls). Recovery info is a
+// single scalar pair per account, so unlike the Devices/Connected Apps
+// tabs this returns it inline — no expand-to-sync step. [ADMIN]
+router.get(
+  "/recovery/users",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const [workspaceUsers, rows] = await Promise.all([
+        listActiveWorkspaceUsers(),
+        prisma.workspaceRecoveryInfo.findMany(),
+      ]);
+      const byEmail = new Map(rows.map((r) => [r.userEmail, r]));
+      const users = workspaceUsers
+        .map(({ email }) => {
+          const row = byEmail.get(email);
+          return {
+            userEmail: email,
+            recoveryEmail: row?.recoveryEmail ?? null,
+            recoveryPhone: row?.recoveryPhone ?? null,
+            lastSyncedAt: row?.lastSyncedAt ?? null,
+          };
+        })
+        .sort((a, b) => a.userEmail.localeCompare(b.userEmail));
+      res.json(users);
+    } catch (error) {
+      console.error("[WorkspaceRecovery]", error);
+      res.status(500).json({ error: "Failed to list Workspace accounts." });
+    }
+  },
+);
+
+// POST /api/workspace-activity/recovery/sync — full org resync (one
+// paginated users.list), then returns all rows. A no-op if Workspace
+// monitoring isn't configured. [ADMIN]
+router.post(
+  "/recovery/sync",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      await syncWorkspaceRecovery();
+      const rows = await prisma.workspaceRecoveryInfo.findMany({ orderBy: { userEmail: "asc" } });
+      res.json(rows);
+    } catch (error) {
+      console.error("[WorkspaceRecovery]", error);
+      res.status(500).json({ error: "Failed to sync workspace recovery info." });
+    }
+  },
+);
+
+// POST /api/workspace-activity/recovery/sync/:userEmail — on-demand sync
+// for a single account (one users.get) — the Recovery tab's per-row
+// "Refresh". [ADMIN]
+router.post(
+  "/recovery/sync/:userEmail",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const row = await syncWorkspaceRecoveryForUser(asString(req.params.userEmail)!);
+      res.json(row);
+    } catch (error) {
+      console.error("[WorkspaceRecovery]", error);
+      res.status(500).json({ error: "Failed to sync recovery info for user." });
     }
   },
 );

@@ -7,7 +7,7 @@ import NotificationBell from "./NotificationBell";
 import logoMark from "../assets/OrkaVault.ico";
 
 export default function TopBar({ onMenuClick }) {
-  const { user, logout } = useAuth();
+  const { user, logout, realRole, viewAsRole, canPreview, setViewAsRole } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,6 +40,9 @@ export default function TopBar({ onMenuClick }) {
     await logout();
     navigate("/login");
   };
+
+  const previewRoles = realRole === "ADMIN" ? ["ADMIN", "MANAGER", "USER"] : ["MANAGER", "USER"];
+  const titleCase = (r) => r.charAt(0) + r.slice(1).toLowerCase();
 
   const getInitials = (name) =>
     name?.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2) || "?";
@@ -133,6 +136,38 @@ export default function TopBar({ onMenuClick }) {
                 <div className="text-xs truncate" style={{ color: "var(--text-tertiary)" }}>{user.email}</div>
               </div>
             </div>
+            {canPreview && (
+              <>
+                <div className="menu-sep" />
+                <div className="px-2.5 py-1.5">
+                  <div className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-tertiary)" }}>
+                    View as
+                  </div>
+                  <div className="flex gap-1">
+                    {previewRoles.map((r) => {
+                      const isCurrent = (viewAsRole || realRole) === r;
+                      return (
+                        <button
+                          key={r}
+                          onClick={() => {
+                            setViewAsRole(r === realRole ? null : r);
+                            setProfileOpen(false);
+                          }}
+                          className="flex-1 text-xs font-semibold rounded-md px-2 py-1.5 border transition-colors"
+                          style={
+                            isCurrent
+                              ? { background: "var(--brand)", color: "var(--text-on-brand)", borderColor: "var(--brand)" }
+                              : { background: "var(--bg-surface)", color: "var(--text-secondary)", borderColor: "var(--border-default)" }
+                          }
+                        >
+                          {titleCase(r)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
             <div className="menu-sep" />
             <Link to="/profile" className="menu-item" onClick={() => setProfileOpen(false)}>
               <UserRound width={16} height={16} /> Profile

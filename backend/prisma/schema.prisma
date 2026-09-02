@@ -285,6 +285,26 @@ model WorkspaceDevice {
   @@index([userEmail])
 }
 
+// Current-state snapshot of the ADMIN-MANAGED recovery contacts on each
+// active Workspace user — the `recoveryEmail` / `recoveryPhone` fields an
+// admin sets in the Google Admin console, read via the Directory API
+// (users.list / users.get). This is NOT the recovery info a user sets for
+// themselves at myaccount.google.com: Google stores that separately and
+// exposes it through no admin API, so it can't appear here. One row per
+// active account (upsert on userEmail); rows for accounts that are no
+// longer active are deleted on a full sync. Populated by
+// services/googleWorkspace.ts's syncWorkspaceRecovery() cron.
+model WorkspaceRecoveryInfo {
+  id            String   @id @default(uuid())
+  userEmail     String   @unique
+  recoveryEmail String?
+  recoveryPhone String?
+  lastSyncedAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([userEmail])
+}
+
 model OrganizationPolicy {
   id          String   @id @default(uuid())
   name        String
