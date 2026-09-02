@@ -1,4 +1,0 @@
-name,username,platformType,password,isGoogleSSO,refreshCycle,notes,collection
-Slack Workspace,ops@example.com,THIRD_PARTY,Str0ng!Passw0rd#1,false,FOUR_MONTHS,Shared team workspace,
-Stripe,billing@example.com,THIRD_PARTY,An0ther$ecurePass2,false,MONTHLY,,Billing
-Google Workspace Admin,admin@example.com,GOOGLE_WORKSPACE,,false,SIX_MONTHS,QR code to be uploaded after import,

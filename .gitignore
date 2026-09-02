@@ -1,6 +1,14 @@
+.DS_Store
+Thumbs.db
+*.suo
+*.user
+.idea/
+.vscode/
 .claude/
-.github/
 templates/
 review/
 docs/
 diagnostic.txt
+node_modules/
+.env
+.env*

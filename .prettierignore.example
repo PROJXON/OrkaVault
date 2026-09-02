@@ -1,8 +1,0 @@
-# .prettierignore is intentionally not tracked in this repo.
-# Copy this file to .prettierignore in the repo root after cloning.
-
-node_modules/
-dist/
-build/
-.env*
-*.log
