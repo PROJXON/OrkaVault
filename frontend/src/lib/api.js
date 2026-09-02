@@ -8,6 +8,7 @@ export const API_BASE_URL = rawBaseUrl.endsWith("/api")
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
 });
 
 // Request interceptor
@@ -30,9 +31,11 @@ api.interceptors.response.use(
         if (!refreshToken) throw new Error("No refresh token");
 
         // Use the standardized API_BASE_URL for the refresh request
-        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refreshToken,
-        });
+        const { data } = await axios.post(
+          `${API_BASE_URL}/auth/refresh`,
+          { refreshToken },
+          { withCredentials: true },
+        );
         localStorage.setItem("accessToken", data.accessToken);
 
         originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
