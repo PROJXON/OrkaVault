@@ -4,6 +4,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import path from "path";
 import { prisma } from "./lib/prismaClient";
 import authRoutes from "./routes/auth";
