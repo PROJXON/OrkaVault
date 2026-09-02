@@ -526,6 +526,19 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
       const accessToken = generateAccessToken(payload);
       const refreshToken = generateRefreshToken(payload);
 
+      res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        maxAge: 8 * 60 * 60 * 1000
+      });
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
+
       res.json({
         accessToken,
         refreshToken,
@@ -573,6 +586,19 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
       };
       const accessToken = generateAccessToken(payload);
       const refreshToken = generateRefreshToken(payload);
+
+      res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        maxAge: 8 * 60 * 60 * 1000
+      });
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
 
       res.json({
         accessToken,
