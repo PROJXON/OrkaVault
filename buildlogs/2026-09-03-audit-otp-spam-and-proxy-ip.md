@@ -10,17 +10,18 @@ Two audit-log problems reported in NEW.md:
    `OTP_REVEALED` audit row — so a single reveal session produced one
    near-identical audit entry per rotation (1-2/min). Only the initial
    reveal should be logged.
-2. Audit rows recorded `req.ip`, but the app never set `trust proxy` and
-   `req.ip` / the left-most X-Forwarded-For value is client-spoofable
-   anyway. On Render (behind the platform load balancer) this meant no
-   useful — or trustworthy — client IP for "who revealed this".
+2. Audit rows recorded `req.ip`. With no `trust proxy` set, that returns
+   the socket peer, which on Render is an internal proxy address
+   (`10.25.111.8`) — useless for "who revealed this".
 
 ## What changed
-- backend/src/utils/reqValue.ts: new `clientIp(req)` helper. Reads the
-  LAST entry of `X-Forwarded-For` (the address Render's LB saw the
-  connection from — set by infra we control, so a client can't forge it
-  with its own header), strips `::ffff:` v4-mapped prefixes, falls back
-  to the socket address for direct/local connections.
+- backend/src/utils/reqValue.ts: new `clientIp(req)` helper. Render's
+  `X-Forwarded-For` is `<originating client>, <10.x internal proxy>[...]`
+  — client first, infra hops appended. The helper picks the first XFF
+  entry that isn't a private/internal address (RFC1918, loopback,
+  link-local, CGNAT 100.64/10, IPv6 ULA), strips `::ffff:` v4-mapped
+  prefixes, and falls back to `req.ip` / socket address for direct/local
+  connections.
 - backend/src/routes/{accounts,misc,users,requests,integrations}.ts: all
   audit-log writes now record `clientIp(req)` instead of `req.ip`.
 - backend/src/services/accessRequests.ts: `ipAddress` param widened to
@@ -30,18 +31,18 @@ Two audit-log problems reported in NEW.md:
   exists within the last 5 min (`OTP_AUDIT_DEDUPE_MS`). Collapses the
   per-rotation background re-fetches into one entry; a genuine re-reveal
   after the window still logs.
-- backend/src/index.ts: `app.set("trust proxy", 1)` for correct
-  req.protocol / req.secure behind the one Render proxy hop.
+- backend/src/index.ts: `app.set("trust proxy", true)` so req.protocol /
+  req.secure and the req.ip fallback resolve from X-Forwarded-For.
 
 ## Notes / gotchas
-- `clientIp()` assumes a SINGLE trusted proxy hop. If another proxy is
-  ever added in front of the API (e.g. Cloudflare proxying
-  api.<domain>), the last XFF entry becomes that proxy's IP and the
-  helper needs revisiting.
+- The left-most X-Forwarded-For entry is client-supplied and could be
+  forged unless Render/upstream strips it. Acceptable here (authenticated
+  internal users); revisit if the threat model changes.
+- If another proxy is added in front of the API (e.g. Cloudflare proxying
+  api.<domain>), re-check which XFF entry is the real client.
 - Dedupe window is a local const; tune if the audit trail should show
   continued-access proof more/less often.
 - No frontend change — the client still re-fetches per rotation to keep a
-  valid code on screen; only server-side logging is suppressed, so audit
-  completeness doesn't depend on the client.
+  valid code on screen; only server-side logging is suppressed.
 - Verified with `tsc --noEmit` (clean). No DB/runtime check — sandbox has
   no Postgres.

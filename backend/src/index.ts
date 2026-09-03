@@ -28,12 +28,12 @@ import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
 const PORT = process.env.PORT || 5001;
-// In production the API runs behind a single reverse proxy (Render's load
-// balancer). Trust exactly one hop so req.protocol / req.secure and req.ip
-// reflect the real client, without blindly trusting a client-supplied
-// X-Forwarded-For chain. Audit rows use clientIp() (utils/reqValue), which
-// reads the last — infrastructure-set — X-Forwarded-For entry directly.
-app.set("trust proxy", 1);
+// The API runs behind Render's proxy chain. Trust it so req.protocol /
+// req.secure and req.ip resolve from X-Forwarded-For (Render puts the
+// originating client first in that header). Audit rows go through
+// clientIp() in utils/reqValue, which picks the first non-internal XFF
+// entry so Render's 10.x hops don't end up in the log.
+app.set("trust proxy", true);
 // Log Events
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
