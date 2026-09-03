@@ -12,3 +12,4 @@ diagnostic.txt
 node_modules/
 .env
 .env*
+NEW.md
