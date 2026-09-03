@@ -978,15 +978,32 @@ router.post(
         return;
       }
 
-      // Write audit BEFORE returning the code
-      await prisma.auditLog.create({
-        data: {
+      // Write audit BEFORE returning the code — but only the first reveal
+      // in a short window. While an OTP pill is on screen the client
+      // silently re-fetches a fresh code at every ~30s TOTP rotation (see
+      // RevealOtp.jsx), and each of those hits this route; without this
+      // guard an open pill spams one identical audit row per rotation. A
+      // genuine re-reveal after the window has passed still logs.
+      const OTP_AUDIT_DEDUPE_MS = 5 * 60 * 1000;
+      const recentReveal = await prisma.auditLog.findFirst({
+        where: {
           userId,
           accountId,
           action: "OTP_REVEALED",
-          ipAddress: req.ip,
+          timestamp: { gt: new Date(Date.now() - OTP_AUDIT_DEDUPE_MS) },
         },
+        select: { id: true },
       });
+      if (!recentReveal) {
+        await prisma.auditLog.create({
+          data: {
+            userId,
+            accountId,
+            action: "OTP_REVEALED",
+            ipAddress: req.ip,
+          },
+        });
+      }
 
       let expiresIn: number | null = null;
       let grantExpiresAt: Date | null = null;
