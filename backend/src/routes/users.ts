@@ -9,7 +9,7 @@ import {
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { notifyUser } from "../services/notifications";
-import { asString } from "../utils/reqValue";
+import { asString, clientIp } from "../utils/reqValue";
 
 const router = Router();
 
@@ -198,7 +198,7 @@ router.post(
             userId: req.user!.id,
             action: "USER_BULK_DEACTIVATED",
             metadata: { targetUserId: t.id, targetName: t.name, targetEmail: t.email },
-            ipAddress: req.ip,
+            ipAddress: clientIp(req),
           })),
         }),
       ]);
@@ -338,7 +338,7 @@ router.patch(
           userId: req.user!.id,
           action: "USER_GAP_EXTENDED",
           metadata: { extendedUserId: updated.id, name: updated.name },
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
 

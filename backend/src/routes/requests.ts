@@ -12,7 +12,7 @@ import { notifyManagersAndAdmins } from "../services/notifications";
 import { meetsClearance } from "../services/clearance";
 import { sendChatAlert } from "../services/webhookAlerts";
 import { approveAccessRequest, denyAccessRequest, RequestActionError } from "../services/accessRequests";
-import { asString } from "../utils/reqValue";
+import { asString, clientIp } from "../utils/reqValue";
 
 const router = Router();
 
@@ -164,7 +164,7 @@ router.post(
           userId: req.user!.id,
           accountId,
           action: "ACCESS_REQUESTED",
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
 
@@ -204,7 +204,7 @@ router.patch(
   requireRole("MANAGER", "ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const result = await approveAccessRequest(req.user!, asString(req.params.id)!, req.ip, "web");
+      const result = await approveAccessRequest(req.user!, asString(req.params.id)!, clientIp(req), "web");
       res.json({
         message: "Request approved and grant provisioned.",
         grantId: result.grantId,
@@ -230,7 +230,7 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     const { reason } = req.body;
     try {
-      await denyAccessRequest(req.user!, asString(req.params.id)!, reason, req.ip, "web");
+      await denyAccessRequest(req.user!, asString(req.params.id)!, reason, clientIp(req), "web");
       res.json({ message: "Request denied." });
     } catch (error: any) {
       if (error instanceof RequestActionError) {

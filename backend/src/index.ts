@@ -29,9 +29,10 @@ import { errorHandler } from "./middleware/errorHandler";
 const app = express();
 const PORT = process.env.PORT || 5001;
 // In production the API runs behind a single reverse proxy (Render's load
-// balancer). Trust one hop so req.ip reflects the real client address from
-// X-Forwarded-For (used for audit logging) instead of the proxy's IP,
-// without blindly trusting a client-supplied X-Forwarded-For chain.
+// balancer). Trust exactly one hop so req.protocol / req.secure and req.ip
+// reflect the real client, without blindly trusting a client-supplied
+// X-Forwarded-For chain. Audit rows use clientIp() (utils/reqValue), which
+// reads the last — infrastructure-set — X-Forwarded-For entry directly.
 app.set("trust proxy", 1);
 // Log Events
 app.use((req, res, next) => {

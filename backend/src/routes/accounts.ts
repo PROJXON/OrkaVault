@@ -23,7 +23,7 @@ import { parseCsv } from "../services/csvImport";
 import { meetsClearance } from "../services/clearance";
 import { validateTotpQrImage, generateOtpFromQrImage } from "../services/totp";
 import { syncWorkspaceAccountsToVault } from "../services/workspaceAccountSync";
-import { asString } from "../utils/reqValue";
+import { asString, clientIp } from "../utils/reqValue";
 
 const router = Router();
 
@@ -318,7 +318,7 @@ router.post(
           userId: req.user!.id,
           accountId: account.id,
           action: isAdmin ? "ACCOUNT_CREATED" : "ACCOUNT_SUBMITTED",
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
 
@@ -539,7 +539,7 @@ router.post(
             accountId: account.id,
             action: "ACCOUNT_CREATED",
             metadata: { source: "bulk_import", row: rowNum },
-            ipAddress: req.ip,
+            ipAddress: clientIp(req),
           },
         });
 
@@ -646,7 +646,7 @@ router.patch(
             accountId,
             action: "ACCOUNT_UPDATED",
             metadata: { source: "bulk_qr_upload" },
-            ipAddress: req.ip,
+            ipAddress: clientIp(req),
           },
         });
 
@@ -723,7 +723,7 @@ router.patch(
           userId: req.user!.id,
           accountId: asString(req.params.id),
           action: `QA_${qaStatus}`,
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
       res.json({ message: `Account ${qaStatus.toLowerCase()}.` });
@@ -806,7 +806,7 @@ router.post(
           userId,
           accountId,
           action: "PASSWORD_REVEALED",
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
 
@@ -888,7 +888,7 @@ router.post(
           userId: req.user!.id,
           accountId,
           action: "QR_CODE_REVEALED",
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
 
@@ -1000,7 +1000,7 @@ router.post(
             userId,
             accountId,
             action: "OTP_REVEALED",
-            ipAddress: req.ip,
+            ipAddress: clientIp(req),
           },
         });
       }
@@ -1191,7 +1191,7 @@ router.patch(
           userId: req.user!.id,
           accountId: updated.id,
           action: "ACCOUNT_UPDATED",
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
 
@@ -1230,7 +1230,7 @@ router.delete(
           userId: req.user!.id,
           action: "ACCOUNT_DELETED",
           metadata: { deletedAccount: account.name },
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
 
@@ -1269,7 +1269,7 @@ router.post(
             userId: req.user!.id,
             action: "ACCOUNT_BULK_DELETED",
             metadata: { deletedAccount: a.name },
-            ipAddress: req.ip,
+            ipAddress: clientIp(req),
           })),
         }),
       ]);

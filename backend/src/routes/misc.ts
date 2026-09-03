@@ -14,7 +14,7 @@ import {
 import { scorePassword } from "../services/health";
 import { fetchSecret } from "../services/secretManager";
 import { addClient, removeClient } from "../services/sseHub";
-import { asString } from "../utils/reqValue";
+import { asString, clientIp } from "../utils/reqValue";
 
 const router = Router();
 
@@ -74,7 +74,7 @@ router.patch(
         accountId: grant.accountId,
         action: "GRANT_UPDATED",
         metadata: { accessType },
-        ipAddress: req.ip,
+        ipAddress: clientIp(req),
       },
     });
 
@@ -111,7 +111,7 @@ router.delete(
         userId: req.user!.id,
         accountId: grant.accountId,
         action: "GRANT_REVOKED",
-        ipAddress: req.ip,
+        ipAddress: clientIp(req),
       },
     });
     res.json({ message: "Grant revoked." });
