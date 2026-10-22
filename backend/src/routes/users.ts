@@ -27,6 +27,22 @@ router.get(
   },
 );
 
+// GET /api/users/pending-count — registrations awaiting approval (inactive and
+// not revoked, same definition Users.jsx uses), for the sidebar badge [ADMIN]
+router.get(
+  "/pending-count",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+      const count = await prisma.user.count({ where: { active: false, revoked: false } });
+      res.json({ count });
+    } catch {
+      res.status(500).json({ error: "Failed to count pending users." });
+    }
+  },
+);
+
 // PATCH /api/users/:id/approve — set active=true [ADMIN]
 router.patch(
   "/:id/approve",

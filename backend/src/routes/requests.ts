@@ -2,7 +2,7 @@
  * Access Request Routes — Submit, Approve (with race-condition lock), Deny
  */
 import { Router, Response } from "express";
-import { prisma } from "../lib/prismaClient";
+import { prisma, Prisma } from "../lib/prismaClient";
 import {
   requireAuth,
   requireRole,
@@ -15,6 +15,20 @@ import { approveAccessRequest, denyAccessRequest, RequestActionError } from "../
 import { asString, clientIp } from "../utils/reqValue";
 
 const router = Router();
+
+// Which requests a Manager/Admin can see and act on. Scoped the same way as
+// approve/deny (services/accessRequests.ts's isInManagerScope) — a Manager
+// only sees requests for accounts in one of their assigned collections.
+// Accounts with no collection are out of scope for every manager, matching
+// that same rule. ADMIN is unrestricted. Shared by the list and the
+// pending-count badge so the two can't drift.
+function staffRequestScope(user: AuthenticatedRequest["user"]): Prisma.AccessRequestWhereInput {
+  if (user!.role === "MANAGER") {
+    const managedCollectionIds = user!.managedCollections.map((c: any) => c.id);
+    return { account: { collectionId: { in: managedCollectionIds } } };
+  }
+  return {};
+}
 
 // GET /api/requests — list requests filtered by role
 router.get(
@@ -39,31 +53,10 @@ router.get(
           orderBy: { submittedAt: "desc" },
         });
         res.json(requests);
-      } else if (req.user!.role === "MANAGER") {
-        // Scoped the same way as approve/deny (services/accessRequests.ts's
-        // isInManagerScope) — a Manager only sees requests for accounts in
-        // one of their assigned collections. Accounts with no collection
-        // are out of scope for every manager, matching that same rule.
-        const managedCollectionIds = req.user!.managedCollections.map((c: any) => c.id);
-        const requests = await prisma.accessRequest.findMany({
-          where: { account: { collectionId: { in: managedCollectionIds } } },
-          include: {
-            account: {
-              select: {
-                id: true,
-                name: true,
-                username: true,
-                platformType: true,
-              },
-            },
-            requester: { select: { id: true, name: true, email: true } },
-          },
-          orderBy: { submittedAt: "desc" },
-        });
-        res.json(requests);
       } else {
-        // ADMIN — unrestricted.
+        // MANAGER (collection-scoped) or ADMIN (unrestricted).
         const requests = await prisma.accessRequest.findMany({
+          where: staffRequestScope(req.user),
           include: {
             account: {
               select: {
@@ -81,6 +74,24 @@ router.get(
       }
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch requests." });
+    }
+  },
+);
+
+// GET /api/requests/pending-count — PENDING requests this Manager/Admin can
+// act on, for the sidebar badge. Same scope as the list above.
+router.get(
+  "/pending-count",
+  requireAuth,
+  requireRole("MANAGER", "ADMIN"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const count = await prisma.accessRequest.count({
+        where: { ...staffRequestScope(req.user), status: "PENDING" },
+      });
+      res.json({ count });
+    } catch {
+      res.status(500).json({ error: "Failed to count pending requests." });
     }
   },
 );

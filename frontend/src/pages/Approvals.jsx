@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../lib/api";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { refreshNavBadges } from "../lib/navBadges";
 import { Check, X as XIcon, Globe, MonitorSmartphone, MapPin } from "lucide-react";
 
 const formatRequestType = (type) => {
@@ -11,6 +12,20 @@ const formatRequestType = (type) => {
   };
   return map[type] || type.replace(/_/g, " ");
 };
+
+// Absolute local time with a relative hint; full ISO timestamp on hover.
+function RequestedAt({ value }) {
+  if (!value) return <span>—</span>;
+  const d = new Date(value);
+  return (
+    <span title={d.toISOString()}>
+      {format(d, "MMM d, yyyy h:mm a")}
+      <span className="block text-xs text-gray-400 dark:text-[var(--text-tertiary)]">
+        {formatDistanceToNow(d, { addSuffix: true })}
+      </span>
+    </span>
+  );
+}
 
 export default function Approvals() {
   const [requests, setRequests] = useState([]);
@@ -47,6 +62,7 @@ export default function Approvals() {
     try {
       await api.patch(`/requests/${req.id}/approve`);
       await fetchRequests();
+      refreshNavBadges();
     } catch (e) {
       setActionError(e.response?.data?.error || "Failed to approve request");
     } finally {
@@ -77,6 +93,7 @@ export default function Approvals() {
       });
       setDenyModal(null);
       await fetchRequests();
+      refreshNavBadges();
     } catch (e) {
       setDenyError(e.response?.data?.error || "Failed to deny request");
     } finally {
@@ -113,6 +130,10 @@ export default function Approvals() {
               <div className="row-card-field">
                 <span className="rcf-label">Account</span>
                 <span className="rcf-value">{req.account.name}</span>
+              </div>
+              <div className="row-card-field">
+                <span className="rcf-label">Requested</span>
+                <span className="rcf-value"><RequestedAt value={req.submittedAt} /></span>
               </div>
               <div className="row-card-field">
                 <span className="rcf-label">Duration</span>
@@ -177,6 +198,9 @@ export default function Approvals() {
                 Account
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
+                Requested
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
                 Duration
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
@@ -191,7 +215,7 @@ export default function Approvals() {
             {loading ? (
               <tr>
                 <td
-                  colSpan="5"
+                  colSpan="6"
                   className="px-6 py-4 text-center text-sm text-gray-500 dark:text-[var(--text-tertiary)]"
                 >
                   Loading...
@@ -200,7 +224,7 @@ export default function Approvals() {
             ) : requests.length === 0 ? (
               <tr>
                 <td
-                  colSpan="5"
+                  colSpan="6"
                   className="px-6 py-4 text-center text-sm text-gray-500 dark:text-[var(--text-tertiary)]"
                 >
                   No pending requests
@@ -214,6 +238,9 @@ export default function Approvals() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
                     {req.account.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
+                    <RequestedAt value={req.submittedAt} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
                     {formatRequestType(req.requestType)}

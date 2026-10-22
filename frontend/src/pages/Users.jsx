@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../lib/api";
+import { refreshNavBadges } from "../lib/navBadges";
 import { format } from "date-fns";
 import { Check, Trash2, Edit2, X, RefreshCw } from "lucide-react";
 import { useAuth } from "../lib/authContext";
@@ -46,6 +47,7 @@ export default function Users() {
     try {
       await api.patch(`/users/${id}/approve`);
       await fetchUsersAndCollections();
+      refreshNavBadges();
     } catch (e) {
       alert("Failed to approve user");
     }
@@ -55,6 +57,7 @@ export default function Users() {
     try {
       await api.patch(`/users/${id}/decline`);
       await fetchUsersAndCollections();
+      refreshNavBadges();
     } catch (e) {
       alert("Failed to decline user");
     }
@@ -70,6 +73,7 @@ export default function Users() {
     try {
       await api.delete(`/users/${id}`);
       await fetchUsersAndCollections();
+      refreshNavBadges();
     } catch (e) {
       alert(e.response?.data?.error || "Failed to deactivate user");
     }
@@ -156,6 +160,7 @@ export default function Users() {
       setBulkConfirmOpen(false);
       setBulkConfirmText("");
       await fetchUsersAndCollections();
+      refreshNavBadges();
     } catch (e) {
       alert(e.response?.data?.error || "Failed to delete selected users");
     } finally {
