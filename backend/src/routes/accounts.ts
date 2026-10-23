@@ -23,7 +23,21 @@ import { parseCsv } from "../services/csvImport";
 import { meetsClearance } from "../services/clearance";
 import { validateTotpQrImage, generateOtpFromQrImage } from "../services/totp";
 import { syncWorkspaceAccountsToVault } from "../services/workspaceAccountSync";
+<<<<<<< HEAD
+import { asString, clientIp } from "../utils/reqValue";
+import {
+  validateCustomFields,
+  saveCustomFields,
+  readCustomFieldValues,
+  deleteCustomFieldsSecret,
+  customFieldLabelsSelect,
+  CustomFieldError,
+  CustomFieldInput,
+} from "../services/customFields";
+import { entryTypeRules, isEntryType, ENTRY_TYPES } from "../services/entryTypes";
+=======
 import { asString } from "../utils/reqValue";
+>>>>>>> origin/main
 
 const router = Router();
 
@@ -81,6 +95,7 @@ router.get(
             ],
           },
         },
+        customFields: customFieldLabelsSelect,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -102,6 +117,7 @@ router.get(
         name: a.name,
         username: a.username,
         platformType: a.platformType,
+        entryType: a.entryType,
         ownerId: a.ownerId,
         ownerName: ownersById[a.ownerId]?.name || null,
         ownerEmail: ownersById[a.ownerId]?.email || null,
@@ -120,6 +136,10 @@ router.get(
         hasGrant: a.accessGrants.length > 0,
         grantExpiresAt: a.accessGrants[0]?.expiresAt || null,
         grantFirstRevealedAt: a.accessGrants[0]?.firstRevealedAt || null,
+<<<<<<< HEAD
+        customFields: a.customFields,
+=======
+>>>>>>> origin/main
       })),
     );
   },
@@ -137,6 +157,7 @@ router.get(
           where: { active: true },
           include: { user: { select: { id: true, name: true, email: true } } },
         },
+        customFields: customFieldLabelsSelect,
       },
     });
     if (!account) {
@@ -145,7 +166,11 @@ router.get(
     }
 
     // Same non-secret metadata every user already sees via GET / (the list
+<<<<<<< HEAD
+    // route) — but never totpQrBase64/passwordHash/secretRef/customFieldsSecretRef (secret-adjacent;
+=======
     // route) — but never totpQrBase64/passwordHash/secretRef (secret-adjacent;
+>>>>>>> origin/main
     // reveal-otp/reveal-qr are the only routes allowed to hand those out, and
     // only after their own grant/clearance/manager-scope checks), and other
     // grant-holders' identities are ADMIN-only, matching ownersById above.
@@ -162,6 +187,10 @@ router.get(
       name: account.name,
       username: account.username,
       platformType: account.platformType,
+<<<<<<< HEAD
+      entryType: account.entryType,
+=======
+>>>>>>> origin/main
       ownerId: account.ownerId,
       healthScore: account.healthScore,
       healthLabel: account.healthLabel,
@@ -178,6 +207,10 @@ router.get(
       hasGrant: !!myGrant,
       grantExpiresAt: myGrant?.expiresAt || null,
       grantFirstRevealedAt: myGrant?.firstRevealedAt || null,
+<<<<<<< HEAD
+      customFields: account.customFields,
+=======
+>>>>>>> origin/main
       accessGrants:
         req.user!.role === "ADMIN"
           ? account.accessGrants.map((g) => ({
@@ -198,12 +231,45 @@ router.post(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
+<<<<<<< HEAD
+    const { name, platformType, password, notes, collectionId, requiredClearance } = req.body;
+
+    const entryType = req.body.entryType ?? "LOGIN";
+    if (!isEntryType(entryType)) {
+      res.status(400).json({ error: `entryType must be one of ${ENTRY_TYPES.join(", ")}.` });
+      return;
+    }
+    const rules = entryTypeRules(entryType);
+
+    // Fields a type doesn't support are dropped rather than rejected, so a
+    // stale form value (e.g. a QR picked before switching to Secure Note)
+    // can't sneak onto a note. For SECURE_NOTE, `password` is the note body.
+    const username = rules.requiresUsername ? req.body.username : "";
+    const isGoogleSSO = rules.allowsSso ? !!req.body.isGoogleSSO : false;
+    const totpQrBase64 = rules.allowsTotpQr ? req.body.totpQrBase64 : undefined;
+    const refreshCycle = rules.rotates ? req.body.refreshCycle : "MANUAL";
+
+    if (!name || !platformType || (rules.requiresUsername && !username)) {
+=======
     const { name, username, platformType, password, refreshCycle, notes, collectionId, totpQrBase64, isGoogleSSO, requiredClearance } = req.body;
 
     if (!name || !username || !platformType) {
+>>>>>>> origin/main
       res.status(400).json({
-        error: "Name, username, and platformType are required.",
+        error: rules.requiresUsername
+          ? "Name, username, and platformType are required."
+          : "Name and platformType are required.",
       });
+      return;
+    }
+
+    if (!rules.allowsSso && !password) {
+      res.status(400).json({ error: "The note can't be empty." });
+      return;
+    }
+
+    if (rules.maxSecretLength && typeof password === "string" && password.length > rules.maxSecretLength) {
+      res.status(400).json({ error: `Notes are limited to ${rules.maxSecretLength.toLocaleString()} characters.` });
       return;
     }
 
@@ -212,7 +278,11 @@ router.post(
       return;
     }
 
+<<<<<<< HEAD
+    if (rules.allowsTotpQr && platformType === "GOOGLE_WORKSPACE" && !isGoogleSSO && !totpQrBase64 && (await isTotpQrRequired())) {
+=======
     if (platformType === "GOOGLE_WORKSPACE" && !isGoogleSSO && !totpQrBase64 && (await isTotpQrRequired())) {
+>>>>>>> origin/main
       res.status(400).json({ error: "An Authenticator QR Code is required for Google Workspace accounts." });
       return;
     }
@@ -226,6 +296,19 @@ router.post(
       }
     }
 
+<<<<<<< HEAD
+    let customFields: CustomFieldInput[] = [];
+    if (req.body.customFields !== undefined) {
+      try {
+        customFields = validateCustomFields(req.body.customFields);
+      } catch (e: any) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
+    }
+
+=======
+>>>>>>> origin/main
     // Duplicate check
     const existing = await prisma.account.findFirst({
       where: { name, username },
@@ -240,15 +323,18 @@ router.post(
     let sRef = "SSO_ONLY";
 
     if (!isGoogleSSO && password) {
-      pHash = crypto.createHash("sha256").update(password).digest("hex");
+      // Notes skip the hash: reuse detection is meaningless for them.
+      if (rules.scoresHealth) pHash = crypto.createHash("sha256").update(password).digest("hex");
       sRef = await storeSecret(password);
     }
 
     try {
+      // Unscored types keep a neutral 100/STRONG so they never trip weak-password
+      // alerts; health views filter them out by entryType rather than by label.
       let score = 100;
       let label = "STRONG";
-      
-      if (!isGoogleSSO) {
+
+      if (!isGoogleSSO && rules.scoresHealth) {
         const result = scorePassword(password);
         score = result.score;
         label = result.label;
@@ -278,6 +364,7 @@ router.post(
           name,
           username,
           platformType,
+          entryType,
           secretRef: sRef,
           ownerId: req.user!.id,
           healthScore: score,
@@ -294,8 +381,11 @@ router.post(
         },
       });
 
+      const customFieldLabels =
+        customFields.length > 0 ? await saveCustomFields(account, customFields) : [];
+
       // If admin, also auto-create rotation schedule
-      if (isAdmin) {
+      if (isAdmin && rules.rotates) {
         const cycleDurations: Record<string, number> = {
           MONTHLY: 30,
           FOUR_MONTHS: 120,
@@ -318,7 +408,9 @@ router.post(
           userId: req.user!.id,
           accountId: account.id,
           action: isAdmin ? "ACCOUNT_CREATED" : "ACCOUNT_SUBMITTED",
-          ipAddress: req.ip,
+          // Labels only — custom field values never go in the audit log.
+          metadata: customFieldLabels.length > 0 ? { customFieldLabels } : undefined,
+          ipAddress: clientIp(req),
         },
       });
 
@@ -349,6 +441,7 @@ router.post(
       res.status(201).json({
         id: account.id,
         name: account.name,
+        entryType,
         healthScore: score,
         healthLabel: label,
         qaStatus,
@@ -503,6 +596,10 @@ router.post(
             name,
             username,
             platformType: platformType as any,
+<<<<<<< HEAD
+            entryType: "LOGIN", // CSV import only creates logins
+=======
+>>>>>>> origin/main
             secretRef: sRef,
             ownerId: req.user!.id,
             healthScore: score,
@@ -539,7 +636,11 @@ router.post(
             accountId: account.id,
             action: "ACCOUNT_CREATED",
             metadata: { source: "bulk_import", row: rowNum },
+<<<<<<< HEAD
+            ipAddress: clientIp(req),
+=======
             ipAddress: req.ip,
+>>>>>>> origin/main
           },
         });
 
@@ -622,6 +723,13 @@ router.patch(
           results.push({ accountId, status: "error", error: "Account not found." });
           continue;
         }
+<<<<<<< HEAD
+        if (!entryTypeRules(account.entryType).allowsTotpQr) {
+          results.push({ accountId, status: "error", error: "This entry type can't have an authenticator QR code." });
+          continue;
+        }
+=======
+>>>>>>> origin/main
 
         try {
           await validateTotpQrImage(totpQrBase64);
@@ -646,7 +754,11 @@ router.patch(
             accountId,
             action: "ACCOUNT_UPDATED",
             metadata: { source: "bulk_qr_upload" },
+<<<<<<< HEAD
+            ipAddress: clientIp(req),
+=======
             ipAddress: req.ip,
+>>>>>>> origin/main
           },
         });
 
@@ -684,7 +796,12 @@ router.patch(
         return;
       }
 
-      if (qaStatus === "APPROVED") {
+      if (qaStatus === "APPROVED" && !entryTypeRules(account.entryType).rotates) {
+        await prisma.account.update({
+          where: { id: account.id },
+          data: { qaStatus: "APPROVED" },
+        });
+      } else if (qaStatus === "APPROVED") {
         // BUG 10: Auto-create rotation schedule
         const cycleDurations: Record<string, number> = {
           MONTHLY: 30,
@@ -723,7 +840,7 @@ router.patch(
           userId: req.user!.id,
           accountId: asString(req.params.id),
           action: `QA_${qaStatus}`,
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
       res.json({ message: `Account ${qaStatus.toLowerCase()}.` });
@@ -806,13 +923,19 @@ router.post(
           userId,
           accountId,
           action: "PASSWORD_REVEALED",
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
 
       const password = account.isGoogleSSO
+<<<<<<< HEAD
+        ? "USE_GOOGLE_SSO"
+=======
         ? "USE_GOOGLE_SSO" 
+>>>>>>> origin/main
         : await fetchSecret(account.secretRef);
+      // SSO entries can still carry custom fields, so this is unconditional.
+      const customFields = await readCustomFieldValues(account);
 
       let expiresIn: number | null = null;
       let grantExpiresAt: Date | null = null;
@@ -850,7 +973,7 @@ router.post(
         }
       }
 
-      res.json({ password, expiresIn, grantExpiresAt });
+      res.json({ password, customFields, expiresIn, grantExpiresAt });
     } catch (error: any) {
       console.error("[Reveal]", error);
       res.status(500).json({ error: error.message || "Failed to reveal password." });
@@ -888,7 +1011,11 @@ router.post(
           userId: req.user!.id,
           accountId,
           action: "QR_CODE_REVEALED",
+<<<<<<< HEAD
+          ipAddress: clientIp(req),
+=======
           ipAddress: req.ip,
+>>>>>>> origin/main
         },
       });
 
@@ -978,6 +1105,21 @@ router.post(
         return;
       }
 
+<<<<<<< HEAD
+      // Write audit BEFORE returning the code — but only the first reveal
+      // in a short window. While an OTP pill is on screen the client
+      // silently re-fetches a fresh code at every ~30s TOTP rotation (see
+      // RevealOtp.jsx), and each of those hits this route; without this
+      // guard an open pill spams one identical audit row per rotation. A
+      // genuine re-reveal after the window has passed still logs.
+      const OTP_AUDIT_DEDUPE_MS = 5 * 60 * 1000;
+      const recentReveal = await prisma.auditLog.findFirst({
+        where: {
+          userId,
+          accountId,
+          action: "OTP_REVEALED",
+          timestamp: { gt: new Date(Date.now() - OTP_AUDIT_DEDUPE_MS) },
+=======
       // Write audit BEFORE returning the code
       await prisma.auditLog.create({
         data: {
@@ -985,8 +1127,20 @@ router.post(
           accountId,
           action: "OTP_REVEALED",
           ipAddress: req.ip,
+>>>>>>> origin/main
         },
+        select: { id: true },
       });
+      if (!recentReveal) {
+        await prisma.auditLog.create({
+          data: {
+            userId,
+            accountId,
+            action: "OTP_REVEALED",
+            ipAddress: clientIp(req),
+          },
+        });
+      }
 
       let expiresIn: number | null = null;
       let grantExpiresAt: Date | null = null;
@@ -1046,6 +1200,10 @@ router.post(
         res.status(404).json({ error: "Account not found." });
         return;
       }
+      if (!entryTypeRules(account.entryType).rotates) {
+        res.status(400).json({ error: "Secure notes don't have a password to rotate." });
+        return;
+      }
 
       const now = new Date();
 
@@ -1080,7 +1238,11 @@ router.patch(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
+<<<<<<< HEAD
+    const { name, platformType, password, notes, collectionId, requiredClearance } = req.body;
+=======
     const { name, username, platformType, refreshCycle, password, notes, collectionId, totpQrBase64, isGoogleSSO, requiredClearance } = req.body;
+>>>>>>> origin/main
 
     try {
       const account = await prisma.account.findUnique({
@@ -1091,10 +1253,34 @@ router.patch(
         return;
       }
 
+<<<<<<< HEAD
+      // Type is fixed at creation. Fields the type doesn't support are dropped,
+      // same as on create; for SECURE_NOTE `password` is the new note body.
+      if (req.body.entryType !== undefined && req.body.entryType !== account.entryType) {
+        res.status(400).json({ error: "An entry's type can't be changed after it's created." });
+        return;
+      }
+      const rules = entryTypeRules(account.entryType);
+      const username = rules.requiresUsername ? req.body.username : undefined;
+      const refreshCycle = rules.rotates ? req.body.refreshCycle : undefined;
+      const totpQrBase64 = rules.allowsTotpQr ? req.body.totpQrBase64 : undefined;
+      const isGoogleSSO = rules.allowsSso ? req.body.isGoogleSSO : undefined;
+
+      if (rules.maxSecretLength && typeof password === "string" && password.length > rules.maxSecretLength) {
+        res.status(400).json({ error: `Notes are limited to ${rules.maxSecretLength.toLocaleString()} characters.` });
+        return;
+      }
+
+=======
+>>>>>>> origin/main
       const resultingPlatformType = platformType || account.platformType;
       const resultingIsGoogleSSO = isGoogleSSO !== undefined ? isGoogleSSO : account.isGoogleSSO;
       const resultingHasQr = totpQrBase64 !== undefined ? !!totpQrBase64 : !!account.totpQrBase64;
       if (
+<<<<<<< HEAD
+        rules.allowsTotpQr &&
+=======
+>>>>>>> origin/main
         resultingPlatformType === "GOOGLE_WORKSPACE" &&
         !resultingIsGoogleSSO &&
         !resultingHasQr &&
@@ -1113,6 +1299,21 @@ router.patch(
         }
       }
 
+<<<<<<< HEAD
+      // customFields omitted = leave fields untouched; an array = the full
+      // new list (a field with an existing id and no value keeps its value).
+      let customFields: CustomFieldInput[] | null = null;
+      if (req.body.customFields !== undefined) {
+        try {
+          customFields = validateCustomFields(req.body.customFields);
+        } catch (e: any) {
+          res.status(400).json({ error: e.message });
+          return;
+        }
+      }
+
+=======
+>>>>>>> origin/main
       const updateData: any = {};
       if (name) updateData.name = name;
       if (username) updateData.username = username;
@@ -1135,6 +1336,14 @@ router.patch(
         if (account.secretRef !== "SSO_ONLY") {
           deleteSecret(account.secretRef).catch(console.error); // Clean up old secret
         }
+      } else if (password && !rules.scoresHealth) {
+        // New note body: store it, but no scoring / reuse hash.
+        updateData.secretRef =
+          account.secretRef === "SSO_ONLY"
+            ? await storeSecret(password)
+            : await updateSecret(account.secretRef, password);
+        updateData.lastUpdatedAt = new Date();
+        updateData.lastUpdatedBy = req.user!.id;
       } else if (password) {
         // Not SSO, and user provided a new password
         const { score, label } = scorePassword(password);
@@ -1163,6 +1372,10 @@ router.patch(
         updateData.lastUpdatedBy = req.user!.id;
       }
 
+      // Custom fields first: a missing kept-value is a 400, and failing here
+      // leaves the rest of the entry unchanged rather than half-saved.
+      const customFieldLabels = customFields ? await saveCustomFields(account, customFields) : null;
+
       const updated = await prisma.account.update({
         where: { id: asString(req.params.id) },
         data: updateData,
@@ -1174,12 +1387,24 @@ router.patch(
           userId: req.user!.id,
           accountId: updated.id,
           action: "ACCOUNT_UPDATED",
-          ipAddress: req.ip,
+          // Labels only — custom field values never go in the audit log.
+          metadata: customFieldLabels ? { customFieldLabels } : undefined,
+          ipAddress: clientIp(req),
         },
       });
 
-      res.json({ ...updated, secretRef: undefined });
+      res.json({
+        ...updated,
+        secretRef: undefined,
+        customFieldsSecretRef: undefined,
+        passwordHash: undefined,
+        totpQrBase64: undefined,
+      });
     } catch (error) {
+      if (error instanceof CustomFieldError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       console.error("[Update Account]", error);
       res.status(500).json({ error: "Failed to update account." });
     }
@@ -1202,6 +1427,7 @@ router.delete(
       }
 
       await deleteSecret(account.secretRef);
+      await deleteCustomFieldsSecret(account.customFieldsSecretRef);
 
       await prisma.account.delete({
         where: { id: asString(req.params.id) },
@@ -1213,7 +1439,7 @@ router.delete(
           userId: req.user!.id,
           action: "ACCOUNT_DELETED",
           metadata: { deletedAccount: account.name },
-          ipAddress: req.ip,
+          ipAddress: clientIp(req),
         },
       });
 
@@ -1244,6 +1470,10 @@ router.post(
       });
 
       await Promise.all(targets.map((a) => deleteSecret(a.secretRef)));
+<<<<<<< HEAD
+      await Promise.all(targets.map((a) => deleteCustomFieldsSecret(a.customFieldsSecretRef)));
+=======
+>>>>>>> origin/main
 
       await prisma.$transaction([
         prisma.account.deleteMany({ where: { id: { in: accountIds } } }),
@@ -1252,7 +1482,11 @@ router.post(
             userId: req.user!.id,
             action: "ACCOUNT_BULK_DELETED",
             metadata: { deletedAccount: a.name },
+<<<<<<< HEAD
+            ipAddress: clientIp(req),
+=======
             ipAddress: req.ip,
+>>>>>>> origin/main
           })),
         }),
       ]);

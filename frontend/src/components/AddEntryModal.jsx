@@ -3,10 +3,16 @@ import { X, ShieldAlert, Eye, EyeOff } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import { CLEARANCE_TIERS } from "../lib/clearance";
+<<<<<<< HEAD
+import CustomFieldsEditor, { customFieldsPayload } from "./CustomFieldsEditor";
+import { ENTRY_TYPES, NOTE_MAX_LENGTH } from "../lib/entryTypes";
+=======
+>>>>>>> origin/main
 
 export default function AddEntryModal({ isOpen, onClose, onSuccess, collections }) {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
+    entryType: "LOGIN",
     name: "",
     username: "",
     platformType: "THIRD_PARTY",
@@ -22,10 +28,15 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [requireTotpQr, setRequireTotpQr] = useState(true);
+<<<<<<< HEAD
+  const [customFields, setCustomFields] = useState([]);
+=======
+>>>>>>> origin/main
 
   useEffect(() => {
     if (isOpen) {
       setFormData({
+        entryType: "LOGIN",
         name: "",
         username: "",
         platformType: "THIRD_PARTY",
@@ -39,6 +50,10 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
       });
       setError("");
       setShowPassword(false);
+<<<<<<< HEAD
+      setCustomFields([]);
+=======
+>>>>>>> origin/main
       api
         .get("/policies")
         .then(({ data }) => {
@@ -52,6 +67,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
   if (!isOpen) return null;
 
   const isAdmin = user?.role === "ADMIN";
+  const isNoteEntry = formData.entryType === "SECURE_NOTE";
 
   const handleGeneratePassword = () => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
@@ -73,14 +89,22 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+<<<<<<< HEAD
+    if (!isNoteEntry && requireTotpQr && formData.platformType === "GOOGLE_WORKSPACE" && !formData.totpQrBase64) {
+=======
     if (requireTotpQr && formData.platformType === "GOOGLE_WORKSPACE" && !formData.totpQrBase64) {
+>>>>>>> origin/main
       setError("An Authenticator QR Code is required for Google Workspace accounts.");
       return;
     }
     setLoading(true);
     setError("");
     try {
-      await api.post("/accounts", formData);
+      // The server drops login-only fields for notes too; this just keeps the payload clean.
+      const payload = isNoteEntry
+        ? { ...formData, username: "", isGoogleSSO: false, totpQrBase64: "", refreshCycle: "MANUAL" }
+        : formData;
+      await api.post("/accounts", { ...payload, customFields: customFieldsPayload(customFields) });
       onSuccess();
       onClose();
     } catch (err) {
@@ -127,6 +151,32 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
                 {error}
               </div>
             )}
+
+            <div>
+              <label className="field-label">Entry Type</label>
+              <div className="mt-1 flex gap-2" role="radiogroup" aria-label="Entry type">
+                {Object.entries(ENTRY_TYPES).map(([type, info]) => {
+                  const Icon = info.icon;
+                  const active = formData.entryType === type;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => {
+                        setFormData({ ...formData, entryType: type, password: "" });
+                        setShowPassword(false);
+                      }}
+                      className={`btn btn-sm ${active ? "btn-primary" : "btn-secondary"}`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {info.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -179,6 +229,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
               </div>
             </div>
 
+            {!isNoteEntry && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="field-label">
@@ -212,6 +263,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
                 </select>
               </div>
             </div>
+            )}
 
             <div>
               <label className="field-label">
@@ -232,6 +284,29 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
               </select>
             </div>
 
+<<<<<<< HEAD
+            {isNoteEntry ? (
+              <div>
+                <label className="field-label">
+                  Note
+                </label>
+                <textarea
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  maxLength={NOTE_MAX_LENGTH}
+                  className="input mt-1 font-mono"
+                  placeholder="Encrypted like a password — only visible through Reveal."
+                  rows={6}
+                />
+                <div className="text-xs mt-1 text-right" style={{ color: "var(--text-tertiary)" }}>
+                  {formData.password.length.toLocaleString()} / {NOTE_MAX_LENGTH.toLocaleString()}
+                </div>
+              </div>
+            ) : (
+            <>
+=======
+>>>>>>> origin/main
             <label className="flex items-center gap-2 mt-4 text-sm" style={{ color: "var(--text-primary)" }}>
               <input
                 id="isGoogleSSO"
@@ -284,6 +359,8 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
                 </div>
               </div>
             )}
+            </>
+            )}
 
             <div>
               <label className="field-label">
@@ -295,11 +372,18 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
                   setFormData({ ...formData, notes: e.target.value })
                 }
                 className="input mt-1"
+<<<<<<< HEAD
+                placeholder="Optional notes or URLs (put backup codes in a custom field)"
+=======
                 placeholder="Optional notes, URLs, or MFA backup codes..."
+>>>>>>> origin/main
                 rows={2}
               />
             </div>
 
+            <CustomFieldsEditor fields={customFields} onChange={setCustomFields} />
+
+            {!isNoteEntry && (
             <div>
               <label className="field-label mb-1">
                 Authenticator QR Code{" "}
@@ -324,6 +408,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
                 )}
               </div>
             </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
               <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>

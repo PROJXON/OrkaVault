@@ -3,6 +3,11 @@ import { X, Eye, EyeOff } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import { CLEARANCE_TIERS } from "../lib/clearance";
+<<<<<<< HEAD
+import CustomFieldsEditor, { customFieldsFromAccount, customFieldsPayload } from "./CustomFieldsEditor";
+import { entryTypeInfo, isNote, NOTE_MAX_LENGTH } from "../lib/entryTypes";
+=======
+>>>>>>> origin/main
 
 export default function EditEntryModal({ isOpen, onClose, onSuccess, account, collections }) {
   const { user } = useAuth();
@@ -22,6 +27,10 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [requireTotpQr, setRequireTotpQr] = useState(true);
+<<<<<<< HEAD
+  const [customFields, setCustomFields] = useState([]);
+=======
+>>>>>>> origin/main
 
   useEffect(() => {
     if (account) {
@@ -37,6 +46,10 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
         isGoogleSSO: account.isGoogleSSO || false,
         requiredClearance: account.requiredClearance || "",
       });
+<<<<<<< HEAD
+      setCustomFields(customFieldsFromAccount(account));
+=======
+>>>>>>> origin/main
       api
         .get("/policies")
         .then(({ data }) => {
@@ -48,6 +61,10 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
   }, [account]);
 
   if (!isOpen || !account) return null;
+
+  // Type is fixed after creation; notes hide every login-only field.
+  const isNoteEntry = isNote(account);
+  const TypeIcon = entryTypeInfo(account.entryType).icon;
 
   const handleGeneratePassword = () => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
@@ -81,6 +98,10 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (
+<<<<<<< HEAD
+      !isNoteEntry &&
+=======
+>>>>>>> origin/main
       requireTotpQr &&
       formData.platformType === "GOOGLE_WORKSPACE" &&
       !account.hasTotpQr &&
@@ -101,6 +122,13 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
     if (!payload.totpQrBase64) {
       delete payload.totpQrBase64;
     }
+    if (isNoteEntry) {
+      delete payload.username;
+      delete payload.refreshCycle;
+      delete payload.isGoogleSSO;
+      delete payload.totpQrBase64;
+    }
+    payload.customFields = customFieldsPayload(customFields);
 
     try {
       await api.patch(`/accounts/${account.id}`, payload);
@@ -117,7 +145,17 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
     <div className="scrim" onClick={onClose}>
         <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
           <div className="modal-h">
+<<<<<<< HEAD
+            <div className="mt grow flex items-center gap-2">
+              Edit Vault Entry
+              <span className="inline-flex items-center gap-1 text-xs font-normal" style={{ color: "var(--text-tertiary)" }}>
+                <TypeIcon className="w-3.5 h-3.5" />
+                {entryTypeInfo(account.entryType).label}
+              </span>
+            </div>
+=======
             <div className="mt grow">Edit Vault Entry</div>
+>>>>>>> origin/main
             <button onClick={onClose} className="iconbtn" style={{ width: 32, height: 32 }}>
               <X className="w-4 h-4" />
             </button>
@@ -181,6 +219,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
               </div>
             </div>
 
+            {!isNoteEntry && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="field-label">
@@ -214,6 +253,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                 </select>
               </div>
             </div>
+            )}
 
             <div>
               <label className="field-label">
@@ -234,6 +274,25 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
               </select>
             </div>
 
+<<<<<<< HEAD
+            {isNoteEntry ? (
+              <div>
+                <label className="field-label">
+                  New Note <span className="text-gray-400 font-normal">(Leave blank to keep current)</span>
+                </label>
+                <textarea
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  maxLength={NOTE_MAX_LENGTH}
+                  className="input mt-1 font-mono"
+                  placeholder="Type the full replacement note..."
+                  rows={6}
+                />
+              </div>
+            ) : (
+            <>
+=======
+>>>>>>> origin/main
             <label className="flex items-center gap-2 mt-4 text-sm" style={{ color: "var(--text-primary)" }}>
               <input
                 id="isGoogleSSO"
@@ -286,6 +345,8 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                 </div>
               </div>
             )}
+            </>
+            )}
 
             <div>
               <label className="field-label">
@@ -297,11 +358,18 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   setFormData({ ...formData, notes: e.target.value })
                 }
                 className="input mt-1"
+<<<<<<< HEAD
+                placeholder="Optional notes or URLs (put backup codes in a custom field)"
+=======
                 placeholder="Optional notes, URLs, or MFA backup codes..."
+>>>>>>> origin/main
                 rows={2}
               />
             </div>
 
+            <CustomFieldsEditor fields={customFields} onChange={setCustomFields} />
+
+            {!isNoteEntry && (
             <div>
               <label className="field-label mb-1">
                 Authenticator QR Code{" "}
@@ -330,6 +398,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                 ) : null}
               </div>
             </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
               <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>

@@ -47,6 +47,7 @@ router.get("/", requireAuth, requireRole("ADMIN"), async (req, res, next) => {
 
     // Health Data
     const accounts = await prisma.account.findMany({
+      where: { entryType: "LOGIN" }, // secure notes aren't health-scored
       select: { healthScore: true, healthLabel: true },
     });
     

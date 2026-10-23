@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../lib/api";
+import { refreshNavBadges } from "../lib/navBadges";
 import { format } from "date-fns";
 import { Check, Trash2, Edit2, X, RefreshCw } from "lucide-react";
 import { useAuth } from "../lib/authContext";
@@ -46,6 +47,7 @@ export default function Users() {
     try {
       await api.patch(`/users/${id}/approve`);
       await fetchUsersAndCollections();
+      refreshNavBadges();
     } catch (e) {
       alert("Failed to approve user");
     }
@@ -55,6 +57,7 @@ export default function Users() {
     try {
       await api.patch(`/users/${id}/decline`);
       await fetchUsersAndCollections();
+      refreshNavBadges();
     } catch (e) {
       alert("Failed to decline user");
     }
@@ -70,6 +73,7 @@ export default function Users() {
     try {
       await api.delete(`/users/${id}`);
       await fetchUsersAndCollections();
+      refreshNavBadges();
     } catch (e) {
       alert(e.response?.data?.error || "Failed to deactivate user");
     }
@@ -156,6 +160,10 @@ export default function Users() {
       setBulkConfirmOpen(false);
       setBulkConfirmText("");
       await fetchUsersAndCollections();
+<<<<<<< HEAD
+      refreshNavBadges();
+=======
+>>>>>>> origin/main
     } catch (e) {
       alert(e.response?.data?.error || "Failed to delete selected users");
     } finally {
@@ -491,14 +499,14 @@ export default function Users() {
                       <>
                         <button
                           onClick={() => handleApprove(u.id)}
-                          className="text-brand-green hover:text-green-700 inline-flex"
+                          className="text-brand-green hover:text-green-700 inline-flex cursor-pointer"
                           title="Approve"
                         >
                           <Check className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleDecline(u.id)}
-                          className="text-brand-red hover:text-red-700 inline-flex ml-2"
+                          className="text-brand-red hover:text-red-700 inline-flex ml-2 cursor-pointer"
                           title="Decline"
                         >
                           <X className="h-5 w-5" />
@@ -509,14 +517,14 @@ export default function Users() {
                       <>
                         <button
                           onClick={() => openEditModal(u)}
-                          className="text-brand-blue hover:text-blue-700 inline-flex"
+                          className="text-brand-blue hover:text-blue-700 inline-flex cursor-pointer"
                           title="Edit User"
                         >
                           <Edit2 className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleDeactivate(u.id)}
-                          className="text-brand-red hover:text-red-700 inline-flex ml-2"
+                          className="text-brand-red hover:text-red-700 inline-flex ml-2 cursor-pointer"
                           title="Deactivate"
                         >
                           <Trash2 className="h-5 w-5" />
@@ -526,7 +534,11 @@ export default function Users() {
                     {u.revoked && (
                       <button
                         onClick={() => handleRestore(u.id)}
+<<<<<<< HEAD
+                        className="text-brand-green hover:text-green-700 inline-flex items-center gap-1 cursor-pointer"
+=======
                         className="text-brand-green hover:text-green-700 inline-flex items-center gap-1"
+>>>>>>> origin/main
                         title="Restore User"
                       >
                         <RefreshCw className="h-4 w-4" />

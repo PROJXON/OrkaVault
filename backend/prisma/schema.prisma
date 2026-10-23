@@ -66,7 +66,8 @@ model Account {
   name            String
   username        String
   platformType    PlatformType
-  secretRef       String    // Google Cloud Secret Manager resource ID
+  entryType       EntryType @default(LOGIN) // what shape the entry is; rules in services/entryTypes.ts
+  secretRef       String    // Google Cloud Secret Manager resource ID (password, or the note body for SECURE_NOTE)
   ownerId         String
   healthScore     Int       @default(0)    // 0-100
   healthLabel     HealthLabel @default(WEAK)
@@ -90,12 +91,35 @@ model Account {
   accessRequests  AccessRequest[]
   auditLogs       AuditLog[]
   rotationSchedule RotationSchedule?
+
+  // Labels live here (metadata, like name); values never do. They're one
+  // encrypted JSON blob {fieldId: value} behind customFieldsSecretRef, only
+  // ever returned by POST /api/accounts/:id/reveal. See services/customFields.ts.
+  customFields          AccountCustomField[]
+  customFieldsSecretRef String? // null = no custom fields
+}
+
+model AccountCustomField {
+  id        String  @id @default(uuid())
+  accountId String
+  label     String
+  position  Int     @default(0)
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
 }
 
 enum PlatformType {
   GOOGLE_WORKSPACE
   THIRD_PARTY
   FINANCE
+}
+
+// Separate from PlatformType: platform is *where* it's used, entry type is
+// *what shape* it is. SECURE_NOTE stores username "" and its body via secretRef.
+enum EntryType {
+  LOGIN
+  SECURE_NOTE
 }
 
 enum HealthLabel {
@@ -283,6 +307,29 @@ model WorkspaceDevice {
 
   @@unique([userEmail, deviceId])
   @@index([userEmail])
+<<<<<<< HEAD
+}
+
+// Current-state snapshot of the ADMIN-MANAGED recovery contacts on each
+// active Workspace user — the `recoveryEmail` / `recoveryPhone` fields an
+// admin sets in the Google Admin console, read via the Directory API
+// (users.list / users.get). This is NOT the recovery info a user sets for
+// themselves at myaccount.google.com: Google stores that separately and
+// exposes it through no admin API, so it can't appear here. One row per
+// active account (upsert on userEmail); rows for accounts that are no
+// longer active are deleted on a full sync. Populated by
+// services/googleWorkspace.ts's syncWorkspaceRecovery() cron.
+model WorkspaceRecoveryInfo {
+  id            String   @id @default(uuid())
+  userEmail     String   @unique
+  recoveryEmail String?
+  recoveryPhone String?
+  lastSyncedAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([userEmail])
+=======
+>>>>>>> origin/main
 }
 
 model OrganizationPolicy {

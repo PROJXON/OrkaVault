@@ -12,9 +12,14 @@ import {
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { scorePassword } from "../services/health";
+import { entryTypeRules } from "../services/entryTypes";
 import { fetchSecret } from "../services/secretManager";
 import { addClient, removeClient } from "../services/sseHub";
+<<<<<<< HEAD
+import { asString, clientIp } from "../utils/reqValue";
+=======
 import { asString } from "../utils/reqValue";
+>>>>>>> origin/main
 
 const router = Router();
 
@@ -74,7 +79,7 @@ router.patch(
         accountId: grant.accountId,
         action: "GRANT_UPDATED",
         metadata: { accessType },
-        ipAddress: req.ip,
+        ipAddress: clientIp(req),
       },
     });
 
@@ -111,7 +116,7 @@ router.delete(
         userId: req.user!.id,
         accountId: grant.accountId,
         action: "GRANT_REVOKED",
-        ipAddress: req.ip,
+        ipAddress: clientIp(req),
       },
     });
     res.json({ message: "Grant revoked." });
@@ -252,7 +257,8 @@ router.get(
   requireRole("ADMIN"),
   async (_req: AuthenticatedRequest, res: Response) => {
     const accounts = await prisma.account.findMany({
-      where: { qaStatus: "APPROVED" },
+      // Secure notes have no password to score (services/entryTypes.ts).
+      where: { qaStatus: "APPROVED", entryType: "LOGIN" },
       select: {
         id: true,
         name: true,
@@ -294,6 +300,14 @@ router.post(
         return;
       }
 
+<<<<<<< HEAD
+      if (!entryTypeRules(account.entryType).scoresHealth) {
+        res.status(400).json({ error: "Secure notes don't have a password to score." });
+        return;
+      }
+
+=======
+>>>>>>> origin/main
       const password = await fetchSecret(account.secretRef);
       const { score, label } = scorePassword(password);
 

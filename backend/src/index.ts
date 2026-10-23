@@ -4,6 +4,10 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+<<<<<<< HEAD
+import cookieParser from "cookie-parser";
+=======
+>>>>>>> origin/main
 import path from "path";
 import { prisma } from "./lib/prismaClient";
 import authRoutes from "./routes/auth";
@@ -20,13 +24,26 @@ import workspaceActivityRoutes from "./routes/workspaceActivity";
 import backupsRoutes from "./routes/backups";
 import integrationsRoutes from "./routes/integrations";
 import { notifyAdmins } from "./services/notifications";
+<<<<<<< HEAD
+import { ingestWorkspaceActivity, syncConnectedApps, syncWorkspaceDevices, syncWorkspaceRecovery } from "./services/googleWorkspace";
+=======
 import { ingestWorkspaceActivity, syncConnectedApps, syncWorkspaceDevices } from "./services/googleWorkspace";
+>>>>>>> origin/main
 import { runAuditRetentionSweep } from "./services/auditBackup";
 import { expireStaleApprovals } from "./services/staleApprovals";
 import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+<<<<<<< HEAD
+// The API runs behind Render's proxy chain. Trust it so req.protocol /
+// req.secure and req.ip resolve from X-Forwarded-For (Render puts the
+// originating client first in that header). Audit rows go through
+// clientIp() in utils/reqValue, which picks the first non-internal XFF
+// entry so Render's 10.x hops don't end up in the log.
+app.set("trust proxy", true);
+=======
+>>>>>>> origin/main
 // Log Events
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -180,6 +197,10 @@ app.listen(PORT, async () => {
   await ingestWorkspaceActivity();
   await syncConnectedApps();
   await syncWorkspaceDevices();
+<<<<<<< HEAD
+  await syncWorkspaceRecovery();
+=======
+>>>>>>> origin/main
   await expireStaleApprovals().catch((error) =>
     console.error("[Cron] Stale approval sweep failed:", error),
   );
@@ -195,6 +216,10 @@ app.listen(PORT, async () => {
   // event feeds — both change far less often, so a longer interval is enough.
   setInterval(syncConnectedApps, 6 * 60 * 60 * 1000);
   setInterval(syncWorkspaceDevices, 6 * 60 * 60 * 1000);
+<<<<<<< HEAD
+  setInterval(syncWorkspaceRecovery, 6 * 60 * 60 * 1000);
+=======
+>>>>>>> origin/main
   // Hourly, not daily — the deadline it's enforcing is only 24h, so a
   // day-long check interval would let an expired approval sit visibly
   // "active" for up to a full extra day before being caught.
