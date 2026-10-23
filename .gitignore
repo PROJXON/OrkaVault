@@ -13,4 +13,5 @@ node_modules/
 .env
 .env*
 NEW.md
+NEW-FEAT.md
 plan/

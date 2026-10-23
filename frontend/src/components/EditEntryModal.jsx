@@ -4,6 +4,7 @@ import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import { CLEARANCE_TIERS } from "../lib/clearance";
 import CustomFieldsEditor, { customFieldsFromAccount, customFieldsPayload } from "./CustomFieldsEditor";
+import { entryTypeInfo, isNote, NOTE_MAX_LENGTH } from "../lib/entryTypes";
 
 export default function EditEntryModal({ isOpen, onClose, onSuccess, account, collections }) {
   const { user } = useAuth();
@@ -52,6 +53,10 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
 
   if (!isOpen || !account) return null;
 
+  // Type is fixed after creation; notes hide every login-only field.
+  const isNoteEntry = isNote(account);
+  const TypeIcon = entryTypeInfo(account.entryType).icon;
+
   const handleGeneratePassword = () => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
     let generated = "";
@@ -84,6 +89,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (
+      !isNoteEntry &&
       requireTotpQr &&
       formData.platformType === "GOOGLE_WORKSPACE" &&
       !account.hasTotpQr &&
@@ -104,6 +110,12 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
     if (!payload.totpQrBase64) {
       delete payload.totpQrBase64;
     }
+    if (isNoteEntry) {
+      delete payload.username;
+      delete payload.refreshCycle;
+      delete payload.isGoogleSSO;
+      delete payload.totpQrBase64;
+    }
     payload.customFields = customFieldsPayload(customFields);
 
     try {
@@ -121,7 +133,13 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
     <div className="scrim" onClick={onClose}>
         <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
           <div className="modal-h">
-            <div className="mt grow">Edit Vault Entry</div>
+            <div className="mt grow flex items-center gap-2">
+              Edit Vault Entry
+              <span className="inline-flex items-center gap-1 text-xs font-normal" style={{ color: "var(--text-tertiary)" }}>
+                <TypeIcon className="w-3.5 h-3.5" />
+                {entryTypeInfo(account.entryType).label}
+              </span>
+            </div>
             <button onClick={onClose} className="iconbtn" style={{ width: 32, height: 32 }}>
               <X className="w-4 h-4" />
             </button>
@@ -185,6 +203,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
               </div>
             </div>
 
+            {!isNoteEntry && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="field-label">
@@ -218,6 +237,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                 </select>
               </div>
             </div>
+            )}
 
             <div>
               <label className="field-label">
@@ -238,6 +258,22 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
               </select>
             </div>
 
+            {isNoteEntry ? (
+              <div>
+                <label className="field-label">
+                  New Note <span className="text-gray-400 font-normal">(Leave blank to keep current)</span>
+                </label>
+                <textarea
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  maxLength={NOTE_MAX_LENGTH}
+                  className="input mt-1 font-mono"
+                  placeholder="Type the full replacement note..."
+                  rows={6}
+                />
+              </div>
+            ) : (
+            <>
             <label className="flex items-center gap-2 mt-4 text-sm" style={{ color: "var(--text-primary)" }}>
               <input
                 id="isGoogleSSO"
@@ -290,6 +326,8 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                 </div>
               </div>
             )}
+            </>
+            )}
 
             <div>
               <label className="field-label">
@@ -308,6 +346,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
 
             <CustomFieldsEditor fields={customFields} onChange={setCustomFields} />
 
+            {!isNoteEntry && (
             <div>
               <label className="field-label mb-1">
                 Authenticator QR Code{" "}
@@ -336,6 +375,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                 ) : null}
               </div>
             </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
               <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>

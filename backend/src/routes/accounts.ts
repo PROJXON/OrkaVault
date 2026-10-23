@@ -33,6 +33,7 @@ import {
   CustomFieldError,
   CustomFieldInput,
 } from "../services/customFields";
+import { entryTypeRules, isEntryType, ENTRY_TYPES } from "../services/entryTypes";
 
 const router = Router();
 
@@ -112,6 +113,7 @@ router.get(
         name: a.name,
         username: a.username,
         platformType: a.platformType,
+        entryType: a.entryType,
         ownerId: a.ownerId,
         ownerName: ownersById[a.ownerId]?.name || null,
         ownerEmail: ownersById[a.ownerId]?.email || null,
@@ -174,6 +176,7 @@ router.get(
       name: account.name,
       username: account.username,
       platformType: account.platformType,
+      entryType: account.entryType,
       ownerId: account.ownerId,
       healthScore: account.healthScore,
       healthLabel: account.healthLabel,
@@ -211,12 +214,39 @@ router.post(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
-    const { name, username, platformType, password, refreshCycle, notes, collectionId, totpQrBase64, isGoogleSSO, requiredClearance } = req.body;
+    const { name, platformType, password, notes, collectionId, requiredClearance } = req.body;
 
-    if (!name || !username || !platformType) {
+    const entryType = req.body.entryType ?? "LOGIN";
+    if (!isEntryType(entryType)) {
+      res.status(400).json({ error: `entryType must be one of ${ENTRY_TYPES.join(", ")}.` });
+      return;
+    }
+    const rules = entryTypeRules(entryType);
+
+    // Fields a type doesn't support are dropped rather than rejected, so a
+    // stale form value (e.g. a QR picked before switching to Secure Note)
+    // can't sneak onto a note. For SECURE_NOTE, `password` is the note body.
+    const username = rules.requiresUsername ? req.body.username : "";
+    const isGoogleSSO = rules.allowsSso ? !!req.body.isGoogleSSO : false;
+    const totpQrBase64 = rules.allowsTotpQr ? req.body.totpQrBase64 : undefined;
+    const refreshCycle = rules.rotates ? req.body.refreshCycle : "MANUAL";
+
+    if (!name || !platformType || (rules.requiresUsername && !username)) {
       res.status(400).json({
-        error: "Name, username, and platformType are required.",
+        error: rules.requiresUsername
+          ? "Name, username, and platformType are required."
+          : "Name and platformType are required.",
       });
+      return;
+    }
+
+    if (!rules.allowsSso && !password) {
+      res.status(400).json({ error: "The note can't be empty." });
+      return;
+    }
+
+    if (rules.maxSecretLength && typeof password === "string" && password.length > rules.maxSecretLength) {
+      res.status(400).json({ error: `Notes are limited to ${rules.maxSecretLength.toLocaleString()} characters.` });
       return;
     }
 
@@ -225,7 +255,7 @@ router.post(
       return;
     }
 
-    if (platformType === "GOOGLE_WORKSPACE" && !isGoogleSSO && !totpQrBase64 && (await isTotpQrRequired())) {
+    if (rules.allowsTotpQr && platformType === "GOOGLE_WORKSPACE" && !isGoogleSSO && !totpQrBase64 && (await isTotpQrRequired())) {
       res.status(400).json({ error: "An Authenticator QR Code is required for Google Workspace accounts." });
       return;
     }
@@ -263,15 +293,18 @@ router.post(
     let sRef = "SSO_ONLY";
 
     if (!isGoogleSSO && password) {
-      pHash = crypto.createHash("sha256").update(password).digest("hex");
+      // Notes skip the hash: reuse detection is meaningless for them.
+      if (rules.scoresHealth) pHash = crypto.createHash("sha256").update(password).digest("hex");
       sRef = await storeSecret(password);
     }
 
     try {
+      // Unscored types keep a neutral 100/STRONG so they never trip weak-password
+      // alerts; health views filter them out by entryType rather than by label.
       let score = 100;
       let label = "STRONG";
-      
-      if (!isGoogleSSO) {
+
+      if (!isGoogleSSO && rules.scoresHealth) {
         const result = scorePassword(password);
         score = result.score;
         label = result.label;
@@ -301,6 +334,7 @@ router.post(
           name,
           username,
           platformType,
+          entryType,
           secretRef: sRef,
           ownerId: req.user!.id,
           healthScore: score,
@@ -321,7 +355,7 @@ router.post(
         customFields.length > 0 ? await saveCustomFields(account, customFields) : [];
 
       // If admin, also auto-create rotation schedule
-      if (isAdmin) {
+      if (isAdmin && rules.rotates) {
         const cycleDurations: Record<string, number> = {
           MONTHLY: 30,
           FOUR_MONTHS: 120,
@@ -377,6 +411,7 @@ router.post(
       res.status(201).json({
         id: account.id,
         name: account.name,
+        entryType,
         healthScore: score,
         healthLabel: label,
         qaStatus,
@@ -531,6 +566,7 @@ router.post(
             name,
             username,
             platformType: platformType as any,
+            entryType: "LOGIN", // CSV import only creates logins
             secretRef: sRef,
             ownerId: req.user!.id,
             healthScore: score,
@@ -650,6 +686,10 @@ router.patch(
           results.push({ accountId, status: "error", error: "Account not found." });
           continue;
         }
+        if (!entryTypeRules(account.entryType).allowsTotpQr) {
+          results.push({ accountId, status: "error", error: "This entry type can't have an authenticator QR code." });
+          continue;
+        }
 
         try {
           await validateTotpQrImage(totpQrBase64);
@@ -712,7 +752,12 @@ router.patch(
         return;
       }
 
-      if (qaStatus === "APPROVED") {
+      if (qaStatus === "APPROVED" && !entryTypeRules(account.entryType).rotates) {
+        await prisma.account.update({
+          where: { id: account.id },
+          data: { qaStatus: "APPROVED" },
+        });
+      } else if (qaStatus === "APPROVED") {
         // BUG 10: Auto-create rotation schedule
         const cycleDurations: Record<string, number> = {
           MONTHLY: 30,
@@ -1093,6 +1138,10 @@ router.post(
         res.status(404).json({ error: "Account not found." });
         return;
       }
+      if (!entryTypeRules(account.entryType).rotates) {
+        res.status(400).json({ error: "Secure notes don't have a password to rotate." });
+        return;
+      }
 
       const now = new Date();
 
@@ -1127,7 +1176,7 @@ router.patch(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
-    const { name, username, platformType, refreshCycle, password, notes, collectionId, totpQrBase64, isGoogleSSO, requiredClearance } = req.body;
+    const { name, platformType, password, notes, collectionId, requiredClearance } = req.body;
 
     try {
       const account = await prisma.account.findUnique({
@@ -1138,10 +1187,28 @@ router.patch(
         return;
       }
 
+      // Type is fixed at creation. Fields the type doesn't support are dropped,
+      // same as on create; for SECURE_NOTE `password` is the new note body.
+      if (req.body.entryType !== undefined && req.body.entryType !== account.entryType) {
+        res.status(400).json({ error: "An entry's type can't be changed after it's created." });
+        return;
+      }
+      const rules = entryTypeRules(account.entryType);
+      const username = rules.requiresUsername ? req.body.username : undefined;
+      const refreshCycle = rules.rotates ? req.body.refreshCycle : undefined;
+      const totpQrBase64 = rules.allowsTotpQr ? req.body.totpQrBase64 : undefined;
+      const isGoogleSSO = rules.allowsSso ? req.body.isGoogleSSO : undefined;
+
+      if (rules.maxSecretLength && typeof password === "string" && password.length > rules.maxSecretLength) {
+        res.status(400).json({ error: `Notes are limited to ${rules.maxSecretLength.toLocaleString()} characters.` });
+        return;
+      }
+
       const resultingPlatformType = platformType || account.platformType;
       const resultingIsGoogleSSO = isGoogleSSO !== undefined ? isGoogleSSO : account.isGoogleSSO;
       const resultingHasQr = totpQrBase64 !== undefined ? !!totpQrBase64 : !!account.totpQrBase64;
       if (
+        rules.allowsTotpQr &&
         resultingPlatformType === "GOOGLE_WORKSPACE" &&
         !resultingIsGoogleSSO &&
         !resultingHasQr &&
@@ -1194,6 +1261,14 @@ router.patch(
         if (account.secretRef !== "SSO_ONLY") {
           deleteSecret(account.secretRef).catch(console.error); // Clean up old secret
         }
+      } else if (password && !rules.scoresHealth) {
+        // New note body: store it, but no scoring / reuse hash.
+        updateData.secretRef =
+          account.secretRef === "SSO_ONLY"
+            ? await storeSecret(password)
+            : await updateSecret(account.secretRef, password);
+        updateData.lastUpdatedAt = new Date();
+        updateData.lastUpdatedBy = req.user!.id;
       } else if (password) {
         // Not SSO, and user provided a new password
         const { score, label } = scorePassword(password);

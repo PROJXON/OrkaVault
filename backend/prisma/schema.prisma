@@ -66,7 +66,8 @@ model Account {
   name            String
   username        String
   platformType    PlatformType
-  secretRef       String    // Google Cloud Secret Manager resource ID
+  entryType       EntryType @default(LOGIN) // what shape the entry is; rules in services/entryTypes.ts
+  secretRef       String    // Google Cloud Secret Manager resource ID (password, or the note body for SECURE_NOTE)
   ownerId         String
   healthScore     Int       @default(0)    // 0-100
   healthLabel     HealthLabel @default(WEAK)
@@ -112,6 +113,13 @@ enum PlatformType {
   GOOGLE_WORKSPACE
   THIRD_PARTY
   FINANCE
+}
+
+// Separate from PlatformType: platform is *where* it's used, entry type is
+// *what shape* it is. SECURE_NOTE stores username "" and its body via secretRef.
+enum EntryType {
+  LOGIN
+  SECURE_NOTE
 }
 
 enum HealthLabel {

@@ -48,6 +48,7 @@ export async function syncWorkspaceAccountsToVault(
         name: u.displayName || u.email,
         username: u.email,
         platformType: "GOOGLE_WORKSPACE",
+        entryType: "LOGIN",
         isGoogleSSO: true,
         secretRef: "SSO_ONLY",
         ownerId,

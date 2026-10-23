@@ -12,6 +12,7 @@ import {
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { scorePassword } from "../services/health";
+import { entryTypeRules } from "../services/entryTypes";
 import { fetchSecret } from "../services/secretManager";
 import { addClient, removeClient } from "../services/sseHub";
 import { asString, clientIp } from "../utils/reqValue";
@@ -252,7 +253,8 @@ router.get(
   requireRole("ADMIN"),
   async (_req: AuthenticatedRequest, res: Response) => {
     const accounts = await prisma.account.findMany({
-      where: { qaStatus: "APPROVED" },
+      // Secure notes have no password to score (services/entryTypes.ts).
+      where: { qaStatus: "APPROVED", entryType: "LOGIN" },
       select: {
         id: true,
         name: true,
@@ -291,6 +293,11 @@ router.post(
         res.status(403).json({
           error: "This account is outside your assigned collections.",
         });
+        return;
+      }
+
+      if (!entryTypeRules(account.entryType).scoresHealth) {
+        res.status(400).json({ error: "Secure notes don't have a password to score." });
         return;
       }
 

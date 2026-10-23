@@ -147,7 +147,7 @@ export default function ManagerCollections() {
                       {formatPlatformType(account.platformType)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <HealthPill label={account.healthLabel} />
+                      {account.entryType !== "SECURE_NOTE" && <HealthPill label={account.healthLabel} />}
                     </td>
                     <td
                       className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium vault-protected"

@@ -197,7 +197,7 @@ export default function Collections() {
                 <span className="acc-chip-name">{a.name}</span>
                 <span className="acc-chip-sub">{a.username} · {formatPlatformType(a.platformType)}</span>
               </span>
-              {a.healthLabel && <HealthPill label={a.healthLabel} />}
+              {a.healthLabel && a.entryType !== "SECURE_NOTE" && <HealthPill label={a.healthLabel} />}
               <ArrowRight width={14} height={14} className="acc-chip-arrow" />
             </button>
           ))}
