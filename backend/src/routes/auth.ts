@@ -22,12 +22,10 @@ import { OAuth2Client } from "google-auth-library";
 import { asString, clientIp } from "../utils/reqValue";
 import { issueCsrfToken, clearCsrfCookie } from "../middleware/csrf";
 import { authLimiter } from "../middleware/rateLimit";
-import { REQUIRED_TERMS_VERSION } from "../config/legalVersions";
 import {
-  acceptanceFlags,
-  recordAcceptance,
-  requiredVersion,
-  AcceptanceType,
+  pendingAcceptances,
+  recordAcceptances,
+  resolveCurrentVersions,
 } from "../services/legalAcceptance";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -57,7 +55,7 @@ router.get("/csrf", issueCsrfToken);
 
 // POST /api/auth/register
 router.post("/register", authLimiter, async (req: Request, res: Response) => {
-  const { name, email, password, department, startDate, googleId, avatarUrl, acceptedTermsVersion } = req.body;
+  const { name, email, password, department, startDate, googleId, avatarUrl, acceptedVersions } = req.body;
   if (!name || !email || !password || !department || !startDate) {
     res
       .status(400)
@@ -69,10 +67,16 @@ router.post("/register", authLimiter, async (req: Request, res: Response) => {
   }
   // NEW-FEAT §4.3: the Terms checkbox is required. This also covers the
   // Google path: /google never creates users, it hands the profile back to
-  // the Register page, which submits here.
-  if (acceptedTermsVersion !== REQUIRED_TERMS_VERSION) {
+  // the Register page, which submits here. Both versions must be the
+  // current ones (the text the checkbox linked to).
+  const accepted = await resolveCurrentVersions([
+    { key: "TERMS", version: String(acceptedVersions?.TERMS ?? "") },
+    { key: "PRIVACY", version: String(acceptedVersions?.PRIVACY ?? "") },
+  ]).catch(() => null);
+  if (!accepted || !accepted.ok) {
     res.status(400).json({
-      error: "You must accept the current Terms of Use and Privacy notice to register.",
+      error: "You must accept the current Terms of Use and Privacy notice to register. Reload the page if you've had it open a while.",
+      ...(accepted && !accepted.ok && { currentVersions: accepted.currentVersions }),
     });
     return;
   }
@@ -109,14 +113,20 @@ router.post("/register", authLimiter, async (req: Request, res: Response) => {
         active: isFirstUser, // BUG 8: first user auto-active as ADMIN
         googleId: googleId || null, // "" (plain signup) must not collide on the @unique constraint
         avatarUrl,
-        termsVersionAccepted: REQUIRED_TERMS_VERSION,
-        termsAcceptedAt: new Date(),
-        auditLogs: {
-          create: {
-            action: "TERMS_ACCEPTED",
-            metadata: { version: REQUIRED_TERMS_VERSION, at: "registration" },
+        contentAcceptances: {
+          create: accepted.versions.map((v) => ({
+            contentVersionId: v.id,
+            key: v.key,
             ipAddress: clientIp(req),
-          },
+            via: "registration",
+          })),
+        },
+        auditLogs: {
+          create: accepted.versions.map((v) => ({
+            action: "CONTENT_ACCEPTED",
+            metadata: { key: v.key, version: v.version, bodySha256: v.bodySha256, via: "registration" },
+            ipAddress: clientIp(req),
+          })),
         },
       },
     });
@@ -199,7 +209,7 @@ router.post("/login", authLimiter, async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
       },
-      ...acceptanceFlags(user),
+      pendingAcceptances: await pendingAcceptances(user.id),
     });
   } catch (error) {
     console.error("[Login]", error);
@@ -307,7 +317,7 @@ router.post("/google", authLimiter, async (req: Request, res: Response) => {
           email: user.email,
           role: user.role,
         },
-        ...acceptanceFlags(user),
+        pendingAcceptances: await pendingAcceptances(user.id),
       });
       return;
     } else {
@@ -331,29 +341,41 @@ router.post("/google", authLimiter, async (req: Request, res: Response) => {
 
 // GET /api/auth/me
 router.get("/me", requireAuth, (req: AuthenticatedRequest, res: Response) => {
-  res.json({ ...req.user, ...acceptanceFlags(req.user!) });
+  res.json({ ...req.user, pendingAcceptances: req.pendingAcceptances ?? [] });
 });
 
-// POST /api/auth/acknowledge — accept the Terms or acknowledge the System
-// Use Notice (NEW-FEAT §4.2). The client must send the exact required
-// version, so a stale tab can't accept text it never showed.
+// POST /api/auth/acknowledge — accept every pending policy at once
+// (NEW-FEAT §4.2, Phase 4b). Body: {acceptances: [{key, version}]}. Each
+// version must be the current one, so a tab showing stale text can't
+// accept it; on a mismatch the client gets currentVersions and reloads.
 router.post("/acknowledge", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const { type, version } = req.body ?? {};
-  if (type !== "terms" && type !== "notice") {
-    res.status(400).json({ error: 'type must be "terms" or "notice".' });
-    return;
-  }
-  const required = requiredVersion(type as AcceptanceType);
-  if (version !== required) {
-    res.status(400).json({
-      error: "This version is out of date. Reload the page to see the current one.",
-      requiredVersion: required,
-    });
+  const list = req.body?.acceptances;
+  if (!Array.isArray(list) || list.some((a) => typeof a?.key !== "string" || typeof a?.version !== "string")) {
+    res.status(400).json({ error: "acceptances must be a list of {key, version}." });
     return;
   }
 
   try {
-    await recordAcceptance(req.user!.id, type, required, clientIp(req));
+    const pending = req.pendingAcceptances ?? [];
+    if (pending.length === 0) {
+      res.json({ message: "Nothing to accept." });
+      return;
+    }
+    const sent = new Map<string, string>(list.map((a: { key: string; version: string }) => [a.key, a.version]));
+    const missing = pending.filter((p) => !sent.has(p.key)).map((p) => p.key);
+    if (missing.length) {
+      res.status(400).json({ error: "Every updated policy must be accepted together.", missing });
+      return;
+    }
+    const resolved = await resolveCurrentVersions(pending.map((p) => ({ key: p.key, version: sent.get(p.key)! })));
+    if (!resolved.ok) {
+      res.status(400).json({
+        error: "A policy was updated while this page was open. Review the latest version.",
+        currentVersions: resolved.currentVersions,
+      });
+      return;
+    }
+    await recordAcceptances(req.user!.id, resolved.versions, clientIp(req), "gate");
     res.json({ message: "Recorded." });
   } catch (error) {
     console.error("[Acknowledge]", error);
@@ -575,7 +597,7 @@ router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
           email: user.email,
           role: user.role,
         },
-        ...acceptanceFlags(user),
+        pendingAcceptances: await pendingAcceptances(user.id),
       });
       return;
     } else if (totpCode) {
@@ -621,7 +643,7 @@ router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
           email: user.email,
           role: user.role,
         },
-        ...acceptanceFlags(user),
+        pendingAcceptances: await pendingAcceptances(user.id),
       });
       return;
     } else {

@@ -471,6 +471,18 @@
   .legal-table-wrap th { text-align: left; font-weight: var(--fw-semibold); color: var(--text-primary); background: var(--bg-subtle); }
   .legal-table-wrap th, .legal-table-wrap td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
   .legal-table-wrap tr:last-child td { border-bottom: 0; }
+  /* Markdown bodies rendered by ContentMarkdown (Phase 4b) */
+  .legal-prose h2[id], .legal-prose h3[id] { scroll-margin-top: 72px; }
+  .legal-prose ol { list-style: decimal; padding-left: 1.25rem; margin: 0 0 var(--space-3); }
+  .legal-prose hr { border: 0; border-top: 1px solid var(--border-subtle); margin: var(--space-6) 0; }
+  .legal-prose .legal-body > p:first-child { font-size: var(--fs-lg); color: var(--text-primary); margin-top: var(--space-4); }
+  .legal-prose blockquote { font-size: var(--fs-sm); color: var(--info-text); background: var(--info-subtle); border: 1px solid var(--info-border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); margin: 0 0 var(--space-3); }
+  .legal-prose blockquote p:last-child { margin-bottom: 0; }
+  .legal-diff { font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 1.5; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg-subtle); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .legal-diff .d-line { padding: 0 var(--space-2); }
+  .legal-diff .d-add { background: var(--success-subtle); color: var(--success-text); }
+  .legal-diff .d-del { background: var(--error-subtle); color: var(--error-text); text-decoration: line-through; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); }
+  .legal-diff .d-skip { color: var(--text-tertiary); font-style: italic; }
   .sidenav.collapsed .sidenav-legal { display: none; }
 }
 
@@ -503,7 +515,7 @@
   .legal-page, .legal-page .legal-prose, .legal-page .legal-prose * { color: #000 !important; background: transparent !important; }
   .legal-page main { display: block !important; padding: 0 !important; max-width: none !important; }
   .legal-page .legal-prose { max-width: none; }
-  .legal-page .legal-draft, .legal-page .legal-note, .legal-page .legal-table-wrap { border-color: #999 !important; }
+  .legal-page .legal-draft, .legal-page .legal-note, .legal-page .legal-prose blockquote, .legal-page .legal-table-wrap { border-color: #999 !important; }
   .legal-page .legal-prose a { text-decoration: none; }
   .legal-page .legal-prose h2, .legal-page .legal-prose h3 { break-after: avoid; }
   .legal-page .legal-table-wrap tr { break-inside: avoid; }

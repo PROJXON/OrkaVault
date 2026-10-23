@@ -15,7 +15,7 @@ import { scorePassword } from "../services/health";
 import { entryTypeRules } from "../services/entryTypes";
 import { fetchSecret } from "../services/secretManager";
 import { addClient, removeClient } from "../services/sseHub";
-import { acceptanceFlags } from "../services/legalAcceptance";
+import { hasPendingAcceptances } from "../services/legalAcceptance";
 import { asString, clientIp } from "../utils/reqValue";
 import { cspReportLimiter } from "../middleware/rateLimit";
 
@@ -170,9 +170,8 @@ router.get(
       res.status(401).end();
       return;
     }
-    // Same gates requireAuth applies: legal acknowledgment, then MFA setup.
-    const flags = acceptanceFlags(user);
-    if (flags.needsTermsAcceptance || flags.needsNoticeAcknowledgment || !user.mfaEnabled) {
+    // Same gates requireAuth applies: pending policy acceptance, then MFA setup.
+    if (!user.mfaEnabled || (await hasPendingAcceptances(user.id))) {
       res.status(403).end();
       return;
     }

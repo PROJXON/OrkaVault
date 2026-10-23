@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { LEGACY_V1_VERSION } from "./contentRegistry";
 
 // Optional-storage / third-party consent (NEW-FEAT §2.3).
 // Strictly-necessary storage (auth cookies, CSRF token, theme, MFA device
@@ -6,9 +7,12 @@ import { useSyncExternalStore } from "react";
 // `thirdPartyAuth`: loading Google Identity Services, which talks to
 // accounts.google.com and may set Google's own cookies.
 //
-// Bump CONSENT_VERSION whenever the categories or what they cover change;
-// a stored choice with a different version is treated as "no choice yet"
-// so the banner asks again.
+// The consent version is the required COOKIES version (Phase 4b), set by
+// ContentProvider: "Publish & re-ask cookie consent" in Settings → Content
+// makes every stored choice stale so the banner asks again, while a minor
+// fix doesn't. A stored choice with a different version counts as "no
+// choice yet". CONSENT_VERSION is the fallback until content loads, and
+// the value the seeded v1 maps to, so Phase 4 choices stay valid.
 export const CONSENT_VERSION = 1;
 const STORAGE_KEY = "orka-consent";
 const SESSION_KEY = "orka-consent-session";
@@ -16,13 +20,24 @@ const SESSION_KEY = "orka-consent-session";
 const listeners = new Set();
 let cached; // undefined = not read yet; null = no valid choice
 let settingsRequested = false;
+let consentVersion = CONSENT_VERSION;
+
+/** Called by ContentProvider with the required COOKIES version. */
+export function setConsentVersion(requiredCookiesVersion) {
+  const next =
+    !requiredCookiesVersion || requiredCookiesVersion === LEGACY_V1_VERSION ? CONSENT_VERSION : requiredCookiesVersion;
+  if (next === consentVersion) return;
+  consentVersion = next;
+  cached = undefined;
+  notify();
+}
 
 function readStored() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || parsed.version !== CONSENT_VERSION) return null;
+    if (!parsed || parsed.version !== consentVersion) return null;
     return { version: parsed.version, thirdPartyAuth: parsed.thirdPartyAuth === true, at: parsed.at };
   } catch {
     return null;
@@ -33,14 +48,14 @@ function notify() {
   listeners.forEach((fn) => fn());
 }
 
-/** The stored choice for the current CONSENT_VERSION, or null if none. */
+/** The stored choice for the current consent version, or null if none. */
 export function getConsent() {
   if (cached === undefined) cached = readStored();
   return cached;
 }
 
 export function setConsent({ thirdPartyAuth }) {
-  const value = { version: CONSENT_VERSION, thirdPartyAuth: thirdPartyAuth === true, at: new Date().toISOString() };
+  const value = { version: consentVersion, thirdPartyAuth: thirdPartyAuth === true, at: new Date().toISOString() };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
   } catch {

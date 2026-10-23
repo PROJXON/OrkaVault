@@ -5,6 +5,7 @@ import { Camera, Save, X, User, ShieldCheck, Smartphone, Trash2, QrCode, Lock, S
 import { format } from "date-fns";
 import logo from "../assets/OrkaVault.png";
 import { deletePrivateKey } from "../lib/webCryptoMfa";
+import MyAgreements from "../components/MyAgreements";
 
 export default function Profile() {
   const { user: authUser, fetchUser } = useAuth();
@@ -845,6 +846,9 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      {/* The API only serves this after MFA setup (requireAuth's MFA allowlist). */}
+      {authUser?.mfaEnabled && <MyAgreements />}
     </div>
   );
 }

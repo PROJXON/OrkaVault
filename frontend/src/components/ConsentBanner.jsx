@@ -7,13 +7,18 @@ import {
   useConsentSettingsRequested,
 } from "../lib/consent";
 import LegalLinks from "./LegalLinks";
+import ContentMarkdown from "./ContentMarkdown";
+import { useContent } from "../lib/content";
 
 // Non-modal bottom bar (NEW-FEAT §2.3): the page behind it stays readable
 // and usable, so legal pages can be read before choosing. Shown until a
-// choice for the current CONSENT_VERSION exists, or when re-opened via
-// openConsentSettings(). Skipped in the desktop app, where clicking
-// "Continue with Google" is the consent action (see GoogleAuthGate).
+// choice for the current consent version (the required COOKIES version,
+// see consent.js) exists, or when re-opened via openConsentSettings().
+// Skipped in the desktop app, where clicking "Continue with Google" is the
+// consent action (see GoogleAuthGate). The explanatory text is the
+// CONSENT_BANNER content item; the buttons and category labels are UI.
 export default function ConsentBanner() {
+  const text = useContent("CONSENT_BANNER");
   const consent = useConsent();
   const settingsRequested = useConsentSettingsRequested();
   const [managing, setManaging] = useState(false);
@@ -64,12 +69,11 @@ export default function ConsentBanner() {
       className="no-print fixed bottom-0 inset-x-0 z-[1650] border-t border-[var(--border-default)] bg-[var(--bg-surface-raised)] shadow-[var(--shadow-xl)] focus:outline-none"
     >
       <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col gap-3">
-        <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-          <p className="font-semibold text-[var(--text-primary)] mb-1">Your privacy choices</p>
-          OrkaVault only uses storage that is strictly necessary to sign you in and keep your session
-          secure. Signing in with Google is optional: it loads Google's sign-in service
-          (accounts.google.com), which may set its own cookies. Nothing from Google loads unless you allow it.
-        </div>
+        {text && (
+          <div className="text-sm text-[var(--text-secondary)] leading-relaxed [&_strong]:font-semibold [&_strong]:text-[var(--text-primary)]">
+            <ContentMarkdown variant="inline">{text.body}</ContentMarkdown>
+          </div>
+        )}
 
         {managing && (
           <div className="flex flex-col gap-2 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-3">

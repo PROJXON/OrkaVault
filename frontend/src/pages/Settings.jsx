@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../lib/api";
 import { Trash2, Edit2, X, Check, Plus } from "lucide-react";
+import ContentTab from "../components/ContentAdmin";
 
 function PoliciesTab() {
   const [settings, setSettings] = useState({
@@ -741,7 +742,8 @@ export default function Settings() {
   const [tab, setTab] = useState("policies");
 
   return (
-    <div className="max-w-4xl mx-auto">
+    // The Content tab's editor + live preview sit side by side, so it gets more width.
+    <div className={`${tab === "content" ? "max-w-6xl" : "max-w-4xl"} mx-auto`}>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-[var(--text-primary)]">Global Settings</h1>
         <p className="mt-2 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
@@ -756,6 +758,7 @@ export default function Settings() {
             { key: "departments", label: "Departments" },
             { key: "alerts", label: "Alerts" },
             { key: "backups", label: "Backups" },
+            { key: "content", label: "Content" },
           ].map((t) => (
             <button
               key={t.key}
@@ -778,6 +781,8 @@ export default function Settings() {
         <DepartmentsTab />
       ) : tab === "backups" ? (
         <BackupsTab />
+      ) : tab === "content" ? (
+        <ContentTab />
       ) : (
         <AlertsTab />
       )}

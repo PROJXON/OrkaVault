@@ -43,10 +43,15 @@ once they age past the retention window. A password health score also
 runs across the vault, flagging weak or stale credentials and accounts
 overdue for rotation.
 
-The app ships its own Terms of Use, Privacy notice and Cookie notice at
-`/legal/terms`, `/legal/privacy` and `/legal/cookies`. They are public,
-linked from the sign in page, the sidebar and the privacy banner, and
-currently marked DRAFT until PROJXON's legal review signs off.
+The app ships its own Terms of Use, Privacy notice, Cookie notice and
+System Use Notice at `/legal/terms`, `/legal/privacy`, `/legal/cookies`
+and `/legal/notice`. They are public, linked from the sign in page, the
+sidebar and the privacy banner, and currently marked DRAFT until
+PROJXON's legal review signs off. Every policy page and legal banner is
+edited by the admin in Settings → Content. Edits are drafts that users
+never see until the admin presses a publish button. Every published
+version is kept, and each user can see the versions they accepted on
+their Profile.
 
 ---
 
@@ -269,15 +274,16 @@ new Google Workspace accounts, and the audit log retention period.
 
 `REDIS_URL` defaults to `redis://localhost:6379` if it is never set.
 
-### Legal document versions
+### Policy and banner text
 
-`LEGAL_TERMS_VERSION` and `LEGAL_NOTICE_VERSION` are optional. They set
-which version of the Terms of Use and System Use Notice every user must
-have accepted, and default to the constants in
-`backend/src/config/legalVersions.ts`. The text and version shown to
-users live in `frontend/src/lib/legalVersions.js`. Keep the two in step:
-changing a required version makes everyone accept again at next sign in.
-The `draft` flag in that file controls the DRAFT banner on each page.
+There are no environment variables for this. The text of every policy
+and legal banner is stored in the database and edited in Settings →
+Content. On first start the backend seeds it from
+`backend/src/config/content-seed/*.md`. A policy's version is the date
+and time it was published. "Publish & require re-acceptance" makes
+everyone accept the new version, and "Publish minor fix" doesn't. The
+"Show DRAFT banner" toggle in the editor controls the DRAFT box on each
+page.
 
 ---
 

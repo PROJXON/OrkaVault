@@ -21,6 +21,8 @@ import departmentsRoutes, { seedDefaultDepartments } from "./routes/departments"
 import workspaceActivityRoutes from "./routes/workspaceActivity";
 import backupsRoutes from "./routes/backups";
 import integrationsRoutes from "./routes/integrations";
+import contentRoutes from "./routes/content";
+import { seedContent } from "./services/content";
 import { notifyAdmins } from "./services/notifications";
 import { ingestWorkspaceActivity, syncConnectedApps, syncWorkspaceDevices, syncWorkspaceRecovery } from "./services/googleWorkspace";
 import { runAuditRetentionSweep } from "./services/auditBackup";
@@ -61,6 +63,9 @@ app.use(
 // reject legitimate saves before they reach the route. Scoped to this
 // path only; every other route keeps the default limit.
 app.use("/api/accounts", express.json({ limit: "10mb" }));
+// Policy drafts may be up to 100 KB of Markdown (services/content.ts caps
+// the text itself); JSON escaping pushes that past the 100kb default.
+app.use("/api/content", express.json({ limit: "512kb" }));
 // Discord interaction signature verification (verifyDiscordSignature) needs
 // the exact raw bytes Discord signed — must be scoped ahead of the global
 // express.json() below, same pattern as the /api/accounts override above.
@@ -94,6 +99,7 @@ app.use("/api/departments", departmentsRoutes);
 app.use("/api/workspace-activity", workspaceActivityRoutes);
 app.use("/api/backups", backupsRoutes);
 app.use("/api/integrations", integrationsRoutes);
+app.use("/api/content", contentRoutes);
 app.use("/api", miscRoutes);
 
 // Error Handler must be the last middleware
@@ -197,6 +203,11 @@ app.listen(PORT, async () => {
   // One-time (no-op after the first successful run) — see seedDefaultDepartments jsdoc
   await seedDefaultDepartments().catch((error) =>
     console.error("[Startup] Department seeding failed:", error),
+  );
+  // Idempotent: seeds v1 of any policy/banner with no version yet, and
+  // backfills Phase 4 acceptances (see services/content.ts).
+  await seedContent().catch((error) =>
+    console.error("[Startup] Content seeding failed:", error),
   );
 
   // Run cron checks on startup

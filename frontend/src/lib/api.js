@@ -67,9 +67,10 @@ api.interceptors.response.use(
       return api(originalRequest);
     }
 
-    // The backend enforces the System Use Notice / Terms gate. If a version
-    // was bumped while this tab was open, reload: /auth/me (always allowed)
-    // then reports the flags and ProtectedRoute shows the gate.
+    // The backend enforces the policy gate (Terms / Privacy / System Use
+    // Notice). If an admin published with "require re-acceptance" while this
+    // tab was open, reload: /auth/me (always allowed) then reports
+    // pendingAcceptances and ProtectedRoute shows the gate.
     if (error.response?.status === 403 && error.response?.data?.legalAcknowledgmentRequired) {
       window.location.reload();
       return Promise.reject(error);

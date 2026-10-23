@@ -4,9 +4,10 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { GoogleLogin } from "@react-oauth/google";
 import GoogleAuthGate from "../components/GoogleAuthGate";
-import LegalLinks, { InlineLegalLink } from "../components/LegalLinks";
+import LegalLinks from "../components/LegalLinks";
 import SystemUseBanner from "../components/SystemUseBanner";
-import { TERMS } from "../lib/legalVersions";
+import ContentMarkdown from "../components/ContentMarkdown";
+import { useContent, useContentState } from "../lib/content";
 import { Eye, EyeOff } from "lucide-react";
 import logo from "../assets/OrkaVault.png";
 
@@ -33,6 +34,12 @@ export default function Register() {
   // NEW-FEAT §4.3: required, unchecked by default. Gates both the form
   // submit and the Google button; the backend rejects a missing version too.
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  // The checkbox accepts the current TERMS and PRIVACY versions; the backend
+  // rejects anything else (Phase 4b).
+  const termsLabel = useContent("REGISTER_TERMS_LABEL");
+  const terms = useContent("TERMS");
+  const privacy = useContent("PRIVACY");
+  const { refreshContent } = useContentState();
 
   useEffect(() => {
     api.get("/auth/setup-status").then((res) => {
@@ -86,7 +93,7 @@ export default function Register() {
         googleId,
         avatarUrl,
         setupToken: isFirstUser ? setupToken : undefined,
-        acceptedTermsVersion: TERMS.version,
+        acceptedVersions: { TERMS: terms?.version, PRIVACY: privacy?.version },
       });
       if (res.data.active) {
         setSuccess(
@@ -99,6 +106,14 @@ export default function Register() {
       }
       setTimeout(() => navigate("/login"), 3000);
     } catch (err) {
+      // The Terms or Privacy notice was re-published while this page was
+      // open: load the new versions and ask the user to re-confirm.
+      if (err.response?.data?.currentVersions) {
+        await refreshContent();
+        setAcceptedTerms(false);
+        setError("The Terms of Use or Privacy notice was just updated. Review it, tick the box again and register.");
+        return;
+      }
       setError(err.response?.data?.error || "Registration failed");
     }
   };
@@ -272,8 +287,7 @@ export default function Register() {
                 className="mt-0.5 h-4 w-4 text-brand-blue focus:ring-brand-blue border-gray-300 rounded-sm"
               />
               <label htmlFor="accept-terms" className="ml-2 block text-sm text-gray-700 dark:text-[var(--text-secondary)]">
-                I have read and accept the <InlineLegalLink to="/legal/terms">Terms of Use</InlineLegalLink> and
-                the <InlineLegalLink to="/legal/privacy">Privacy notice</InlineLegalLink>.
+                {termsLabel && <ContentMarkdown variant="inline">{termsLabel.body}</ContentMarkdown>}
               </label>
             </div>
 

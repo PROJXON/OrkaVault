@@ -9,11 +9,11 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { prisma, Role } from "../lib/prismaClient";
-import { acceptanceFlags } from "../services/legalAcceptance";
+import { pendingAcceptances, PendingAcceptance } from "../services/legalAcceptance";
 
-// The only authenticated endpoints reachable before the System Use Notice /
-// Terms are acknowledged: what the gate itself needs (logout and csrf don't
-// use requireAuth, so they're always reachable).
+// The only authenticated endpoints reachable while a policy (Terms, Privacy,
+// System Use Notice) is pending: what the gate itself needs (logout and
+// csrf don't use requireAuth, so they're always reachable).
 const LEGAL_GATE_ALLOWED_URLS = ["/api/auth/me", "/api/auth/acknowledge"];
 
 
@@ -67,9 +67,9 @@ export interface AuthenticatedRequest extends Request {
     managedCollections: any[];
     clearanceLevel: string | null;
     mfaEnabled: boolean;
-    termsVersionAccepted: string | null;
-    noticeVersionAcknowledged: string | null;
   };
+  // Computed once per request by requireAuth (GET /auth/me returns it).
+  pendingAcceptances?: PendingAcceptance[];
 }
 
 /**
@@ -177,23 +177,22 @@ export async function requireAuth(
       managedCollections: user.managedCollections,
       clearanceLevel: user.clearanceLevel,
       mfaEnabled: user.mfaEnabled,
-      termsVersionAccepted: user.termsVersionAccepted,
-      noticeVersionAcknowledged: user.noticeVersionAcknowledged,
     };
 
     const cleanUrl = req.originalUrl.split("?")[0];
 
-    // System Use Notice / Terms (NEW-FEAT §3.2, AC-8 b): until the current
-    // versions are acknowledged, nothing but the gate's own calls is allowed.
-    // Checked before MFA so the order matches the frontend gate. The
-    // frontend gate is UX only; this is the actual enforcement.
-    const { needsTermsAcceptance, needsNoticeAcknowledgment } = acceptanceFlags(user);
-    if ((needsTermsAcceptance || needsNoticeAcknowledgment) && !LEGAL_GATE_ALLOWED_URLS.includes(cleanUrl)) {
+    // Policy gate (NEW-FEAT §3.2, AC-8 b; Phase 4b): until every required
+    // Terms / Privacy / System Use Notice version is accepted, nothing but
+    // the gate's own calls is allowed. Checked before MFA so the order
+    // matches the frontend gate. The frontend gate is UX only; this is the
+    // actual enforcement.
+    const pending = await pendingAcceptances(user.id);
+    req.pendingAcceptances = pending;
+    if (pending.length > 0 && !LEGAL_GATE_ALLOWED_URLS.includes(cleanUrl)) {
       res.status(403).json({
-        error: "You must acknowledge the System Use Notice and accept the current Terms before continuing.",
+        error: "You must review and accept the updated policies before continuing.",
         legalAcknowledgmentRequired: true,
-        needsTermsAcceptance,
-        needsNoticeAcknowledgment,
+        pendingAcceptances: pending,
       });
       return;
     }

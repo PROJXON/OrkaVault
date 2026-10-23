@@ -20,7 +20,7 @@ import { createLinkCode, consumeLinkCode } from "../services/discordLink";
 import { approveAccessRequest, denyAccessRequest, RequestActionError, RequestActor } from "../services/accessRequests";
 import { clientIp } from "../utils/reqValue";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
-import { acceptanceFlags } from "../services/legalAcceptance";
+import { hasPendingAcceptances } from "../services/legalAcceptance";
 
 const router = Router();
 const gchatAuthClient = new OAuth2Client();
@@ -42,13 +42,13 @@ async function resolveActorByDiscordId(discordUserId: string): Promise<RequestAc
   });
   if (!user) return null;
   // Same gates requireAuth applies on the web: deactivated accounts, an
-  // unacknowledged System Use Notice / Terms, or no MFA can't act from Discord.
+  // policy (Terms, Privacy, System Use Notice) still pending, or no MFA
+  // can't act from Discord.
   if (!user.active) {
     return { error: "Your linked OrkaVault account is deactivated or pending approval." };
   }
-  const flags = acceptanceFlags(user);
-  if (flags.needsTermsAcceptance || flags.needsNoticeAcknowledgment || !user.mfaEnabled) {
-    return { error: "Sign in to OrkaVault on the web and finish account setup (System Use Notice, MFA) before approving from Discord." };
+  if (!user.mfaEnabled || (await hasPendingAcceptances(user.id))) {
+    return { error: "Sign in to OrkaVault on the web and finish account setup (updated policies, MFA) before approving from Discord." };
   }
   if (user.role !== "MANAGER" && user.role !== "ADMIN") {
     return { error: "Your linked OrkaVault account doesn't have permission to approve or deny requests." };
