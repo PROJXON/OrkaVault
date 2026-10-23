@@ -682,6 +682,7 @@ function DevicesTab() {
   );
 }
 
+<<<<<<< HEAD
 function RecoveryTab() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -845,6 +846,8 @@ function RecoveryTab() {
   );
 }
 
+=======
+>>>>>>> origin/main
 export default function WorkspaceActivity() {
   const [tab, setTab] = useState("activity");
 
@@ -862,7 +865,10 @@ export default function WorkspaceActivity() {
             { key: "activity", label: "Activity Log" },
             { key: "connected-apps", label: "Connected Apps" },
             { key: "devices", label: "Devices" },
+<<<<<<< HEAD
             { key: "recovery", label: "Recovery" },
+=======
+>>>>>>> origin/main
           ].map((t) => (
             <button
               key={t.key}
@@ -883,10 +889,15 @@ export default function WorkspaceActivity() {
         <ActivityLogTab />
       ) : tab === "connected-apps" ? (
         <ConnectedAppsTab />
+<<<<<<< HEAD
       ) : tab === "devices" ? (
         <DevicesTab />
       ) : (
         <RecoveryTab />
+=======
+      ) : (
+        <DevicesTab />
+>>>>>>> origin/main
       )}
     </div>
   );

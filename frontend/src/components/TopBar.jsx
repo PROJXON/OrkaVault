@@ -7,7 +7,11 @@ import NotificationBell from "./NotificationBell";
 import logoMark from "../assets/OrkaVault.ico";
 
 export default function TopBar({ onMenuClick }) {
+<<<<<<< HEAD
   const { user, logout, realRole, viewAsRole, canPreview, setViewAsRole } = useAuth();
+=======
+  const { user, logout } = useAuth();
+>>>>>>> origin/main
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,9 +45,12 @@ export default function TopBar({ onMenuClick }) {
     navigate("/login");
   };
 
+<<<<<<< HEAD
   const previewRoles = realRole === "ADMIN" ? ["ADMIN", "MANAGER", "USER"] : ["MANAGER", "USER"];
   const titleCase = (r) => r.charAt(0) + r.slice(1).toLowerCase();
 
+=======
+>>>>>>> origin/main
   const getInitials = (name) =>
     name?.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2) || "?";
 
@@ -136,6 +143,7 @@ export default function TopBar({ onMenuClick }) {
                 <div className="text-xs truncate" style={{ color: "var(--text-tertiary)" }}>{user.email}</div>
               </div>
             </div>
+<<<<<<< HEAD
             {canPreview && (
               <>
                 <div className="menu-sep" />
@@ -168,6 +176,8 @@ export default function TopBar({ onMenuClick }) {
                 </div>
               </>
             )}
+=======
+>>>>>>> origin/main
             <div className="menu-sep" />
             <Link to="/profile" className="menu-item" onClick={() => setProfileOpen(false)}>
               <UserRound width={16} height={16} /> Profile

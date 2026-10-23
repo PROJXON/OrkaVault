@@ -688,6 +688,7 @@ export async function syncWorkspaceDevicesForUser(userEmail: string) {
   return prisma.workspaceDevice.findMany({ where: { userEmail }, orderBy: { deviceType: "asc" } });
 }
 
+<<<<<<< HEAD
 export interface NormalizedRecoveryInfo {
   userEmail: string;
   recoveryEmail: string | null;
@@ -800,6 +801,8 @@ export async function syncWorkspaceRecoveryForUser(userEmail: string) {
   return prisma.workspaceRecoveryInfo.findUnique({ where: { userEmail } });
 }
 
+=======
+>>>>>>> origin/main
 export interface InferredDevice {
   deviceType: string | null;
   model: string | null;

@@ -118,6 +118,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
+<<<<<<< HEAD
       value={{
         user: effectiveUser,
         setUser,
@@ -134,6 +135,9 @@ export const AuthProvider = ({ children }) => {
         viewAsRole: activePreview,
         setViewAsRole,
       }}
+=======
+      value={{ user, setUser, loading, login, register, logout, fetchUser, continueWithGoogle, mfaVerify }}
+>>>>>>> origin/main
     >
       {children}
     </AuthContext.Provider>

@@ -132,10 +132,13 @@ export default function Approvals() {
                 <span className="rcf-value">{req.account.name}</span>
               </div>
               <div className="row-card-field">
+<<<<<<< HEAD
                 <span className="rcf-label">Requested</span>
                 <span className="rcf-value"><RequestedAt value={req.submittedAt} /></span>
               </div>
               <div className="row-card-field">
+=======
+>>>>>>> origin/main
                 <span className="rcf-label">Duration</span>
                 <span className="rcf-value">{formatRequestType(req.requestType)}</span>
               </div>
@@ -198,9 +201,12 @@ export default function Approvals() {
                 Account
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
+<<<<<<< HEAD
                 Requested
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
+=======
+>>>>>>> origin/main
                 Duration
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-[var(--text-tertiary)] uppercase">
@@ -215,7 +221,11 @@ export default function Approvals() {
             {loading ? (
               <tr>
                 <td
+<<<<<<< HEAD
                   colSpan="6"
+=======
+                  colSpan="5"
+>>>>>>> origin/main
                   className="px-6 py-4 text-center text-sm text-gray-500 dark:text-[var(--text-tertiary)]"
                 >
                   Loading...
@@ -224,7 +234,11 @@ export default function Approvals() {
             ) : requests.length === 0 ? (
               <tr>
                 <td
+<<<<<<< HEAD
                   colSpan="6"
+=======
+                  colSpan="5"
+>>>>>>> origin/main
                   className="px-6 py-4 text-center text-sm text-gray-500 dark:text-[var(--text-tertiary)]"
                 >
                   No pending requests
@@ -240,9 +254,12 @@ export default function Approvals() {
                     {req.account.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
+<<<<<<< HEAD
                     <RequestedAt value={req.submittedAt} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
+=======
+>>>>>>> origin/main
                     {formatRequestType(req.requestType)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 dark:text-[var(--text-tertiary)] max-w-xs">

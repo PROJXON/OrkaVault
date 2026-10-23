@@ -12,8 +12,11 @@ import {
   listActiveWorkspaceUsers,
   syncWorkspaceDevices,
   syncWorkspaceDevicesForUser,
+<<<<<<< HEAD
   syncWorkspaceRecovery,
   syncWorkspaceRecoveryForUser,
+=======
+>>>>>>> origin/main
   inferLikelyDevice,
 } from "../services/googleWorkspace";
 
@@ -290,6 +293,7 @@ router.post(
   },
 );
 
+<<<<<<< HEAD
 // GET /api/workspace-activity/recovery — stored snapshot of the ADMIN-SET
 // recovery email/phone on each Workspace account (WorkspaceRecoveryInfo —
 // Directory API users.list/get, populated by syncWorkspaceRecovery). Not
@@ -389,4 +393,6 @@ router.post(
   },
 );
 
+=======
+>>>>>>> origin/main
 export default router;

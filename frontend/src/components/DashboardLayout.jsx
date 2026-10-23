@@ -7,8 +7,12 @@ import { useAuth } from "../lib/authContext";
 export default function DashboardLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const location = useLocation();
+<<<<<<< HEAD
   const { user, logout, realRole, viewAsRole, setViewAsRole } = useAuth();
   const titleCase = (r) => r.charAt(0) + r.slice(1).toLowerCase();
+=======
+  const { user, logout } = useAuth();
+>>>>>>> origin/main
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -43,6 +47,7 @@ export default function DashboardLayout() {
       />
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <TopBar onMenuClick={() => setMobileNavOpen((o) => !o)} />
+<<<<<<< HEAD
         {viewAsRole && (
           <div className="preview-banner">
             <span>
@@ -52,6 +57,8 @@ export default function DashboardLayout() {
             <button onClick={() => setViewAsRole(null)}>Exit preview</button>
           </div>
         )}
+=======
+>>>>>>> origin/main
         <main className="flex-1 relative overflow-y-auto focus:outline-hidden p-6 min-h-0">
           <Outlet />
         </main>

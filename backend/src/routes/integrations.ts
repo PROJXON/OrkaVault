@@ -18,7 +18,10 @@ import { OAuth2Client } from "google-auth-library";
 import { verifyDiscordSignature } from "../services/discordSignature";
 import { createLinkCode, consumeLinkCode } from "../services/discordLink";
 import { approveAccessRequest, denyAccessRequest, RequestActionError, RequestActor } from "../services/accessRequests";
+<<<<<<< HEAD
 import { clientIp } from "../utils/reqValue";
+=======
+>>>>>>> origin/main
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
@@ -132,8 +135,13 @@ router.post("/discord/interactions", async (req: Request, res: Response) => {
     try {
       const result =
         action === "approve"
+<<<<<<< HEAD
           ? await approveAccessRequest(actor, requestId, clientIp(req), "discord")
           : await denyAccessRequest(actor, requestId, "Denied via Discord", clientIp(req), "discord");
+=======
+          ? await approveAccessRequest(actor, requestId, req.ip, "discord")
+          : await denyAccessRequest(actor, requestId, "Denied via Discord", req.ip, "discord");
+>>>>>>> origin/main
       const verb = action === "approve" ? "Approved" : "Denied";
       res.json({
         type: DISCORD_UPDATE_MESSAGE,

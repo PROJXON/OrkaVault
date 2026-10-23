@@ -3,8 +3,11 @@ import { X, ShieldAlert, Eye, EyeOff } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import { CLEARANCE_TIERS } from "../lib/clearance";
+<<<<<<< HEAD
 import CustomFieldsEditor, { customFieldsPayload } from "./CustomFieldsEditor";
 import { ENTRY_TYPES, NOTE_MAX_LENGTH } from "../lib/entryTypes";
+=======
+>>>>>>> origin/main
 
 export default function AddEntryModal({ isOpen, onClose, onSuccess, collections }) {
   const { user } = useAuth();
@@ -25,7 +28,10 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [requireTotpQr, setRequireTotpQr] = useState(true);
+<<<<<<< HEAD
   const [customFields, setCustomFields] = useState([]);
+=======
+>>>>>>> origin/main
 
   useEffect(() => {
     if (isOpen) {
@@ -44,7 +50,10 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
       });
       setError("");
       setShowPassword(false);
+<<<<<<< HEAD
       setCustomFields([]);
+=======
+>>>>>>> origin/main
       api
         .get("/policies")
         .then(({ data }) => {
@@ -80,7 +89,11 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+<<<<<<< HEAD
     if (!isNoteEntry && requireTotpQr && formData.platformType === "GOOGLE_WORKSPACE" && !formData.totpQrBase64) {
+=======
+    if (requireTotpQr && formData.platformType === "GOOGLE_WORKSPACE" && !formData.totpQrBase64) {
+>>>>>>> origin/main
       setError("An Authenticator QR Code is required for Google Workspace accounts.");
       return;
     }
@@ -271,6 +284,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
               </select>
             </div>
 
+<<<<<<< HEAD
             {isNoteEntry ? (
               <div>
                 <label className="field-label">
@@ -291,6 +305,8 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
               </div>
             ) : (
             <>
+=======
+>>>>>>> origin/main
             <label className="flex items-center gap-2 mt-4 text-sm" style={{ color: "var(--text-primary)" }}>
               <input
                 id="isGoogleSSO"
@@ -356,7 +372,11 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
                   setFormData({ ...formData, notes: e.target.value })
                 }
                 className="input mt-1"
+<<<<<<< HEAD
                 placeholder="Optional notes or URLs (put backup codes in a custom field)"
+=======
+                placeholder="Optional notes, URLs, or MFA backup codes..."
+>>>>>>> origin/main
                 rows={2}
               />
             </div>

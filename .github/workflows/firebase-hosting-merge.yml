@@ -9,9 +9,12 @@ on:
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
+<<<<<<< HEAD
     defaults:
       run:
         working-directory: frontend
+=======
+>>>>>>> origin/main
     steps:
       - uses: actions/checkout@v4
       - run: npm ci && npm run build
@@ -24,4 +27,7 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CAREFUL_VOYAGE_491414_G8 }}
           channelId: live
           projectId: careful-voyage-491414-g8
+<<<<<<< HEAD
           entryPoint: frontend
+=======
+>>>>>>> origin/main

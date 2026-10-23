@@ -23,6 +23,7 @@ import { parseCsv } from "../services/csvImport";
 import { meetsClearance } from "../services/clearance";
 import { validateTotpQrImage, generateOtpFromQrImage } from "../services/totp";
 import { syncWorkspaceAccountsToVault } from "../services/workspaceAccountSync";
+<<<<<<< HEAD
 import { asString, clientIp } from "../utils/reqValue";
 import {
   validateCustomFields,
@@ -34,6 +35,9 @@ import {
   CustomFieldInput,
 } from "../services/customFields";
 import { entryTypeRules, isEntryType, ENTRY_TYPES } from "../services/entryTypes";
+=======
+import { asString } from "../utils/reqValue";
+>>>>>>> origin/main
 
 const router = Router();
 
@@ -132,7 +136,10 @@ router.get(
         hasGrant: a.accessGrants.length > 0,
         grantExpiresAt: a.accessGrants[0]?.expiresAt || null,
         grantFirstRevealedAt: a.accessGrants[0]?.firstRevealedAt || null,
+<<<<<<< HEAD
         customFields: a.customFields,
+=======
+>>>>>>> origin/main
       })),
     );
   },
@@ -159,7 +166,11 @@ router.get(
     }
 
     // Same non-secret metadata every user already sees via GET / (the list
+<<<<<<< HEAD
     // route) — but never totpQrBase64/passwordHash/secretRef/customFieldsSecretRef (secret-adjacent;
+=======
+    // route) — but never totpQrBase64/passwordHash/secretRef (secret-adjacent;
+>>>>>>> origin/main
     // reveal-otp/reveal-qr are the only routes allowed to hand those out, and
     // only after their own grant/clearance/manager-scope checks), and other
     // grant-holders' identities are ADMIN-only, matching ownersById above.
@@ -176,7 +187,10 @@ router.get(
       name: account.name,
       username: account.username,
       platformType: account.platformType,
+<<<<<<< HEAD
       entryType: account.entryType,
+=======
+>>>>>>> origin/main
       ownerId: account.ownerId,
       healthScore: account.healthScore,
       healthLabel: account.healthLabel,
@@ -193,7 +207,10 @@ router.get(
       hasGrant: !!myGrant,
       grantExpiresAt: myGrant?.expiresAt || null,
       grantFirstRevealedAt: myGrant?.firstRevealedAt || null,
+<<<<<<< HEAD
       customFields: account.customFields,
+=======
+>>>>>>> origin/main
       accessGrants:
         req.user!.role === "ADMIN"
           ? account.accessGrants.map((g) => ({
@@ -214,6 +231,7 @@ router.post(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
+<<<<<<< HEAD
     const { name, platformType, password, notes, collectionId, requiredClearance } = req.body;
 
     const entryType = req.body.entryType ?? "LOGIN";
@@ -232,6 +250,11 @@ router.post(
     const refreshCycle = rules.rotates ? req.body.refreshCycle : "MANUAL";
 
     if (!name || !platformType || (rules.requiresUsername && !username)) {
+=======
+    const { name, username, platformType, password, refreshCycle, notes, collectionId, totpQrBase64, isGoogleSSO, requiredClearance } = req.body;
+
+    if (!name || !username || !platformType) {
+>>>>>>> origin/main
       res.status(400).json({
         error: rules.requiresUsername
           ? "Name, username, and platformType are required."
@@ -255,7 +278,11 @@ router.post(
       return;
     }
 
+<<<<<<< HEAD
     if (rules.allowsTotpQr && platformType === "GOOGLE_WORKSPACE" && !isGoogleSSO && !totpQrBase64 && (await isTotpQrRequired())) {
+=======
+    if (platformType === "GOOGLE_WORKSPACE" && !isGoogleSSO && !totpQrBase64 && (await isTotpQrRequired())) {
+>>>>>>> origin/main
       res.status(400).json({ error: "An Authenticator QR Code is required for Google Workspace accounts." });
       return;
     }
@@ -269,6 +296,7 @@ router.post(
       }
     }
 
+<<<<<<< HEAD
     let customFields: CustomFieldInput[] = [];
     if (req.body.customFields !== undefined) {
       try {
@@ -279,6 +307,8 @@ router.post(
       }
     }
 
+=======
+>>>>>>> origin/main
     // Duplicate check
     const existing = await prisma.account.findFirst({
       where: { name, username },
@@ -566,7 +596,10 @@ router.post(
             name,
             username,
             platformType: platformType as any,
+<<<<<<< HEAD
             entryType: "LOGIN", // CSV import only creates logins
+=======
+>>>>>>> origin/main
             secretRef: sRef,
             ownerId: req.user!.id,
             healthScore: score,
@@ -603,7 +636,11 @@ router.post(
             accountId: account.id,
             action: "ACCOUNT_CREATED",
             metadata: { source: "bulk_import", row: rowNum },
+<<<<<<< HEAD
             ipAddress: clientIp(req),
+=======
+            ipAddress: req.ip,
+>>>>>>> origin/main
           },
         });
 
@@ -686,10 +723,13 @@ router.patch(
           results.push({ accountId, status: "error", error: "Account not found." });
           continue;
         }
+<<<<<<< HEAD
         if (!entryTypeRules(account.entryType).allowsTotpQr) {
           results.push({ accountId, status: "error", error: "This entry type can't have an authenticator QR code." });
           continue;
         }
+=======
+>>>>>>> origin/main
 
         try {
           await validateTotpQrImage(totpQrBase64);
@@ -714,7 +754,11 @@ router.patch(
             accountId,
             action: "ACCOUNT_UPDATED",
             metadata: { source: "bulk_qr_upload" },
+<<<<<<< HEAD
             ipAddress: clientIp(req),
+=======
+            ipAddress: req.ip,
+>>>>>>> origin/main
           },
         });
 
@@ -884,7 +928,11 @@ router.post(
       });
 
       const password = account.isGoogleSSO
+<<<<<<< HEAD
         ? "USE_GOOGLE_SSO"
+=======
+        ? "USE_GOOGLE_SSO" 
+>>>>>>> origin/main
         : await fetchSecret(account.secretRef);
       // SSO entries can still carry custom fields, so this is unconditional.
       const customFields = await readCustomFieldValues(account);
@@ -963,7 +1011,11 @@ router.post(
           userId: req.user!.id,
           accountId,
           action: "QR_CODE_REVEALED",
+<<<<<<< HEAD
           ipAddress: clientIp(req),
+=======
+          ipAddress: req.ip,
+>>>>>>> origin/main
         },
       });
 
@@ -1053,6 +1105,7 @@ router.post(
         return;
       }
 
+<<<<<<< HEAD
       // Write audit BEFORE returning the code — but only the first reveal
       // in a short window. While an OTP pill is on screen the client
       // silently re-fetches a fresh code at every ~30s TOTP rotation (see
@@ -1066,6 +1119,15 @@ router.post(
           accountId,
           action: "OTP_REVEALED",
           timestamp: { gt: new Date(Date.now() - OTP_AUDIT_DEDUPE_MS) },
+=======
+      // Write audit BEFORE returning the code
+      await prisma.auditLog.create({
+        data: {
+          userId,
+          accountId,
+          action: "OTP_REVEALED",
+          ipAddress: req.ip,
+>>>>>>> origin/main
         },
         select: { id: true },
       });
@@ -1176,7 +1238,11 @@ router.patch(
   requireAuth,
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
+<<<<<<< HEAD
     const { name, platformType, password, notes, collectionId, requiredClearance } = req.body;
+=======
+    const { name, username, platformType, refreshCycle, password, notes, collectionId, totpQrBase64, isGoogleSSO, requiredClearance } = req.body;
+>>>>>>> origin/main
 
     try {
       const account = await prisma.account.findUnique({
@@ -1187,6 +1253,7 @@ router.patch(
         return;
       }
 
+<<<<<<< HEAD
       // Type is fixed at creation. Fields the type doesn't support are dropped,
       // same as on create; for SECURE_NOTE `password` is the new note body.
       if (req.body.entryType !== undefined && req.body.entryType !== account.entryType) {
@@ -1204,11 +1271,16 @@ router.patch(
         return;
       }
 
+=======
+>>>>>>> origin/main
       const resultingPlatformType = platformType || account.platformType;
       const resultingIsGoogleSSO = isGoogleSSO !== undefined ? isGoogleSSO : account.isGoogleSSO;
       const resultingHasQr = totpQrBase64 !== undefined ? !!totpQrBase64 : !!account.totpQrBase64;
       if (
+<<<<<<< HEAD
         rules.allowsTotpQr &&
+=======
+>>>>>>> origin/main
         resultingPlatformType === "GOOGLE_WORKSPACE" &&
         !resultingIsGoogleSSO &&
         !resultingHasQr &&
@@ -1227,6 +1299,7 @@ router.patch(
         }
       }
 
+<<<<<<< HEAD
       // customFields omitted = leave fields untouched; an array = the full
       // new list (a field with an existing id and no value keeps its value).
       let customFields: CustomFieldInput[] | null = null;
@@ -1239,6 +1312,8 @@ router.patch(
         }
       }
 
+=======
+>>>>>>> origin/main
       const updateData: any = {};
       if (name) updateData.name = name;
       if (username) updateData.username = username;
@@ -1395,7 +1470,10 @@ router.post(
       });
 
       await Promise.all(targets.map((a) => deleteSecret(a.secretRef)));
+<<<<<<< HEAD
       await Promise.all(targets.map((a) => deleteCustomFieldsSecret(a.customFieldsSecretRef)));
+=======
+>>>>>>> origin/main
 
       await prisma.$transaction([
         prisma.account.deleteMany({ where: { id: { in: accountIds } } }),
@@ -1404,7 +1482,11 @@ router.post(
             userId: req.user!.id,
             action: "ACCOUNT_BULK_DELETED",
             metadata: { deletedAccount: a.name },
+<<<<<<< HEAD
             ipAddress: clientIp(req),
+=======
+            ipAddress: req.ip,
+>>>>>>> origin/main
           })),
         }),
       ]);

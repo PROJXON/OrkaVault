@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useState, useRef, useEffect } from "react";
 import { Eye, ShieldOff, CheckCircle, Copy, Check } from "lucide-react";
 import useAccountReveal, { formatRevealTime } from "../lib/useAccountReveal";
@@ -14,10 +15,20 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
   const reveal = sharedReveal || ownReveal;
   const { data, expired, shown, screenTimeLeft, loading, error, setError } = reveal;
   const password = data?.password ?? null;
+=======
+import React, { useState, useEffect, useRef } from "react";
+import { Eye, ShieldOff, CheckCircle, Copy, Check } from "lucide-react";
+import api from "../lib/api";
 
+export default function RevealPassword({ accountId, isAdmin, onRequestAccess, onGrantExpired, onRevealed }) {
+  const [phase, setPhase] = useState("idle"); // idle | revealed | expired
+  const [password, setPassword] = useState(null);
+  const [screenTimeLeft, setScreenTimeLeft] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef(null);
-  useEffect(() => () => clearTimeout(copiedTimerRef.current), []);
+  const containerRef = useRef(null);
 
   const handleCopy = async () => {
     if (!password || password === "USE_GOOGLE_SSO") return;
@@ -30,6 +41,106 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
       setError("Failed to copy to clipboard");
     }
   };
+>>>>>>> origin/main
+
+  const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(copiedTimerRef.current), []);
+
+<<<<<<< HEAD
+  const handleCopy = async () => {
+    if (!password || password === "USE_GOOGLE_SSO") return;
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError("Failed to copy to clipboard");
+=======
+  const clearScreenTimers = () => {
+    clearTimeout(screenTimerRef.current);
+    clearInterval(screenCountRef.current);
+  };
+
+  const clearAllTimers = () => {
+    clearScreenTimers();
+    clearTimeout(grantTimerRef.current);
+    clearTimeout(copiedTimerRef.current);
+  };
+
+  const handleReveal = async () => {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await api.post(`/accounts/${accountId}/reveal`);
+      const { password: pw, expiresIn, grantExpiresAt } = data;
+
+      clearScreenTimers();
+      // Only clear grant timer if we're setting a new one
+      if (grantTimerRef.current) {
+        clearTimeout(grantTimerRef.current);
+      }
+      grantExpiredRef.current = false;
+      setPassword(pw);
+      setPhase("revealed");
+      if (onRevealed) onRevealed(grantExpiresAt);
+
+      // ── Screen security timer (≤90s display, null = infinite for ONGOING/Admin) ──
+      if (expiresIn !== null && expiresIn > 0) {
+        let secs = expiresIn;
+        setScreenTimeLeft(secs);
+
+        screenCountRef.current = setInterval(() => {
+          secs -= 1;
+          setScreenTimeLeft(Math.max(0, secs));
+          if (secs <= 0) clearInterval(screenCountRef.current);
+        }, 1000);
+
+        screenTimerRef.current = setTimeout(() => {
+          setPassword(null);
+          setScreenTimeLeft(null);
+          // If grant already expired → keep showing "expired" (Request Access)
+          // Otherwise → go idle (eye) so user can re-reveal within their grant window
+          setPhase(grantExpiredRef.current ? "expired" : "idle");
+        }, expiresIn * 1000);
+      } else {
+        setScreenTimeLeft(null); // no screen timer for ONGOING / Admin
+      }
+
+      // ── Grant expiry timer (null = ONGOING, never expires) ──
+      if (grantExpiresAt) {
+        const msRemaining = new Date(grantExpiresAt).getTime() - Date.now();
+        if (msRemaining > 0) {
+          grantTimerRef.current = setTimeout(() => {
+            grantExpiredRef.current = true;
+            clearScreenTimers(); // cancel screen timer so it can't overwrite "expired"
+            setPassword(null);
+            setScreenTimeLeft(null);
+            setPhase("expired");
+            if (onGrantExpired) onGrantExpired();
+          }, msRemaining);
+        } else {
+          // Grant already past due
+          grantExpiredRef.current = true;
+          setPassword(null);
+          setPhase("expired");
+          if (onGrantExpired) onGrantExpired();
+        }
+      }
+    } catch (err) {
+      if (err.response?.status === 403) {
+        setPhase("expired");
+        if (onGrantExpired) onGrantExpired();
+      } else {
+        setError(err.response?.data?.error || "Failed to reveal password");
+      }
+    } finally {
+      setLoading(false);
+>>>>>>> origin/main
+    }
+  };
 
   const handleReveal = () => {
     if (loading) return;
@@ -38,8 +149,29 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
 
   const handleDone = () => reveal.hideAll();
 
+<<<<<<< HEAD
   // Standalone: the pill itself is the click-outside boundary.
   const pillRef = sharedReveal ? undefined : reveal.containerRef;
+=======
+  // Auto-hide when the user clicks anywhere outside the revealed pill.
+  useEffect(() => {
+    if (phase !== "revealed") return;
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        handleDone();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [phase]);
+
+  const formatTime = (secs) => {
+    if (secs == null) return null;
+    if (secs >= 3600) return `${Math.floor(secs / 3600)}h`;
+    if (secs >= 60) return `${Math.floor(secs / 60)}m`;
+    return `${secs}s`;
+  };
+>>>>>>> origin/main
 
   // ── EXPIRED: Admin can never be expired from the UI ───────────────────────
   if (expired && !isAdmin) {
@@ -53,7 +185,11 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
     if (password === "USE_GOOGLE_SSO") {
       return (
         <div
+<<<<<<< HEAD
           ref={pillRef}
+=======
+          ref={containerRef}
+>>>>>>> origin/main
           className="inline-flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-md border border-brand-blue"
         >
           <span className="text-brand-blue text-xs font-medium">
@@ -61,7 +197,11 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
           </span>
           {screenTimeLeft !== null && screenTimeLeft > 0 && (
             <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white dark:bg-[var(--bg-surface)] border border-brand-blue text-xs font-bold text-brand-blue shadow-xs shrink-0">
+<<<<<<< HEAD
               {formatRevealTime(screenTimeLeft)}
+=======
+              {formatTime(screenTimeLeft)}
+>>>>>>> origin/main
             </div>
           )}
           <button
@@ -121,7 +261,11 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
 
     return (
       <div
+<<<<<<< HEAD
         ref={pillRef}
+=======
+        ref={containerRef}
+>>>>>>> origin/main
         className="inline-flex items-center space-x-2 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200"
         onCopy={(e) => e.preventDefault()}
         onContextMenu={(e) => e.preventDefault()}
@@ -141,7 +285,11 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
         {copied && <span className="text-xs text-green-600 font-medium">Copied!</span>}
         {screenTimeLeft !== null && screenTimeLeft > 0 && (
           <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white dark:bg-[var(--bg-surface)] border border-amber-300 text-xs font-bold text-amber-600 shadow-xs shrink-0">
+<<<<<<< HEAD
             {formatRevealTime(screenTimeLeft)}
+=======
+            {formatTime(screenTimeLeft)}
+>>>>>>> origin/main
           </div>
         )}
         <button
@@ -163,7 +311,11 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
         onClick={handleReveal}
         disabled={loading}
         className="p-1 text-brand-blue hover:bg-blue-50 rounded-sm transition-colors disabled:opacity-50"
+<<<<<<< HEAD
         title={`View ${typeInfo.secretLabel}`}
+=======
+        title="View Password"
+>>>>>>> origin/main
       >
         <Eye className="h-4 w-4" />
       </button>

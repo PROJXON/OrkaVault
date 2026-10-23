@@ -307,6 +307,7 @@ model WorkspaceDevice {
 
   @@unique([userEmail, deviceId])
   @@index([userEmail])
+<<<<<<< HEAD
 }
 
 // Current-state snapshot of the ADMIN-MANAGED recovery contacts on each
@@ -327,6 +328,8 @@ model WorkspaceRecoveryInfo {
   createdAt     DateTime @default(now())
 
   @@index([userEmail])
+=======
+>>>>>>> origin/main
 }
 
 model OrganizationPolicy {

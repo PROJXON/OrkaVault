@@ -15,7 +15,11 @@ import { scorePassword } from "../services/health";
 import { entryTypeRules } from "../services/entryTypes";
 import { fetchSecret } from "../services/secretManager";
 import { addClient, removeClient } from "../services/sseHub";
+<<<<<<< HEAD
 import { asString, clientIp } from "../utils/reqValue";
+=======
+import { asString } from "../utils/reqValue";
+>>>>>>> origin/main
 
 const router = Router();
 
@@ -296,11 +300,14 @@ router.post(
         return;
       }
 
+<<<<<<< HEAD
       if (!entryTypeRules(account.entryType).scoresHealth) {
         res.status(400).json({ error: "Secure notes don't have a password to score." });
         return;
       }
 
+=======
+>>>>>>> origin/main
       const password = await fetchSecret(account.secretRef);
       const { score, label } = scorePassword(password);
 

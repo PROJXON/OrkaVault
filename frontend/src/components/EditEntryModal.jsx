@@ -3,8 +3,11 @@ import { X, Eye, EyeOff } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import { CLEARANCE_TIERS } from "../lib/clearance";
+<<<<<<< HEAD
 import CustomFieldsEditor, { customFieldsFromAccount, customFieldsPayload } from "./CustomFieldsEditor";
 import { entryTypeInfo, isNote, NOTE_MAX_LENGTH } from "../lib/entryTypes";
+=======
+>>>>>>> origin/main
 
 export default function EditEntryModal({ isOpen, onClose, onSuccess, account, collections }) {
   const { user } = useAuth();
@@ -24,7 +27,10 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [requireTotpQr, setRequireTotpQr] = useState(true);
+<<<<<<< HEAD
   const [customFields, setCustomFields] = useState([]);
+=======
+>>>>>>> origin/main
 
   useEffect(() => {
     if (account) {
@@ -40,7 +46,10 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
         isGoogleSSO: account.isGoogleSSO || false,
         requiredClearance: account.requiredClearance || "",
       });
+<<<<<<< HEAD
       setCustomFields(customFieldsFromAccount(account));
+=======
+>>>>>>> origin/main
       api
         .get("/policies")
         .then(({ data }) => {
@@ -89,7 +98,10 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (
+<<<<<<< HEAD
       !isNoteEntry &&
+=======
+>>>>>>> origin/main
       requireTotpQr &&
       formData.platformType === "GOOGLE_WORKSPACE" &&
       !account.hasTotpQr &&
@@ -133,6 +145,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
     <div className="scrim" onClick={onClose}>
         <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
           <div className="modal-h">
+<<<<<<< HEAD
             <div className="mt grow flex items-center gap-2">
               Edit Vault Entry
               <span className="inline-flex items-center gap-1 text-xs font-normal" style={{ color: "var(--text-tertiary)" }}>
@@ -140,6 +153,9 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                 {entryTypeInfo(account.entryType).label}
               </span>
             </div>
+=======
+            <div className="mt grow">Edit Vault Entry</div>
+>>>>>>> origin/main
             <button onClick={onClose} className="iconbtn" style={{ width: 32, height: 32 }}>
               <X className="w-4 h-4" />
             </button>
@@ -258,6 +274,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
               </select>
             </div>
 
+<<<<<<< HEAD
             {isNoteEntry ? (
               <div>
                 <label className="field-label">
@@ -274,6 +291,8 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
               </div>
             ) : (
             <>
+=======
+>>>>>>> origin/main
             <label className="flex items-center gap-2 mt-4 text-sm" style={{ color: "var(--text-primary)" }}>
               <input
                 id="isGoogleSSO"
@@ -339,7 +358,11 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   setFormData({ ...formData, notes: e.target.value })
                 }
                 className="input mt-1"
+<<<<<<< HEAD
                 placeholder="Optional notes or URLs (put backup codes in a custom field)"
+=======
+                placeholder="Optional notes, URLs, or MFA backup codes..."
+>>>>>>> origin/main
                 rows={2}
               />
             </div>
