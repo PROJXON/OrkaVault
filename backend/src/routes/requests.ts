@@ -2,11 +2,7 @@
  * Access Request Routes — Submit, Approve (with race-condition lock), Deny
  */
 import { Router, Response } from "express";
-<<<<<<< HEAD
 import { prisma, Prisma } from "../lib/prismaClient";
-=======
-import { prisma } from "../lib/prismaClient";
->>>>>>> origin/main
 import {
   requireAuth,
   requireRole,
@@ -16,11 +12,7 @@ import { notifyManagersAndAdmins } from "../services/notifications";
 import { meetsClearance } from "../services/clearance";
 import { sendChatAlert } from "../services/webhookAlerts";
 import { approveAccessRequest, denyAccessRequest, RequestActionError } from "../services/accessRequests";
-<<<<<<< HEAD
 import { asString, clientIp } from "../utils/reqValue";
-=======
-import { asString } from "../utils/reqValue";
->>>>>>> origin/main
 
 const router = Router();
 
@@ -61,34 +53,8 @@ router.get(
           orderBy: { submittedAt: "desc" },
         });
         res.json(requests);
-      } else if (req.user!.role === "MANAGER") {
-        // Scoped the same way as approve/deny (services/accessRequests.ts's
-        // isInManagerScope) — a Manager only sees requests for accounts in
-        // one of their assigned collections. Accounts with no collection
-        // are out of scope for every manager, matching that same rule.
-        const managedCollectionIds = req.user!.managedCollections.map((c: any) => c.id);
-        const requests = await prisma.accessRequest.findMany({
-          where: { account: { collectionId: { in: managedCollectionIds } } },
-          include: {
-            account: {
-              select: {
-                id: true,
-                name: true,
-                username: true,
-                platformType: true,
-              },
-            },
-            requester: { select: { id: true, name: true, email: true } },
-          },
-          orderBy: { submittedAt: "desc" },
-        });
-        res.json(requests);
       } else {
-<<<<<<< HEAD
         // MANAGER (collection-scoped) or ADMIN (unrestricted).
-=======
-        // ADMIN — unrestricted.
->>>>>>> origin/main
         const requests = await prisma.accessRequest.findMany({
           where: staffRequestScope(req.user),
           include: {
@@ -112,7 +78,6 @@ router.get(
   },
 );
 
-<<<<<<< HEAD
 // GET /api/requests/pending-count — PENDING requests this Manager/Admin can
 // act on, for the sidebar badge. Same scope as the list above.
 router.get(
@@ -131,8 +96,6 @@ router.get(
   },
 );
 
-=======
->>>>>>> origin/main
 // GET /api/requests/last-approved/:accountId — get last approved request for this account by user
 router.get(
   "/last-approved/:accountId",
@@ -252,11 +215,7 @@ router.patch(
   requireRole("MANAGER", "ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-<<<<<<< HEAD
       const result = await approveAccessRequest(req.user!, asString(req.params.id)!, clientIp(req), "web");
-=======
-      const result = await approveAccessRequest(req.user!, asString(req.params.id)!, req.ip, "web");
->>>>>>> origin/main
       res.json({
         message: "Request approved and grant provisioned.",
         grantId: result.grantId,
@@ -282,11 +241,7 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     const { reason } = req.body;
     try {
-<<<<<<< HEAD
       await denyAccessRequest(req.user!, asString(req.params.id)!, reason, clientIp(req), "web");
-=======
-      await denyAccessRequest(req.user!, asString(req.params.id)!, reason, req.ip, "web");
->>>>>>> origin/main
       res.json({ message: "Request denied." });
     } catch (error: any) {
       if (error instanceof RequestActionError) {

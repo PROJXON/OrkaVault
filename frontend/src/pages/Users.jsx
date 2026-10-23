@@ -160,10 +160,7 @@ export default function Users() {
       setBulkConfirmOpen(false);
       setBulkConfirmText("");
       await fetchUsersAndCollections();
-<<<<<<< HEAD
       refreshNavBadges();
-=======
->>>>>>> origin/main
     } catch (e) {
       alert(e.response?.data?.error || "Failed to delete selected users");
     } finally {
@@ -534,11 +531,7 @@ export default function Users() {
                     {u.revoked && (
                       <button
                         onClick={() => handleRestore(u.id)}
-<<<<<<< HEAD
                         className="text-brand-green hover:text-green-700 inline-flex items-center gap-1 cursor-pointer"
-=======
-                        className="text-brand-green hover:text-green-700 inline-flex items-center gap-1"
->>>>>>> origin/main
                         title="Restore User"
                       >
                         <RefreshCw className="h-4 w-4" />

@@ -526,7 +526,6 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
       const accessToken = generateAccessToken(payload);
       const refreshToken = generateRefreshToken(payload);
 
-<<<<<<< HEAD
       res.cookie("accessToken", accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -540,8 +539,6 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
         maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
-=======
->>>>>>> origin/main
       res.json({
         accessToken,
         refreshToken,
@@ -590,7 +587,6 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
       const accessToken = generateAccessToken(payload);
       const refreshToken = generateRefreshToken(payload);
 
-<<<<<<< HEAD
       res.cookie("accessToken", accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -604,8 +600,6 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
         maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
-=======
->>>>>>> origin/main
       res.json({
         accessToken,
         refreshToken,

@@ -25,7 +25,6 @@ export default function Sidebar({ mobileOpen, onClose }) {
   const [pendingUserCount, setPendingUserCount] = React.useState(0);
   const [pendingApprovalCount, setPendingApprovalCount] = React.useState(0);
 
-<<<<<<< HEAD
   // Badges on "Approvals" (access requests this Manager/Admin can act on) and
   // "Users & Roles" (registrations awaiting approval, Admin-only). Both are
   // cheap count endpoints; polled so actions elsewhere clear the badge within
@@ -59,8 +58,6 @@ export default function Sidebar({ mobileOpen, onClose }) {
     };
   }, [user.role, location.pathname]);
 
-=======
->>>>>>> origin/main
   const workspaceNav = [
     { name: "Vault", href: "/vault", icon: Key, roles: ["USER", "MANAGER", "ADMIN"] },
     { name: "My Requests", href: "/requests", icon: FileText, roles: ["USER", "MANAGER"] },
@@ -68,17 +65,10 @@ export default function Sidebar({ mobileOpen, onClose }) {
 
   const manageNav = [
     { name: "Manage Console", href: "/manage", icon: LayoutGrid, roles: ["MANAGER", "ADMIN"] },
-<<<<<<< HEAD
     { name: "Approvals", href: "/approvals", icon: CheckSquare, roles: ["MANAGER", "ADMIN"], badge: pendingApprovalCount, badgeTitle: "pending access requests" },
     { name: "My Collections", href: "/my-collections", icon: Folder, roles: ["MANAGER"] },
     { name: "Directory", href: "/directory", icon: Users, roles: ["ADMIN"] },
     { name: "Users & Roles", href: "/users", icon: Users, roles: ["ADMIN"], badge: pendingUserCount, badgeTitle: "registrations awaiting approval" },
-=======
-    { name: "Approvals", href: "/approvals", icon: CheckSquare, roles: ["MANAGER", "ADMIN"] },
-    { name: "My Collections", href: "/my-collections", icon: Folder, roles: ["MANAGER"] },
-    { name: "Directory", href: "/directory", icon: Users, roles: ["ADMIN"] },
-    { name: "Users & Roles", href: "/users", icon: Users, roles: ["ADMIN"] },
->>>>>>> origin/main
     { name: "Collections", href: "/collections", icon: Folder, roles: ["ADMIN"] },
     { name: "Health Audit", href: "/health", icon: Activity, roles: ["ADMIN"] },
     { name: "Audit Log", href: "/audit", icon: Shield, roles: ["ADMIN"] },
@@ -106,14 +96,11 @@ export default function Sidebar({ mobileOpen, onClose }) {
             >
               <item.icon width={18} height={18} className="shrink-0" />
               <span className="label truncate">{item.name}</span>
-<<<<<<< HEAD
               {item.badge > 0 && (
                 <span className="nav-badge" title={`${item.badge} ${item.badgeTitle}`}>
                   {item.badge > 99 ? "99+" : item.badge}
                 </span>
               )}
-=======
->>>>>>> origin/main
             </Link>
           );
         })}

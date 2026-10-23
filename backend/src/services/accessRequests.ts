@@ -49,11 +49,7 @@ export interface ApproveResult {
 export async function approveAccessRequest(
   actor: RequestActor,
   requestId: string,
-<<<<<<< HEAD
   ipAddress: string | null | undefined,
-=======
-  ipAddress: string | undefined,
->>>>>>> origin/main
   source: ActionSource = "web",
 ): Promise<ApproveResult> {
   const result = await prisma.$transaction(async (tx) => {
@@ -175,11 +171,7 @@ export async function denyAccessRequest(
   actor: RequestActor,
   requestId: string,
   reason: string | undefined,
-<<<<<<< HEAD
   ipAddress: string | null | undefined,
-=======
-  ipAddress: string | undefined,
->>>>>>> origin/main
   source: ActionSource = "web",
 ): Promise<DenyResult> {
   const result = await prisma.$transaction(async (tx) => {

@@ -9,11 +9,7 @@ import {
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { notifyUser } from "../services/notifications";
-<<<<<<< HEAD
 import { asString, clientIp } from "../utils/reqValue";
-=======
-import { asString } from "../utils/reqValue";
->>>>>>> origin/main
 
 const router = Router();
 
@@ -218,11 +214,7 @@ router.post(
             userId: req.user!.id,
             action: "USER_BULK_DEACTIVATED",
             metadata: { targetUserId: t.id, targetName: t.name, targetEmail: t.email },
-<<<<<<< HEAD
             ipAddress: clientIp(req),
-=======
-            ipAddress: req.ip,
->>>>>>> origin/main
           })),
         }),
       ]);

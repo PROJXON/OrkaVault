@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 import type { Request } from "express";
 
-=======
->>>>>>> origin/main
 // Express 5 (path-to-regexp@6) types req.params/req.query values as
 // string | string[] | undefined because routes *could* use repeating
 // segments — none of ours do, so these are always single values at
@@ -10,7 +7,6 @@ import type { Request } from "express";
 export function asString(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
-<<<<<<< HEAD
 
 // Real client IP for audit logging. On Render the X-Forwarded-For header
 // the app receives looks like "<originating client>, <10.x internal
@@ -63,5 +59,3 @@ function isPrivateIp(ip: string): boolean {
   if (a === 100 && b >= 64 && b <= 127) return true;
   return false;
 }
-=======
->>>>>>> origin/main
