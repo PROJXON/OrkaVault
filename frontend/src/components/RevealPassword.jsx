@@ -1,16 +1,20 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Eye, ShieldOff, CheckCircle, Copy, Check } from "lucide-react";
-import api from "../lib/api";
+import useAccountReveal, { formatRevealTime } from "../lib/useAccountReveal";
 
-export default function RevealPassword({ accountId, isAdmin, onRequestAccess, onGrantExpired, onRevealed }) {
-  const [phase, setPhase] = useState("idle"); // idle | revealed | expired
-  const [password, setPassword] = useState(null);
-  const [screenTimeLeft, setScreenTimeLeft] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+// `reveal` (optional): a useAccountReveal() session shared with sibling
+// components (e.g. the custom field rows in Vault.jsx) so they all use one
+// reveal call. The owner of a shared session attaches its containerRef to
+// a wrapper around all of them. Without it, this component runs its own.
+export default function RevealPassword({ accountId, isAdmin, onRequestAccess, onGrantExpired, onRevealed, reveal: sharedReveal }) {
+  const ownReveal = useAccountReveal(sharedReveal ? null : accountId, { onGrantExpired, onRevealed });
+  const reveal = sharedReveal || ownReveal;
+  const { data, expired, shown, screenTimeLeft, loading, error, setError } = reveal;
+  const password = data?.password ?? null;
+
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef(null);
-  const containerRef = useRef(null);
+  useEffect(() => () => clearTimeout(copiedTimerRef.current), []);
 
   const handleCopy = async () => {
     if (!password || password === "USE_GOOGLE_SSO") return;
@@ -24,135 +28,29 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
     }
   };
 
-  const screenTimerRef = useRef(null);
-  const grantTimerRef = useRef(null);
-  const screenCountRef = useRef(null);
-  const grantExpiredRef = useRef(false); // set true when grant truly expires
-
-  const clearScreenTimers = () => {
-    clearTimeout(screenTimerRef.current);
-    clearInterval(screenCountRef.current);
-  };
-
-  const clearAllTimers = () => {
-    clearScreenTimers();
-    clearTimeout(grantTimerRef.current);
-    clearTimeout(copiedTimerRef.current);
-  };
-
-  const handleReveal = async () => {
+  const handleReveal = () => {
     if (loading) return;
-    setLoading(true);
-    setError("");
-    try {
-      const { data } = await api.post(`/accounts/${accountId}/reveal`);
-      const { password: pw, expiresIn, grantExpiresAt } = data;
-
-      clearScreenTimers();
-      // Only clear grant timer if we're setting a new one
-      if (grantTimerRef.current) {
-        clearTimeout(grantTimerRef.current);
-      }
-      grantExpiredRef.current = false;
-      setPassword(pw);
-      setPhase("revealed");
-      if (onRevealed) onRevealed(grantExpiresAt);
-
-      // ── Screen security timer (≤90s display, null = infinite for ONGOING/Admin) ──
-      if (expiresIn !== null && expiresIn > 0) {
-        let secs = expiresIn;
-        setScreenTimeLeft(secs);
-
-        screenCountRef.current = setInterval(() => {
-          secs -= 1;
-          setScreenTimeLeft(Math.max(0, secs));
-          if (secs <= 0) clearInterval(screenCountRef.current);
-        }, 1000);
-
-        screenTimerRef.current = setTimeout(() => {
-          setPassword(null);
-          setScreenTimeLeft(null);
-          // If grant already expired → keep showing "expired" (Request Access)
-          // Otherwise → go idle (eye) so user can re-reveal within their grant window
-          setPhase(grantExpiredRef.current ? "expired" : "idle");
-        }, expiresIn * 1000);
-      } else {
-        setScreenTimeLeft(null); // no screen timer for ONGOING / Admin
-      }
-
-      // ── Grant expiry timer (null = ONGOING, never expires) ──
-      if (grantExpiresAt) {
-        const msRemaining = new Date(grantExpiresAt).getTime() - Date.now();
-        if (msRemaining > 0) {
-          grantTimerRef.current = setTimeout(() => {
-            grantExpiredRef.current = true;
-            clearScreenTimers(); // cancel screen timer so it can't overwrite "expired"
-            setPassword(null);
-            setScreenTimeLeft(null);
-            setPhase("expired");
-            if (onGrantExpired) onGrantExpired();
-          }, msRemaining);
-        } else {
-          // Grant already past due
-          grantExpiredRef.current = true;
-          setPassword(null);
-          setPhase("expired");
-          if (onGrantExpired) onGrantExpired();
-        }
-      }
-    } catch (err) {
-      if (err.response?.status === 403) {
-        setPhase("expired");
-        if (onGrantExpired) onGrantExpired();
-      } else {
-        setError(err.response?.data?.error || "Failed to reveal password");
-      }
-    } finally {
-      setLoading(false);
-    }
+    reveal.show("password");
   };
 
-  const handleDone = () => {
-    clearScreenTimers();
-    setPassword(null);
-    setScreenTimeLeft(null);
-    setPhase(grantExpiredRef.current ? "expired" : "idle");
-  };
+  const handleDone = () => reveal.hideAll();
 
-  useEffect(() => () => clearAllTimers(), []);
-
-  // Auto-hide when the user clicks anywhere outside the revealed pill.
-  useEffect(() => {
-    if (phase !== "revealed") return;
-    const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        handleDone();
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [phase]);
-
-  const formatTime = (secs) => {
-    if (secs == null) return null;
-    if (secs >= 3600) return `${Math.floor(secs / 3600)}h`;
-    if (secs >= 60) return `${Math.floor(secs / 60)}m`;
-    return `${secs}s`;
-  };
+  // Standalone: the pill itself is the click-outside boundary.
+  const pillRef = sharedReveal ? undefined : reveal.containerRef;
 
   // ── EXPIRED: Admin can never be expired from the UI ───────────────────────
-  if (phase === "expired" && !isAdmin) {
+  if (expired && !isAdmin) {
     // We render null here because Vault.jsx parent will unmount us immediately
     // when we call onGrantExpired() and it flips hasGrant to false.
     return null;
   }
 
   // ── REVEALED ──────────────────────────────────────────────────────────────
-  if (phase === "revealed" && password) {
+  if (password && shown.has("password")) {
     if (password === "USE_GOOGLE_SSO") {
       return (
         <div
-          ref={containerRef}
+          ref={pillRef}
           className="inline-flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-md border border-brand-blue"
         >
           <span className="text-brand-blue text-xs font-medium">
@@ -160,7 +58,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
           </span>
           {screenTimeLeft !== null && screenTimeLeft > 0 && (
             <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white dark:bg-[var(--bg-surface)] border border-brand-blue text-xs font-bold text-brand-blue shadow-xs shrink-0">
-              {formatTime(screenTimeLeft)}
+              {formatRevealTime(screenTimeLeft)}
             </div>
           )}
           <button
@@ -176,7 +74,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
 
     return (
       <div
-        ref={containerRef}
+        ref={pillRef}
         className="inline-flex items-center space-x-2 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200"
         onCopy={(e) => e.preventDefault()}
         onContextMenu={(e) => e.preventDefault()}
@@ -196,7 +94,7 @@ export default function RevealPassword({ accountId, isAdmin, onRequestAccess, on
         {copied && <span className="text-xs text-green-600 font-medium">Copied!</span>}
         {screenTimeLeft !== null && screenTimeLeft > 0 && (
           <div className="flex items-center justify-center min-w-[36px] px-1.5 h-7 rounded-full bg-white dark:bg-[var(--bg-surface)] border border-amber-300 text-xs font-bold text-amber-600 shadow-xs shrink-0">
-            {formatTime(screenTimeLeft)}
+            {formatRevealTime(screenTimeLeft)}
           </div>
         )}
         <button

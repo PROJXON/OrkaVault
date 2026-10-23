@@ -90,6 +90,22 @@ model Account {
   accessRequests  AccessRequest[]
   auditLogs       AuditLog[]
   rotationSchedule RotationSchedule?
+
+  // Labels live here (metadata, like name); values never do. They're one
+  // encrypted JSON blob {fieldId: value} behind customFieldsSecretRef, only
+  // ever returned by POST /api/accounts/:id/reveal. See services/customFields.ts.
+  customFields          AccountCustomField[]
+  customFieldsSecretRef String? // null = no custom fields
+}
+
+model AccountCustomField {
+  id        String  @id @default(uuid())
+  accountId String
+  label     String
+  position  Int     @default(0)
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
 }
 
 enum PlatformType {

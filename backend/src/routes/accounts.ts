@@ -24,6 +24,15 @@ import { meetsClearance } from "../services/clearance";
 import { validateTotpQrImage, generateOtpFromQrImage } from "../services/totp";
 import { syncWorkspaceAccountsToVault } from "../services/workspaceAccountSync";
 import { asString, clientIp } from "../utils/reqValue";
+import {
+  validateCustomFields,
+  saveCustomFields,
+  readCustomFieldValues,
+  deleteCustomFieldsSecret,
+  customFieldLabelsSelect,
+  CustomFieldError,
+  CustomFieldInput,
+} from "../services/customFields";
 
 const router = Router();
 
@@ -81,6 +90,7 @@ router.get(
             ],
           },
         },
+        customFields: customFieldLabelsSelect,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -120,6 +130,7 @@ router.get(
         hasGrant: a.accessGrants.length > 0,
         grantExpiresAt: a.accessGrants[0]?.expiresAt || null,
         grantFirstRevealedAt: a.accessGrants[0]?.firstRevealedAt || null,
+        customFields: a.customFields,
       })),
     );
   },
@@ -137,6 +148,7 @@ router.get(
           where: { active: true },
           include: { user: { select: { id: true, name: true, email: true } } },
         },
+        customFields: customFieldLabelsSelect,
       },
     });
     if (!account) {
@@ -145,7 +157,7 @@ router.get(
     }
 
     // Same non-secret metadata every user already sees via GET / (the list
-    // route) — but never totpQrBase64/passwordHash/secretRef (secret-adjacent;
+    // route) — but never totpQrBase64/passwordHash/secretRef/customFieldsSecretRef (secret-adjacent;
     // reveal-otp/reveal-qr are the only routes allowed to hand those out, and
     // only after their own grant/clearance/manager-scope checks), and other
     // grant-holders' identities are ADMIN-only, matching ownersById above.
@@ -178,6 +190,7 @@ router.get(
       hasGrant: !!myGrant,
       grantExpiresAt: myGrant?.expiresAt || null,
       grantFirstRevealedAt: myGrant?.firstRevealedAt || null,
+      customFields: account.customFields,
       accessGrants:
         req.user!.role === "ADMIN"
           ? account.accessGrants.map((g) => ({
@@ -222,6 +235,16 @@ router.post(
         await validateTotpQrImage(totpQrBase64);
       } catch (e: any) {
         res.status(400).json({ error: e.message || "Could not read a valid authenticator QR code from that image." });
+        return;
+      }
+    }
+
+    let customFields: CustomFieldInput[] = [];
+    if (req.body.customFields !== undefined) {
+      try {
+        customFields = validateCustomFields(req.body.customFields);
+      } catch (e: any) {
+        res.status(400).json({ error: e.message });
         return;
       }
     }
@@ -294,6 +317,9 @@ router.post(
         },
       });
 
+      const customFieldLabels =
+        customFields.length > 0 ? await saveCustomFields(account, customFields) : [];
+
       // If admin, also auto-create rotation schedule
       if (isAdmin) {
         const cycleDurations: Record<string, number> = {
@@ -318,6 +344,8 @@ router.post(
           userId: req.user!.id,
           accountId: account.id,
           action: isAdmin ? "ACCOUNT_CREATED" : "ACCOUNT_SUBMITTED",
+          // Labels only — custom field values never go in the audit log.
+          metadata: customFieldLabels.length > 0 ? { customFieldLabels } : undefined,
           ipAddress: clientIp(req),
         },
       });
@@ -811,8 +839,10 @@ router.post(
       });
 
       const password = account.isGoogleSSO
-        ? "USE_GOOGLE_SSO" 
+        ? "USE_GOOGLE_SSO"
         : await fetchSecret(account.secretRef);
+      // SSO entries can still carry custom fields, so this is unconditional.
+      const customFields = await readCustomFieldValues(account);
 
       let expiresIn: number | null = null;
       let grantExpiresAt: Date | null = null;
@@ -850,7 +880,7 @@ router.post(
         }
       }
 
-      res.json({ password, expiresIn, grantExpiresAt });
+      res.json({ password, customFields, expiresIn, grantExpiresAt });
     } catch (error: any) {
       console.error("[Reveal]", error);
       res.status(500).json({ error: error.message || "Failed to reveal password." });
@@ -1130,6 +1160,18 @@ router.patch(
         }
       }
 
+      // customFields omitted = leave fields untouched; an array = the full
+      // new list (a field with an existing id and no value keeps its value).
+      let customFields: CustomFieldInput[] | null = null;
+      if (req.body.customFields !== undefined) {
+        try {
+          customFields = validateCustomFields(req.body.customFields);
+        } catch (e: any) {
+          res.status(400).json({ error: e.message });
+          return;
+        }
+      }
+
       const updateData: any = {};
       if (name) updateData.name = name;
       if (username) updateData.username = username;
@@ -1180,6 +1222,10 @@ router.patch(
         updateData.lastUpdatedBy = req.user!.id;
       }
 
+      // Custom fields first: a missing kept-value is a 400, and failing here
+      // leaves the rest of the entry unchanged rather than half-saved.
+      const customFieldLabels = customFields ? await saveCustomFields(account, customFields) : null;
+
       const updated = await prisma.account.update({
         where: { id: asString(req.params.id) },
         data: updateData,
@@ -1191,12 +1237,24 @@ router.patch(
           userId: req.user!.id,
           accountId: updated.id,
           action: "ACCOUNT_UPDATED",
+          // Labels only — custom field values never go in the audit log.
+          metadata: customFieldLabels ? { customFieldLabels } : undefined,
           ipAddress: clientIp(req),
         },
       });
 
-      res.json({ ...updated, secretRef: undefined });
+      res.json({
+        ...updated,
+        secretRef: undefined,
+        customFieldsSecretRef: undefined,
+        passwordHash: undefined,
+        totpQrBase64: undefined,
+      });
     } catch (error) {
+      if (error instanceof CustomFieldError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       console.error("[Update Account]", error);
       res.status(500).json({ error: "Failed to update account." });
     }
@@ -1219,6 +1277,7 @@ router.delete(
       }
 
       await deleteSecret(account.secretRef);
+      await deleteCustomFieldsSecret(account.customFieldsSecretRef);
 
       await prisma.account.delete({
         where: { id: asString(req.params.id) },
@@ -1261,6 +1320,7 @@ router.post(
       });
 
       await Promise.all(targets.map((a) => deleteSecret(a.secretRef)));
+      await Promise.all(targets.map((a) => deleteCustomFieldsSecret(a.customFieldsSecretRef)));
 
       await prisma.$transaction([
         prisma.account.deleteMany({ where: { id: { in: accountIds } } }),

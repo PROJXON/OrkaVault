@@ -3,6 +3,7 @@ import { X, Eye, EyeOff } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import { CLEARANCE_TIERS } from "../lib/clearance";
+import CustomFieldsEditor, { customFieldsFromAccount, customFieldsPayload } from "./CustomFieldsEditor";
 
 export default function EditEntryModal({ isOpen, onClose, onSuccess, account, collections }) {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [requireTotpQr, setRequireTotpQr] = useState(true);
+  const [customFields, setCustomFields] = useState([]);
 
   useEffect(() => {
     if (account) {
@@ -37,6 +39,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
         isGoogleSSO: account.isGoogleSSO || false,
         requiredClearance: account.requiredClearance || "",
       });
+      setCustomFields(customFieldsFromAccount(account));
       api
         .get("/policies")
         .then(({ data }) => {
@@ -101,6 +104,7 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
     if (!payload.totpQrBase64) {
       delete payload.totpQrBase64;
     }
+    payload.customFields = customFieldsPayload(customFields);
 
     try {
       await api.patch(`/accounts/${account.id}`, payload);
@@ -297,10 +301,12 @@ export default function EditEntryModal({ isOpen, onClose, onSuccess, account, co
                   setFormData({ ...formData, notes: e.target.value })
                 }
                 className="input mt-1"
-                placeholder="Optional notes, URLs, or MFA backup codes..."
+                placeholder="Optional notes or URLs (put backup codes in a custom field)"
                 rows={2}
               />
             </div>
+
+            <CustomFieldsEditor fields={customFields} onChange={setCustomFields} />
 
             <div>
               <label className="field-label mb-1">

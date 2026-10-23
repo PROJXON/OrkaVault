@@ -9,6 +9,8 @@ import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import RevealPassword from "../components/RevealPassword";
 import RevealOtp from "../components/RevealOtp";
+import CustomFieldRow from "../components/CustomFieldRow";
+import useAccountReveal from "../lib/useAccountReveal";
 import AdminQrModal from "../components/AdminQrModal";
 import RequestModal from "../components/RequestModal";
 import AddEntryModal from "../components/AddEntryModal";
@@ -335,6 +337,13 @@ export default function Vault() {
   const selected = accounts.find((a) => a.id === selectedId) || null;
   const selectedEntryCollection = selected?.collectionId ? collectionsById[selected.collectionId] : null;
 
+  // One reveal session for the selected entry, shared by the password pill
+  // and its custom field rows (one reveal call, one single-view window).
+  const selectedReveal = useAccountReveal(selectedId, {
+    onGrantExpired: () => handleGrantExpired(selectedId),
+    onRevealed: (grantExpiresAt) => handleGrantRevealed(selectedId, grantExpiresAt),
+  });
+
   useEffect(() => {
     if (selectedId && !accounts.some((a) => a.id === selectedId) && !loading) {
       setSelectedId(null);
@@ -610,6 +619,7 @@ export default function Vault() {
                   )}
 
                   <div
+                    ref={selectedReveal.containerRef}
                     className="vault-protected"
                     onContextMenu={(e) => e.preventDefault()}
                     onCopy={(e) => e.preventDefault()}
@@ -639,6 +649,7 @@ export default function Vault() {
                           <RevealPassword
                             key={`pw-${selected.id}`}
                             accountId={selected.id}
+                            reveal={selectedReveal}
                             isAdmin={hasDirectAccess(selected)}
                             onRequestAccess={() => setRequestModal({ isOpen: true, account: selected })}
                             onGrantExpired={() => handleGrantExpired(selected.id)}
@@ -678,6 +689,26 @@ export default function Vault() {
                         })()}
                       </div>
                     )}
+
+                    {selected.customFields?.length > 0 && (() => {
+                      const canReveal = hasSufficientClearance(selected) && (hasDirectAccess(selected) || selected.hasGrant);
+                      const reason = !hasSufficientClearance(selected)
+                        ? "Your clearance level is insufficient for this account."
+                        : "Request access to view this field.";
+                      return (
+                        <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                          {selected.customFields.map((field) => (
+                            <CustomFieldRow
+                              key={field.id}
+                              field={field}
+                              reveal={selectedReveal}
+                              disabled={!canReveal}
+                              disabledReason={reason}
+                            />
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 

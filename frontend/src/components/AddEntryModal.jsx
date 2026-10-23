@@ -3,6 +3,7 @@ import { X, ShieldAlert, Eye, EyeOff } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import { CLEARANCE_TIERS } from "../lib/clearance";
+import CustomFieldsEditor, { customFieldsPayload } from "./CustomFieldsEditor";
 
 export default function AddEntryModal({ isOpen, onClose, onSuccess, collections }) {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [requireTotpQr, setRequireTotpQr] = useState(true);
+  const [customFields, setCustomFields] = useState([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -39,6 +41,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
       });
       setError("");
       setShowPassword(false);
+      setCustomFields([]);
       api
         .get("/policies")
         .then(({ data }) => {
@@ -80,7 +83,7 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
     setLoading(true);
     setError("");
     try {
-      await api.post("/accounts", formData);
+      await api.post("/accounts", { ...formData, customFields: customFieldsPayload(customFields) });
       onSuccess();
       onClose();
     } catch (err) {
@@ -295,10 +298,12 @@ export default function AddEntryModal({ isOpen, onClose, onSuccess, collections 
                   setFormData({ ...formData, notes: e.target.value })
                 }
                 className="input mt-1"
-                placeholder="Optional notes, URLs, or MFA backup codes..."
+                placeholder="Optional notes or URLs (put backup codes in a custom field)"
                 rows={2}
               />
             </div>
+
+            <CustomFieldsEditor fields={customFields} onChange={setCustomFields} />
 
             <div>
               <label className="field-label mb-1">
