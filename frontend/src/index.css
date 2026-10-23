@@ -1,6 +1,18 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+/* Inter, self-hosted (no Google Fonts request; see NEW-FEAT §2.2.1).
+   One variable-weight file covers the 300–900 range the app uses. The
+   relative URL is bundled + hashed by Vite, so it works under both the
+   web base "/" and the Electron base "./". License: assets/fonts/Inter-LICENSE.txt (OFL). */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./assets/fonts/InterVariable.woff2") format("woff2");
+}
+
 /* ============================================================================
    OrkaOS design tokens (Light default · 60/30/10 · Deep Navy + Orka Blue)
    Shared token system across the Orka app family — see docs/OrkaMaster-Index.html
@@ -431,7 +443,41 @@
   .modal-h .ms { font-size: var(--fs-sm); color: var(--text-tertiary); margin-top: 2px; }
   .modal-b { padding: var(--space-5) var(--space-6); display: flex; flex-direction: column; gap: 14px; overflow-y: auto; overflow-x: hidden; }
   .modal-f { display: flex; justify-content: flex-end; gap: 10px; padding: var(--space-4) var(--space-6); background: var(--bg-subtle); border-top: 1px solid var(--border-subtle); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+
+  /* ---------- legal pages (/legal/*, LegalLayout.jsx) ---------- */
+  .legal-prose { font-size: var(--fs-md); line-height: var(--lh-relaxed); color: var(--text-secondary); max-width: 72ch; }
+  .legal-prose h1 { font-size: var(--fs-4xl); font-weight: var(--fw-extrabold); line-height: var(--lh-tight); letter-spacing: var(--ls-tight); color: var(--text-primary); }
+  .legal-prose h2 { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--text-primary); margin: var(--space-10) 0 var(--space-3); }
+  .legal-prose h3 { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--text-primary); margin: var(--space-6) 0 var(--space-2); }
+  .legal-prose section { scroll-margin-top: 72px; }
+  .legal-prose p { margin: 0 0 var(--space-3); }
+  .legal-prose ul { list-style: disc; padding-left: 1.25rem; margin: 0 0 var(--space-3); }
+  .legal-prose li + li { margin-top: 6px; }
+  .legal-prose strong { color: var(--text-primary); font-weight: var(--fw-semibold); }
+  .legal-prose a { color: var(--brand-text); text-decoration: underline; text-underline-offset: 2px; }
+  .legal-prose code { font-family: var(--font-mono); font-size: .9em; background: var(--bg-muted); color: var(--text-primary); padding: 1px 5px; border-radius: var(--radius-xs); overflow-wrap: anywhere; }
+  .legal-prose .legal-meta { font-size: var(--fs-sm); color: var(--text-tertiary); margin-top: var(--space-2); }
+  .legal-prose .legal-summary { font-size: var(--fs-lg); color: var(--text-primary); margin-top: var(--space-4); }
+  .legal-prose .legal-note { font-size: var(--fs-sm); color: var(--info-text); background: var(--info-subtle); border: 1px solid var(--info-border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); }
+  .legal-draft {
+    display: flex; gap: var(--space-3); margin: var(--space-4) 0; padding: var(--space-3) var(--space-4);
+    font-size: var(--fs-sm); color: var(--warning-text); background: var(--warning-subtle);
+    border: 1px solid var(--warning-border); border-radius: var(--radius-sm);
+  }
+  .legal-draft strong { color: inherit; }
+  .legal-tbd { font-weight: var(--fw-semibold); color: var(--warning-text); background: var(--warning-subtle); padding: 0 4px; border-radius: 4px; }
+  .legal-table-wrap { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+  .legal-table-wrap table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+  .legal-table-wrap th { text-align: left; font-weight: var(--fw-semibold); color: var(--text-primary); background: var(--bg-subtle); }
+  .legal-table-wrap th, .legal-table-wrap td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  .legal-table-wrap tr:last-child td { border-bottom: 0; }
+  .sidenav.collapsed .sidenav-legal { display: none; }
 }
+
+/* Pages that must stay readable with the consent bar open (ConsentBanner
+   sets --consent-banner-h while it's visible). Unlayered so it wins over
+   Tailwind's py-* utilities on the same element. */
+.consent-safe { padding-bottom: calc(var(--consent-banner-h, 0px) + 3rem); }
 
 /* Custom scrollbar for legacy tables (kept for pages not yet ported to .scroll-area) */
 .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -451,6 +497,16 @@
     color: #dc2626;
     font-weight: 700;
   }
+
+  /* Legal pages: print the document only, in black on white. */
+  .no-print { display: none !important; }
+  .legal-page, .legal-page .legal-prose, .legal-page .legal-prose * { color: #000 !important; background: transparent !important; }
+  .legal-page main { display: block !important; padding: 0 !important; max-width: none !important; }
+  .legal-page .legal-prose { max-width: none; }
+  .legal-page .legal-draft, .legal-page .legal-note, .legal-page .legal-table-wrap { border-color: #999 !important; }
+  .legal-page .legal-prose a { text-decoration: none; }
+  .legal-page .legal-prose h2, .legal-page .legal-prose h3 { break-after: avoid; }
+  .legal-page .legal-table-wrap tr { break-inside: avoid; }
 }
 
 .vault-protected {
@@ -489,6 +545,7 @@
   .sidenav.collapsed .navitem, .sidenav.collapsed .collapse-btn { justify-content: flex-start; padding: 9px 11px; }
   .sidenav.collapsed .nav-grouphead { justify-content: flex-start; padding: 8px 10px; }
   .sidenav.collapsed [data-tip]:hover::after { display: none; }
+  .sidenav.collapsed .sidenav-legal { display: flex; }
   .sidenav.collapsed .navitem .nav-badge {
     position: static; margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border: 0;
   }

@@ -111,15 +111,16 @@ export default function NotificationBell() {
   // admin approving a request). This is what makes the toast/popup appear
   // the instant it's approved instead of waiting for the 60s poll above —
   // that poll now only matters as a fallback while this connection is down/
-  // reconnecting. EventSource can't set an Authorization header, so the
-  // access token travels as a query param instead (see the route's comment
-  // in backend/src/routes/misc.ts); it isn't re-opened on token refresh, so
-  // a session that outlives one 8h access token reconnects on next reload.
+  // reconnecting. Authenticated by the httpOnly accessToken cookie
+  // (withCredentials), never a query-string token. See the route's comment
+  // in backend/src/routes/misc.ts. Auth is only checked at connect time; if
+  // the connection drops after the access cookie expired, the reconnect gets
+  // a 401 and EventSource gives up, leaving the 60s poll above (which
+  // refreshes the cookie) as the fallback until the next reload.
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (!token || typeof EventSource === "undefined") return;
+    if (typeof EventSource === "undefined") return;
 
-    const es = new EventSource(`${API_BASE_URL}/notifications/stream?token=${encodeURIComponent(token)}`);
+    const es = new EventSource(`${API_BASE_URL}/notifications/stream`, { withCredentials: true });
     es.onerror = () => {
       // EventSource retries on its own; this just makes a stuck/misconfigured
       // connection (bad CORS, backend down, etc.) visible in devtools instead

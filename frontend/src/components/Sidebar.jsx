@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../lib/authContext";
 import api from "../lib/api";
 import { NAV_BADGES_REFRESH_EVENT } from "../lib/navBadges";
+import LegalLinks from "./LegalLinks";
 import clsx from "clsx";
 
 export default function Sidebar({ mobileOpen, onClose }) {
@@ -116,6 +117,7 @@ export default function Sidebar({ mobileOpen, onClose }) {
       </div>
 
       <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "10px 12px" }}>
+        <LegalLinks className="sidenav-legal px-[11px] pb-2" onNavigate={onClose} />
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="navitem hidden md:flex"

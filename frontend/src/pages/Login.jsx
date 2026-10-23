@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { GoogleLogin } from "@react-oauth/google";
+import GoogleAuthGate from "../components/GoogleAuthGate";
+import LegalLinks from "../components/LegalLinks";
+import SystemUseBanner from "../components/SystemUseBanner";
 import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import logo from "../assets/OrkaVault.png";
 import { generateDeviceKey, signChallenge, savePrivateKey } from "../lib/webCryptoMfa";
@@ -146,7 +149,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[var(--bg-canvas)] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="consent-safe min-h-screen bg-gray-50 dark:bg-[var(--bg-canvas)] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center items-center mb-4">
           <img
@@ -162,6 +165,7 @@ export default function Login() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white dark:bg-[var(--bg-surface)] py-8 px-4 shadow-sm sm:rounded-lg sm:px-10">
+          <SystemUseBanner />
           {error && (
             <div className="mb-6 bg-red-50 border-l-4 border-brand-red p-4">
               <p className="text-sm text-brand-red">{error}</p>
@@ -302,15 +306,17 @@ export default function Login() {
                 </div>
 
                 <div className="mt-6 flex justify-center">
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => setError("Google login failed")}
-                    useOneTap
-                    theme="outline"
-                    size="large"
-                    text="continue_with"
-                    shape="rectangular"
-                  />
+                  <GoogleAuthGate>
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => setError("Google login failed")}
+                      useOneTap
+                      theme="outline"
+                      size="large"
+                      text="continue_with"
+                      shape="rectangular"
+                    />
+                  </GoogleAuthGate>
                 </div>
               </div>
 
@@ -325,6 +331,7 @@ export default function Login() {
             </form>
           )}
         </div>
+        <LegalLinks className="mt-6 justify-center" />
       </div>
     </div>
   );

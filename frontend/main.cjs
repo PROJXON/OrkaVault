@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -21,6 +21,73 @@ if (isDev) {
 
 const DEV_URL = 'http://localhost:3000';
 let mainWindow;
+
+// ── Navigation / window-open policy (NEW-FEAT §11.4) ───────────────────────
+// The CSP for the desktop build is a <meta> tag injected by `vite build`
+// (csp.config.js): file:// pages have no response headers for
+// session.webRequest.onHeadersReceived to attach one to.
+
+/** Is this URL part of the app itself (built files or the Vite dev server)? */
+function isAppUrl(url) {
+  try {
+    const u = new URL(url);
+    return isDev ? u.origin === new URL(DEV_URL).origin : u.protocol === 'file:';
+  } catch {
+    return false;
+  }
+}
+
+// Google Identity Services opens its sign-in popup on accounts.google.com.
+function isGoogleSignInUrl(url) {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && u.hostname === 'accounts.google.com';
+  } catch {
+    return false;
+  }
+}
+
+// Anything else leaves the app: open https/mailto links in the system
+// browser/mail client, drop every other scheme (file:, javascript:, custom
+// protocol handlers, ...).
+function openExternallyIfSafe(url) {
+  try {
+    const { protocol } = new URL(url);
+    if (protocol === 'https:' || protocol === 'mailto:') shell.openExternal(url);
+  } catch {
+    // unparseable: ignore
+  }
+}
+
+function hardenWindow(win) {
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isGoogleSignInUrl(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          autoHideMenuBar: true,
+          webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+        },
+      };
+    }
+    openExternallyIfSafe(url);
+    return { action: 'deny' };
+  });
+
+  // The Google popup itself may not open further windows.
+  win.webContents.on('did-create-window', (child) => {
+    child.webContents.setWindowOpenHandler(({ url }) => {
+      openExternallyIfSafe(url);
+      return { action: 'deny' };
+    });
+  });
+
+  win.webContents.on('will-navigate', (event, url) => {
+    if (isAppUrl(url)) return;
+    event.preventDefault();
+    openExternallyIfSafe(url);
+  });
+}
 
 /**
  * Load the renderer — either the Vite dev server (development)
@@ -65,7 +132,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
       webSecurity: !isDev,
       backgroundThrottling: true,
       preload: path.resolve(__dirname, 'preload.cjs'),
@@ -78,6 +145,7 @@ function createWindow() {
 
   // Remove default menu (File, View, Window, Help)
   mainWindow.setMenu(null);
+  hardenWindow(mainWindow);
 
   // Load the app
   loadRenderer().catch((error) => {

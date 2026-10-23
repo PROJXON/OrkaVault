@@ -21,6 +21,8 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+# CSP header snippet written by the vite build (csp.config.js), included by the template.
+COPY --from=build /app/dist-csp/nginx-csp.conf /etc/nginx/snippets/csp.conf
 
 # Cloud Run injects PORT at runtime; nginx's official entrypoint auto-substitutes
 # ${PORT} in *.template files under /etc/nginx/templates/ into /etc/nginx/conf.d/

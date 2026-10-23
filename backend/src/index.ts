@@ -5,6 +5,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 import path from "path";
 import { prisma } from "./lib/prismaClient";
 import authRoutes from "./routes/auth";
@@ -25,6 +26,7 @@ import { ingestWorkspaceActivity, syncConnectedApps, syncWorkspaceDevices, syncW
 import { runAuditRetentionSweep } from "./services/auditBackup";
 import { expireStaleApprovals } from "./services/staleApprovals";
 import { errorHandler } from "./middleware/errorHandler";
+import { requireCsrf } from "./middleware/csrf";
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -34,6 +36,13 @@ const PORT = process.env.PORT || 5001;
 // clientIp() in utils/reqValue, which picks the first non-internal XFF
 // entry so Render's 10.x hops don't end up in the log.
 app.set("trust proxy", true);
+
+// Security headers (NEW-FEAT §11.2). crossOriginResourcePolicy is relaxed
+// to "cross-origin" because the frontend, on a different origin, loads
+// avatar images from /uploads; helmet's default ("same-origin") would block
+// them. Everything else is helmet's defaults.
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+
 // Log Events
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -56,8 +65,18 @@ app.use("/api/accounts", express.json({ limit: "10mb" }));
 // the exact raw bytes Discord signed — must be scoped ahead of the global
 // express.json() below, same pattern as the /api/accounts override above.
 app.use("/api/integrations/discord/interactions", express.raw({ type: "application/json" }));
+// Browser CSP violation reports (POST /api/csp-report) arrive as
+// application/csp-report, which express.json() ignores by default. Small
+// limit: a report is a few hundred bytes and this endpoint is unauthenticated.
+app.use(
+  "/api/csp-report",
+  express.json({ type: ["application/csp-report", "application/json", "application/reports+json"], limit: "8kb" }),
+);
 app.use(express.json());
 app.use(cookieParser());
+// Every unsafe-method request must carry a matching X-CSRF-Token (see
+// middleware/csrf.ts for why, and for the exempt webhook paths).
+app.use(requireCsrf);
 
 // ─── Serve uploaded avatars as static files ────────────────────────────
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
@@ -99,7 +118,7 @@ async function checkOffboarding() {
         await prisma.$transaction([
           prisma.user.update({
             where: { id: user.id },
-            data: { active: false, revoked: true },
+            data: { active: false, revoked: true, discordUserId: null },
           }),
           prisma.accessGrant.updateMany({
             where: { userId: user.id, active: true },

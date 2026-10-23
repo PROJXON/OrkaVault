@@ -1,13 +1,19 @@
 import React from "react";
 import {
-  BrowserRouter as Router,
+  BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   Navigate,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/authContext";
+import ConsentBanner from "./components/ConsentBanner";
+import SystemUseNotice from "./components/SystemUseNotice";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Terms from "./pages/legal/Terms";
+import Privacy from "./pages/legal/Privacy";
+import Cookies from "./pages/legal/Cookies";
 import DashboardLayout from "./components/DashboardLayout";
 import Vault from "./pages/Vault";
 import Requests from "./pages/Requests";
@@ -37,6 +43,18 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     );
   if (!user) return <Navigate to="/login" />;
 
+  // System Use Notice / Terms gate (NEW-FEAT §3.2). Must come before the
+  // MFA redirect so a new user acknowledges first. The flags come from the
+  // real user record; a viewAsRole preview only swaps `role`.
+  if (user.needsNoticeAcknowledgment || user.needsTermsAcceptance) {
+    return (
+      <SystemUseNotice
+        needsNotice={!!user.needsNoticeAcknowledgment}
+        needsTerms={!!user.needsTermsAcceptance}
+      />
+    );
+  }
+
   // Force MFA setup redirect
   if (!user.mfaEnabled && location.pathname !== "/profile") {
     return <Navigate to="/profile" replace />;
@@ -53,6 +71,9 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/legal/terms" element={<Terms />} />
+      <Route path="/legal/privacy" element={<Privacy />} />
+      <Route path="/legal/cookies" element={<Cookies />} />
 
       <Route
         path="/"
@@ -155,9 +176,16 @@ const AppRoutes = () => {
   );
 };
 
+// The packaged desktop app loads dist/index.html from file://, where the
+// path is the file's location on disk and no server can fall back to
+// index.html for /vault, /legal/terms, etc. Route via the #fragment there.
+const Router = window.location.protocol === "file:" ? HashRouter : BrowserRouter;
+
+// ConsentBanner sits inside the router so its legal links can navigate.
 const App = () => (
   <AuthProvider>
     <Router>
+      <ConsentBanner />
       <AppRoutes />
     </Router>
   </AuthProvider>

@@ -35,6 +35,12 @@ model User {
   mfaEnabled       Boolean   @default(false)
   mfaSecret        String?
   mfaDevices       MfaDevice[]
+  // Legal acceptance (NEW-FEAT §4). Compared against config/legalVersions.ts;
+  // a mismatch shows the System Use Notice gate again.
+  termsVersionAccepted      String?
+  termsAcceptedAt           DateTime?
+  noticeVersionAcknowledged String?
+  noticeAcknowledgedAt      DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

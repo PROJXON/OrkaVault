@@ -15,18 +15,49 @@ import {
   AuthenticatedRequest,
   JwtPayload,
   JWT_SECRET,
+  authCookieOptions,
 } from "../middleware/auth";
 import { notifyAdmins, notifyUser } from "../services/notifications";
 import { OAuth2Client } from "google-auth-library";
-import { asString } from "../utils/reqValue";
+import { asString, clientIp } from "../utils/reqValue";
+import { issueCsrfToken, clearCsrfCookie } from "../middleware/csrf";
+import { authLimiter } from "../middleware/rateLimit";
+import { REQUIRED_TERMS_VERSION } from "../config/legalVersions";
+import {
+  acceptanceFlags,
+  recordAcceptance,
+  requiredVersion,
+  AcceptanceType,
+} from "../services/legalAcceptance";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const router = Router();
 
+// Auth tokens live only in httpOnly cookies — never in a JSON body — so
+// page JavaScript (and therefore any XSS) can't read them.
+const ACCESS_MAX_AGE = 8 * 60 * 60 * 1000; // 8 hours
+const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function setAccessCookie(res: Response, accessToken: string) {
+  res.cookie("accessToken", accessToken, { ...authCookieOptions(), maxAge: ACCESS_MAX_AGE });
+}
+
+function setAuthCookies(res: Response, payload: JwtPayload) {
+  setAccessCookie(res, generateAccessToken(payload));
+  res.cookie("refreshToken", generateRefreshToken(payload), {
+    ...authCookieOptions(),
+    maxAge: REFRESH_MAX_AGE,
+  });
+}
+
+// GET /api/auth/csrf — issue a CSRF token (see middleware/csrf.ts). Public:
+// login/register are protected too, so it has to work before sign-in.
+router.get("/csrf", issueCsrfToken);
+
 // POST /api/auth/register
-router.post("/register", async (req: Request, res: Response) => {
-  const { name, email, password, department, startDate, googleId, avatarUrl } = req.body;
+router.post("/register", authLimiter, async (req: Request, res: Response) => {
+  const { name, email, password, department, startDate, googleId, avatarUrl, acceptedTermsVersion } = req.body;
   if (!name || !email || !password || !department || !startDate) {
     res
       .status(400)
@@ -34,6 +65,15 @@ router.post("/register", async (req: Request, res: Response) => {
         error:
           "Name, email, password, department, and start date are required.",
       });
+    return;
+  }
+  // NEW-FEAT §4.3: the Terms checkbox is required. This also covers the
+  // Google path: /google never creates users, it hands the profile back to
+  // the Register page, which submits here.
+  if (acceptedTermsVersion !== REQUIRED_TERMS_VERSION) {
+    res.status(400).json({
+      error: "You must accept the current Terms of Use and Privacy notice to register.",
+    });
     return;
   }
 
@@ -69,6 +109,15 @@ router.post("/register", async (req: Request, res: Response) => {
         active: isFirstUser, // BUG 8: first user auto-active as ADMIN
         googleId: googleId || null, // "" (plain signup) must not collide on the @unique constraint
         avatarUrl,
+        termsVersionAccepted: REQUIRED_TERMS_VERSION,
+        termsAcceptedAt: new Date(),
+        auditLogs: {
+          create: {
+            action: "TERMS_ACCEPTED",
+            metadata: { version: REQUIRED_TERMS_VERSION, at: "registration" },
+            ipAddress: clientIp(req),
+          },
+        },
       },
     });
 
@@ -95,7 +144,7 @@ router.post("/register", async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/login
-router.post("/login", async (req: Request, res: Response) => {
+router.post("/login", authLimiter, async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password) {
     res.status(400).json({ error: "Email and password are required." });
@@ -137,25 +186,10 @@ router.post("/login", async (req: Request, res: Response) => {
       return;
     }
 
-    const payload: JwtPayload = {
+    setAuthCookies(res, {
       userId: user.id,
       email: user.email,
       role: user.role,
-    };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 8 * 60 * 60 * 1000 // 8 hours
-    });
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
     res.json({
@@ -165,6 +199,7 @@ router.post("/login", async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
       },
+      ...acceptanceFlags(user),
     });
   } catch (error) {
     console.error("[Login]", error);
@@ -173,7 +208,7 @@ router.post("/login", async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/refresh
-router.post("/refresh", async (req: Request, res: Response) => {
+router.post("/refresh", authLimiter, async (req: Request, res: Response) => {
   const refreshToken = req.cookies?.refreshToken;
   if (!refreshToken) {
     res.status(400).json({ error: "Refresh token required." });
@@ -193,13 +228,7 @@ router.post("/refresh", async (req: Request, res: Response) => {
       email: user.email,
       role: user.role,
     };
-    const accessToken = generateAccessToken(payload);
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 8 * 60 * 60 * 1000 // 8 hours
-    });
+    setAccessCookie(res, generateAccessToken(payload));
     res.json({ message: "Token refreshed successfully" });
   } catch {
     res.status(401).json({ error: "Invalid refresh token." });
@@ -207,7 +236,7 @@ router.post("/refresh", async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/google
-router.post("/google", async (req: Request, res: Response) => {
+router.post("/google", authLimiter, async (req: Request, res: Response) => {
   const { credential } = req.body;
   if (!credential) {
     res.status(400).json({ error: "Google credential required." });
@@ -264,25 +293,10 @@ router.post("/google", async (req: Request, res: Response) => {
       }
 
       // Log them in
-      const jwtPayload: JwtPayload = {
+      setAuthCookies(res, {
         userId: user.id,
         email: user.email,
         role: user.role,
-      };
-      const accessToken = generateAccessToken(jwtPayload);
-      const refreshToken = generateRefreshToken(jwtPayload);
-
-      res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 8 * 60 * 60 * 1000
-      });
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
       res.json({
@@ -293,6 +307,7 @@ router.post("/google", async (req: Request, res: Response) => {
           email: user.email,
           role: user.role,
         },
+        ...acceptanceFlags(user),
       });
       return;
     } else {
@@ -316,13 +331,42 @@ router.post("/google", async (req: Request, res: Response) => {
 
 // GET /api/auth/me
 router.get("/me", requireAuth, (req: AuthenticatedRequest, res: Response) => {
-  res.json(req.user);
+  res.json({ ...req.user, ...acceptanceFlags(req.user!) });
+});
+
+// POST /api/auth/acknowledge — accept the Terms or acknowledge the System
+// Use Notice (NEW-FEAT §4.2). The client must send the exact required
+// version, so a stale tab can't accept text it never showed.
+router.post("/acknowledge", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const { type, version } = req.body ?? {};
+  if (type !== "terms" && type !== "notice") {
+    res.status(400).json({ error: 'type must be "terms" or "notice".' });
+    return;
+  }
+  const required = requiredVersion(type as AcceptanceType);
+  if (version !== required) {
+    res.status(400).json({
+      error: "This version is out of date. Reload the page to see the current one.",
+      requiredVersion: required,
+    });
+    return;
+  }
+
+  try {
+    await recordAcceptance(req.user!.id, type, required, clientIp(req));
+    res.json({ message: "Recorded." });
+  } catch (error) {
+    console.error("[Acknowledge]", error);
+    res.status(500).json({ error: "Failed to record acknowledgment." });
+  }
 });
 
 // POST /api/auth/logout
 router.post("/logout", (_req: Request, res: Response) => {
-  res.clearCookie("accessToken");
-  res.clearCookie("refreshToken");
+  // Same attributes the cookies were set with, or the browser keeps them.
+  res.clearCookie("accessToken", authCookieOptions());
+  res.clearCookie("refreshToken", authCookieOptions());
+  clearCsrfCookie(res);
   res.json({ message: "Logged out successfully." });
 });
 
@@ -438,7 +482,7 @@ router.post("/mfa/disable", requireAuth, async (req: AuthenticatedRequest, res: 
 });
 
 // POST /api/auth/mfa/verify
-router.post("/mfa/verify", async (req: Request, res: Response) => {
+router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
   const { tempToken, totpCode, signature, mfaDeviceId, deviceName, publicKey } = req.body;
 
   if (!tempToken) {
@@ -518,36 +562,20 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
         data: { lastUsedAt: new Date() },
       });
 
-      const payload: JwtPayload = {
+      setAuthCookies(res, {
         userId: user.id,
         email: user.email,
         role: user.role,
-      };
-      const accessToken = generateAccessToken(payload);
-      const refreshToken = generateRefreshToken(payload);
-
-      res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 8 * 60 * 60 * 1000
-      });
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
       res.json({
-        accessToken,
-        refreshToken,
         user: {
           id: user.id,
           name: user.name,
           email: user.email,
           role: user.role,
         },
+        ...acceptanceFlags(user),
       });
       return;
     } else if (totpCode) {
@@ -579,30 +607,13 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
         responseDeviceId = newDevice.id;
       }
 
-      const payload: JwtPayload = {
+      setAuthCookies(res, {
         userId: user.id,
         email: user.email,
         role: user.role,
-      };
-      const accessToken = generateAccessToken(payload);
-      const refreshToken = generateRefreshToken(payload);
-
-      res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 8 * 60 * 60 * 1000
-      });
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
       res.json({
-        accessToken,
-        refreshToken,
         mfaDeviceId: responseDeviceId,
         user: {
           id: user.id,
@@ -610,6 +621,7 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
           email: user.email,
           role: user.role,
         },
+        ...acceptanceFlags(user),
       });
       return;
     } else {

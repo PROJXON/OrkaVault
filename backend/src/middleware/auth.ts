@@ -9,6 +9,12 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { prisma, Role } from "../lib/prismaClient";
+import { acceptanceFlags } from "../services/legalAcceptance";
+
+// The only authenticated endpoints reachable before the System Use Notice /
+// Terms are acknowledged: what the gate itself needs (logout and csrf don't
+// use requireAuth, so they're always reachable).
+const LEGAL_GATE_ALLOWED_URLS = ["/api/auth/me", "/api/auth/acknowledge"];
 
 
 // No insecure hardcoded fallback: a deployment that forgets to set either
@@ -28,6 +34,16 @@ if (!rawJwtSecret || !rawJwtRefreshSecret) {
 
 export const JWT_SECRET: string = rawJwtSecret;
 const JWT_REFRESH_SECRET: string = rawJwtRefreshSecret;
+
+// Shared attributes for every auth-related cookie (access, refresh, CSRF).
+// Production is cross-site (frontend and API on different domains), so the
+// cookies must be sameSite "none" + secure; middleware/csrf.ts is what
+// compensates for that. clearCookie() needs these same attributes too.
+export const authCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as "none" | "lax",
+});
 
 export interface JwtPayload {
   userId: string;
@@ -51,6 +67,8 @@ export interface AuthenticatedRequest extends Request {
     managedCollections: any[];
     clearanceLevel: string | null;
     mfaEnabled: boolean;
+    termsVersionAccepted: string | null;
+    noticeVersionAcknowledged: string | null;
   };
 }
 
@@ -159,11 +177,32 @@ export async function requireAuth(
       managedCollections: user.managedCollections,
       clearanceLevel: user.clearanceLevel,
       mfaEnabled: user.mfaEnabled,
+      termsVersionAccepted: user.termsVersionAccepted,
+      noticeVersionAcknowledged: user.noticeVersionAcknowledged,
     };
 
-    // If user does not have MFA enabled, restrict them to MFA setup and basic profile endpoints
+    const cleanUrl = req.originalUrl.split("?")[0];
+
+    // System Use Notice / Terms (NEW-FEAT §3.2, AC-8 b): until the current
+    // versions are acknowledged, nothing but the gate's own calls is allowed.
+    // Checked before MFA so the order matches the frontend gate. The
+    // frontend gate is UX only; this is the actual enforcement.
+    const { needsTermsAcceptance, needsNoticeAcknowledgment } = acceptanceFlags(user);
+    if ((needsTermsAcceptance || needsNoticeAcknowledgment) && !LEGAL_GATE_ALLOWED_URLS.includes(cleanUrl)) {
+      res.status(403).json({
+        error: "You must acknowledge the System Use Notice and accept the current Terms before continuing.",
+        legalAcknowledgmentRequired: true,
+        needsTermsAcceptance,
+        needsNoticeAcknowledgment,
+      });
+      return;
+    }
+
+    // If user does not have MFA enabled, restrict them to MFA setup and basic profile endpoints.
+    // /acknowledge is here because the System Use Notice gate comes before MFA setup.
     const allowedUrls = [
       "/api/auth/me",
+      "/api/auth/acknowledge",
       "/api/auth/mfa/setup",
       "/api/auth/mfa/enable",
       "/api/auth/logout",
@@ -171,7 +210,6 @@ export async function requireAuth(
       "/api/departments"
     ];
 
-    const cleanUrl = req.originalUrl.split("?")[0];
     if (!user.mfaEnabled && !allowedUrls.includes(cleanUrl)) {
       res.status(403).json({
         error: "Two-Factor Authentication (MFA) setup is required before you can access this resource.",
