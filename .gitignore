@@ -12,6 +12,7 @@ diagnostic.txt
 node_modules/
 .env
 .env*
+!.env.example
 NEW.md
 NEW-FEAT.md
 plan/

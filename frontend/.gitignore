@@ -20,4 +20,5 @@ release/
 
 .vercel
 .env*
+!.env.example
 commands.txt
