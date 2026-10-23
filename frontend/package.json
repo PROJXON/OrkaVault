@@ -45,7 +45,7 @@
     "postcss": "^8.5.15",
     "prettier": "^3.8.3",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.1.5"
+    "vite": "^8.3.5"
   },
   "build": {
     "appId": "com.orkavault.desktop",
