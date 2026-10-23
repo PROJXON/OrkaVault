@@ -68,18 +68,15 @@ The project lives on a VirtualBox shared folder (`vboxsf`), which doesn't
 support atomic rename reliably. This shows up in a few places:
 
 - The `Write` tool (writes via temp file + rename) reliably fails here
-  with `ETXTBSY`. **Use `Bash` with a heredoc (`cat > path << 'EOF' ...
-  EOF`) to create or overwrite files instead.** Don't retry `Write` on
-  this filesystem — it fails the same way every time.
+  with `ETXTBSY`. Don't retry it. **Create new files with the `Edit`
+  tool and an empty `old_string`.** That works on this mount.
 - `Edit` (in-place, no rename) works *most* of the time but has been
   observed to occasionally hit the same `ETXTBSY` on this mount,
   especially on files edited repeatedly in one session. If `Edit` fails
-  this way, just retry it once or twice — it usually goes through. If it
-  keeps failing, fall back to the same pattern as bulk find-replace
-  below: transform the content with `perl -0777 -pe 's{...}{...}'` (or
-  `sed`) redirected to a temp file, then `cat tmpfile > realfile; rm
-  tmpfile` — this overwrites the existing inode in place with no rename,
-  so it isn't subject to this failure mode at all.
+  this way, just retry it once or twice — it usually goes through.
+- Repo source files are CRLF. `Edit` preserves that; regex tools using
+  `\n` silently fail to match.
+
 - **`npm install` (any package, either app) can corrupt unrelated,
   already-installed packages mid-install** — same root cause (a rename
   from npm's temp staging dir to the final package dir loses the race).

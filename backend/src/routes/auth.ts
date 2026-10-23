@@ -15,18 +15,47 @@ import {
   AuthenticatedRequest,
   JwtPayload,
   JWT_SECRET,
+  authCookieOptions,
 } from "../middleware/auth";
 import { notifyAdmins, notifyUser } from "../services/notifications";
 import { OAuth2Client } from "google-auth-library";
-import { asString } from "../utils/reqValue";
+import { asString, clientIp } from "../utils/reqValue";
+import { issueCsrfToken, clearCsrfCookie } from "../middleware/csrf";
+import { authLimiter } from "../middleware/rateLimit";
+import {
+  pendingAcceptances,
+  recordAcceptances,
+  resolveCurrentVersions,
+} from "../services/legalAcceptance";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const router = Router();
 
+// Auth tokens live only in httpOnly cookies — never in a JSON body — so
+// page JavaScript (and therefore any XSS) can't read them.
+const ACCESS_MAX_AGE = 8 * 60 * 60 * 1000; // 8 hours
+const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function setAccessCookie(res: Response, accessToken: string) {
+  res.cookie("accessToken", accessToken, { ...authCookieOptions(), maxAge: ACCESS_MAX_AGE });
+}
+
+function setAuthCookies(res: Response, payload: JwtPayload) {
+  setAccessCookie(res, generateAccessToken(payload));
+  res.cookie("refreshToken", generateRefreshToken(payload), {
+    ...authCookieOptions(),
+    maxAge: REFRESH_MAX_AGE,
+  });
+}
+
+// GET /api/auth/csrf — issue a CSRF token (see middleware/csrf.ts). Public:
+// login/register are protected too, so it has to work before sign-in.
+router.get("/csrf", issueCsrfToken);
+
 // POST /api/auth/register
-router.post("/register", async (req: Request, res: Response) => {
-  const { name, email, password, department, startDate, googleId, avatarUrl } = req.body;
+router.post("/register", authLimiter, async (req: Request, res: Response) => {
+  const { name, email, password, department, startDate, googleId, avatarUrl, acceptedVersions } = req.body;
   if (!name || !email || !password || !department || !startDate) {
     res
       .status(400)
@@ -34,6 +63,21 @@ router.post("/register", async (req: Request, res: Response) => {
         error:
           "Name, email, password, department, and start date are required.",
       });
+    return;
+  }
+  // NEW-FEAT §4.3: the Terms checkbox is required. This also covers the
+  // Google path: /google never creates users, it hands the profile back to
+  // the Register page, which submits here. Both versions must be the
+  // current ones (the text the checkbox linked to).
+  const accepted = await resolveCurrentVersions([
+    { key: "TERMS", version: String(acceptedVersions?.TERMS ?? "") },
+    { key: "PRIVACY", version: String(acceptedVersions?.PRIVACY ?? "") },
+  ]).catch(() => null);
+  if (!accepted || !accepted.ok) {
+    res.status(400).json({
+      error: "You must accept the current Terms of Use and Privacy notice to register. Reload the page if you've had it open a while.",
+      ...(accepted && !accepted.ok && { currentVersions: accepted.currentVersions }),
+    });
     return;
   }
 
@@ -69,6 +113,21 @@ router.post("/register", async (req: Request, res: Response) => {
         active: isFirstUser, // BUG 8: first user auto-active as ADMIN
         googleId: googleId || null, // "" (plain signup) must not collide on the @unique constraint
         avatarUrl,
+        contentAcceptances: {
+          create: accepted.versions.map((v) => ({
+            contentVersionId: v.id,
+            key: v.key,
+            ipAddress: clientIp(req),
+            via: "registration",
+          })),
+        },
+        auditLogs: {
+          create: accepted.versions.map((v) => ({
+            action: "CONTENT_ACCEPTED",
+            metadata: { key: v.key, version: v.version, bodySha256: v.bodySha256, via: "registration" },
+            ipAddress: clientIp(req),
+          })),
+        },
       },
     });
 
@@ -95,7 +154,7 @@ router.post("/register", async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/login
-router.post("/login", async (req: Request, res: Response) => {
+router.post("/login", authLimiter, async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password) {
     res.status(400).json({ error: "Email and password are required." });
@@ -137,25 +196,10 @@ router.post("/login", async (req: Request, res: Response) => {
       return;
     }
 
-    const payload: JwtPayload = {
+    setAuthCookies(res, {
       userId: user.id,
       email: user.email,
       role: user.role,
-    };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 8 * 60 * 60 * 1000 // 8 hours
-    });
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
     res.json({
@@ -165,6 +209,7 @@ router.post("/login", async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
       },
+      pendingAcceptances: await pendingAcceptances(user.id),
     });
   } catch (error) {
     console.error("[Login]", error);
@@ -173,7 +218,7 @@ router.post("/login", async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/refresh
-router.post("/refresh", async (req: Request, res: Response) => {
+router.post("/refresh", authLimiter, async (req: Request, res: Response) => {
   const refreshToken = req.cookies?.refreshToken;
   if (!refreshToken) {
     res.status(400).json({ error: "Refresh token required." });
@@ -193,13 +238,7 @@ router.post("/refresh", async (req: Request, res: Response) => {
       email: user.email,
       role: user.role,
     };
-    const accessToken = generateAccessToken(payload);
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 8 * 60 * 60 * 1000 // 8 hours
-    });
+    setAccessCookie(res, generateAccessToken(payload));
     res.json({ message: "Token refreshed successfully" });
   } catch {
     res.status(401).json({ error: "Invalid refresh token." });
@@ -207,7 +246,7 @@ router.post("/refresh", async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/google
-router.post("/google", async (req: Request, res: Response) => {
+router.post("/google", authLimiter, async (req: Request, res: Response) => {
   const { credential } = req.body;
   if (!credential) {
     res.status(400).json({ error: "Google credential required." });
@@ -264,25 +303,10 @@ router.post("/google", async (req: Request, res: Response) => {
       }
 
       // Log them in
-      const jwtPayload: JwtPayload = {
+      setAuthCookies(res, {
         userId: user.id,
         email: user.email,
         role: user.role,
-      };
-      const accessToken = generateAccessToken(jwtPayload);
-      const refreshToken = generateRefreshToken(jwtPayload);
-
-      res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 8 * 60 * 60 * 1000
-      });
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
       res.json({
@@ -293,6 +317,7 @@ router.post("/google", async (req: Request, res: Response) => {
           email: user.email,
           role: user.role,
         },
+        pendingAcceptances: await pendingAcceptances(user.id),
       });
       return;
     } else {
@@ -316,13 +341,54 @@ router.post("/google", async (req: Request, res: Response) => {
 
 // GET /api/auth/me
 router.get("/me", requireAuth, (req: AuthenticatedRequest, res: Response) => {
-  res.json(req.user);
+  res.json({ ...req.user, pendingAcceptances: req.pendingAcceptances ?? [] });
+});
+
+// POST /api/auth/acknowledge — accept every pending policy at once
+// (NEW-FEAT §4.2, Phase 4b). Body: {acceptances: [{key, version}]}. Each
+// version must be the current one, so a tab showing stale text can't
+// accept it; on a mismatch the client gets currentVersions and reloads.
+router.post("/acknowledge", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const list = req.body?.acceptances;
+  if (!Array.isArray(list) || list.some((a) => typeof a?.key !== "string" || typeof a?.version !== "string")) {
+    res.status(400).json({ error: "acceptances must be a list of {key, version}." });
+    return;
+  }
+
+  try {
+    const pending = req.pendingAcceptances ?? [];
+    if (pending.length === 0) {
+      res.json({ message: "Nothing to accept." });
+      return;
+    }
+    const sent = new Map<string, string>(list.map((a: { key: string; version: string }) => [a.key, a.version]));
+    const missing = pending.filter((p) => !sent.has(p.key)).map((p) => p.key);
+    if (missing.length) {
+      res.status(400).json({ error: "Every updated policy must be accepted together.", missing });
+      return;
+    }
+    const resolved = await resolveCurrentVersions(pending.map((p) => ({ key: p.key, version: sent.get(p.key)! })));
+    if (!resolved.ok) {
+      res.status(400).json({
+        error: "A policy was updated while this page was open. Review the latest version.",
+        currentVersions: resolved.currentVersions,
+      });
+      return;
+    }
+    await recordAcceptances(req.user!.id, resolved.versions, clientIp(req), "gate");
+    res.json({ message: "Recorded." });
+  } catch (error) {
+    console.error("[Acknowledge]", error);
+    res.status(500).json({ error: "Failed to record acknowledgment." });
+  }
 });
 
 // POST /api/auth/logout
 router.post("/logout", (_req: Request, res: Response) => {
-  res.clearCookie("accessToken");
-  res.clearCookie("refreshToken");
+  // Same attributes the cookies were set with, or the browser keeps them.
+  res.clearCookie("accessToken", authCookieOptions());
+  res.clearCookie("refreshToken", authCookieOptions());
+  clearCsrfCookie(res);
   res.json({ message: "Logged out successfully." });
 });
 
@@ -438,7 +504,7 @@ router.post("/mfa/disable", requireAuth, async (req: AuthenticatedRequest, res: 
 });
 
 // POST /api/auth/mfa/verify
-router.post("/mfa/verify", async (req: Request, res: Response) => {
+router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
   const { tempToken, totpCode, signature, mfaDeviceId, deviceName, publicKey } = req.body;
 
   if (!tempToken) {
@@ -518,36 +584,20 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
         data: { lastUsedAt: new Date() },
       });
 
-      const payload: JwtPayload = {
+      setAuthCookies(res, {
         userId: user.id,
         email: user.email,
         role: user.role,
-      };
-      const accessToken = generateAccessToken(payload);
-      const refreshToken = generateRefreshToken(payload);
-
-      res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 8 * 60 * 60 * 1000
-      });
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
       res.json({
-        accessToken,
-        refreshToken,
         user: {
           id: user.id,
           name: user.name,
           email: user.email,
           role: user.role,
         },
+        pendingAcceptances: await pendingAcceptances(user.id),
       });
       return;
     } else if (totpCode) {
@@ -579,30 +629,13 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
         responseDeviceId = newDevice.id;
       }
 
-      const payload: JwtPayload = {
+      setAuthCookies(res, {
         userId: user.id,
         email: user.email,
         role: user.role,
-      };
-      const accessToken = generateAccessToken(payload);
-      const refreshToken = generateRefreshToken(payload);
-
-      res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 8 * 60 * 60 * 1000
-      });
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
       res.json({
-        accessToken,
-        refreshToken,
         mfaDeviceId: responseDeviceId,
         user: {
           id: user.id,
@@ -610,6 +643,7 @@ router.post("/mfa/verify", async (req: Request, res: Response) => {
           email: user.email,
           role: user.role,
         },
+        pendingAcceptances: await pendingAcceptances(user.id),
       });
       return;
     } else {

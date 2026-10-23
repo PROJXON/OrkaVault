@@ -20,6 +20,7 @@ import { createLinkCode, consumeLinkCode } from "../services/discordLink";
 import { approveAccessRequest, denyAccessRequest, RequestActionError, RequestActor } from "../services/accessRequests";
 import { clientIp } from "../utils/reqValue";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { hasPendingAcceptances } from "../services/legalAcceptance";
 
 const router = Router();
 const gchatAuthClient = new OAuth2Client();
@@ -40,6 +41,15 @@ async function resolveActorByDiscordId(discordUserId: string): Promise<RequestAc
     include: { managedCollections: true },
   });
   if (!user) return null;
+  // Same gates requireAuth applies on the web: deactivated accounts, an
+  // policy (Terms, Privacy, System Use Notice) still pending, or no MFA
+  // can't act from Discord.
+  if (!user.active) {
+    return { error: "Your linked OrkaVault account is deactivated or pending approval." };
+  }
+  if (!user.mfaEnabled || (await hasPendingAcceptances(user.id))) {
+    return { error: "Sign in to OrkaVault on the web and finish account setup (updated policies, MFA) before approving from Discord." };
+  }
   if (user.role !== "MANAGER" && user.role !== "ADMIN") {
     return { error: "Your linked OrkaVault account doesn't have permission to approve or deny requests." };
   }
@@ -86,6 +96,16 @@ router.post("/discord/interactions", async (req: Request, res: Response) => {
         res.json({
           type: DISCORD_CHANNEL_MESSAGE_WITH_SOURCE,
           data: { content: "That code is invalid or expired. Generate a new one from Profile > Link Discord.", flags: EPHEMERAL },
+        });
+        return;
+      }
+      // The code was issued to an active user, but they may have been
+      // deactivated in the 10 minutes since.
+      const linkingUser = await prisma.user.findUnique({ where: { id: userId }, select: { active: true } });
+      if (!linkingUser?.active) {
+        res.json({
+          type: DISCORD_CHANNEL_MESSAGE_WITH_SOURCE,
+          data: { content: "Your OrkaVault account is deactivated or pending approval.", flags: EPHEMERAL },
         });
         return;
       }

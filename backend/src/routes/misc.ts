@@ -15,7 +15,9 @@ import { scorePassword } from "../services/health";
 import { entryTypeRules } from "../services/entryTypes";
 import { fetchSecret } from "../services/secretManager";
 import { addClient, removeClient } from "../services/sseHub";
+import { hasPendingAcceptances } from "../services/legalAcceptance";
 import { asString, clientIp } from "../utils/reqValue";
+import { cspReportLimiter } from "../middleware/rateLimit";
 
 const router = Router();
 
@@ -137,16 +139,15 @@ router.get(
 
 // GET /api/notifications/stream — live SSE feed of this user's notifications
 //
-// Not behind requireAuth: the browser's native EventSource can't set an
-// Authorization header, so the access token travels as a query param
-// instead and is verified by hand here (same verifyAccessToken() + active-user
-// check requireAuth does, just without the header). Short-lived (8h) access
-// token, so the exposure window matches any other bearer-token use in this
-// app; there's just no header to put it in for this one request type.
+// Authenticated by the httpOnly accessToken cookie, which the frontend sends
+// via `new EventSource(url, { withCredentials: true })`. Never a ?token=
+// query param: URLs end up in logs and history. Verified by hand rather than
+// with requireAuth, because requireAuth answers with a JSON 401 body and an
+// EventSource expects a bare status; the checks are the same.
 router.get(
   "/notifications/stream",
   async (req: Request, res: Response) => {
-    const token = req.query.token as string | undefined;
+    const token = req.cookies?.accessToken as string | undefined;
     if (!token) {
       res.status(401).end();
       return;
@@ -167,6 +168,11 @@ router.get(
     const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user || !user.active) {
       res.status(401).end();
+      return;
+    }
+    // Same gates requireAuth applies: pending policy acceptance, then MFA setup.
+    if (!user.mfaEnabled || (await hasPendingAcceptances(user.id))) {
+      res.status(403).end();
       return;
     }
 
@@ -321,5 +327,32 @@ router.post(
     }
   },
 );
+
+// ─── CSP REPORTS ───────────────────────────────────────────────────────
+
+// Truncates attacker-controllable report fields before they hit the logs.
+const reportField = (v: unknown) => (typeof v === "string" ? v.slice(0, 300) : undefined);
+
+// POST /api/csp-report — browser CSP violation reports (no auth; CSRF-exempt).
+// Accepts the legacy report-uri shape ({ "csp-report": {...} }) and the
+// Reporting API shape ([{ type: "csp-violation", body: {...} }]). Log only.
+router.post("/csp-report", cspReportLimiter, (req: Request, res: Response) => {
+  const raw = req.body;
+  const reports: any[] = Array.isArray(raw)
+    ? raw.filter((r) => r?.type === "csp-violation").map((r) => r.body)
+    : [raw?.["csp-report"]];
+  for (const r of reports.slice(0, 5)) {
+    if (!r || typeof r !== "object") continue;
+    console.warn("[CSP report]", {
+      documentUri: reportField(r["document-uri"] ?? r.documentURL),
+      directive: reportField(r["effective-directive"] ?? r["violated-directive"] ?? r.effectiveDirective),
+      blockedUri: reportField(r["blocked-uri"] ?? r.blockedURL),
+      source: reportField(r["source-file"] ?? r.sourceFile),
+      line: typeof (r["line-number"] ?? r.lineNumber) === "number" ? r["line-number"] ?? r.lineNumber : undefined,
+      disposition: reportField(r.disposition),
+    });
+  }
+  res.status(204).end();
+});
 
 export default router;

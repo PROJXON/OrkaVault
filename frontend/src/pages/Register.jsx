@@ -3,6 +3,11 @@ import api from "../lib/api";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 import { GoogleLogin } from "@react-oauth/google";
+import GoogleAuthGate from "../components/GoogleAuthGate";
+import LegalLinks from "../components/LegalLinks";
+import SystemUseBanner from "../components/SystemUseBanner";
+import ContentMarkdown from "../components/ContentMarkdown";
+import { useContent, useContentState } from "../lib/content";
 import { Eye, EyeOff } from "lucide-react";
 import logo from "../assets/OrkaVault.png";
 
@@ -26,6 +31,15 @@ export default function Register() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [isFirstUser, setIsFirstUser] = useState(false);
   const [setupToken, setSetupToken] = useState("");
+  // NEW-FEAT §4.3: required, unchecked by default. Gates both the form
+  // submit and the Google button; the backend rejects a missing version too.
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  // The checkbox accepts the current TERMS and PRIVACY versions; the backend
+  // rejects anything else (Phase 4b).
+  const termsLabel = useContent("REGISTER_TERMS_LABEL");
+  const terms = useContent("TERMS");
+  const privacy = useContent("PRIVACY");
+  const { refreshContent } = useContentState();
 
   useEffect(() => {
     api.get("/auth/setup-status").then((res) => {
@@ -65,6 +79,10 @@ export default function Register() {
     e.preventDefault();
     setError("");
     setSuccess("");
+    if (!acceptedTerms) {
+      setError("You must accept the Terms of Use and Privacy notice to register.");
+      return;
+    }
     try {
       const res = await api.post("/auth/register", {
         name,
@@ -75,6 +93,7 @@ export default function Register() {
         googleId,
         avatarUrl,
         setupToken: isFirstUser ? setupToken : undefined,
+        acceptedVersions: { TERMS: terms?.version, PRIVACY: privacy?.version },
       });
       if (res.data.active) {
         setSuccess(
@@ -87,6 +106,14 @@ export default function Register() {
       }
       setTimeout(() => navigate("/login"), 3000);
     } catch (err) {
+      // The Terms or Privacy notice was re-published while this page was
+      // open: load the new versions and ask the user to re-confirm.
+      if (err.response?.data?.currentVersions) {
+        await refreshContent();
+        setAcceptedTerms(false);
+        setError("The Terms of Use or Privacy notice was just updated. Review it, tick the box again and register.");
+        return;
+      }
       setError(err.response?.data?.error || "Registration failed");
     }
   };
@@ -113,7 +140,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[var(--bg-canvas)] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="consent-safe min-h-screen bg-gray-50 dark:bg-[var(--bg-canvas)] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center items-center mb-4">
           <img
@@ -129,6 +156,7 @@ export default function Register() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white dark:bg-[var(--bg-surface)] py-8 px-4 shadow-sm sm:rounded-lg sm:px-10">
+          <SystemUseBanner />
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border-l-4 border-brand-red p-4">
@@ -249,10 +277,25 @@ export default function Register() {
               </div>
             )}
 
+            <div className="flex items-start">
+              <input
+                id="accept-terms"
+                type="checkbox"
+                required
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 text-brand-blue focus:ring-brand-blue border-gray-300 rounded-sm"
+              />
+              <label htmlFor="accept-terms" className="ml-2 block text-sm text-gray-700 dark:text-[var(--text-secondary)]">
+                {termsLabel && <ContentMarkdown variant="inline">{termsLabel.body}</ContentMarkdown>}
+              </label>
+            </div>
+
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-brand-blue hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue"
+                disabled={!acceptedTerms}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-brand-blue hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Register
               </button>
@@ -271,15 +314,25 @@ export default function Register() {
               </div>
 
               <div className="mt-6 flex justify-center">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError("Google authentication failed")}
-                  useOneTap
-                  theme="outline"
-                  size="large"
-                  text="continue_with"
-                  shape="rectangular"
-                />
+                {/* GoogleLogin has no disabled prop, so it isn't mounted
+                    (no button, no One Tap) until the Terms box is checked. */}
+                {acceptedTerms ? (
+                  <GoogleAuthGate>
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => setError("Google authentication failed")}
+                      useOneTap
+                      theme="outline"
+                      size="large"
+                      text="continue_with"
+                      shape="rectangular"
+                    />
+                  </GoogleAuthGate>
+                ) : (
+                  <p className="text-sm text-center text-gray-500 dark:text-[var(--text-tertiary)]">
+                    Accept the Terms of Use above to continue with Google.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -293,6 +346,7 @@ export default function Register() {
             </div>
           </form>
         </div>
+        <LegalLinks className="mt-6 justify-center" />
       </div>
     </div>
   );

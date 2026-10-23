@@ -41,6 +41,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // One-time cleanup: older builds stored the access/refresh tokens in
+    // localStorage. Auth is cookie-only now, so wipe any leftovers rather
+    // than leave credentials readable by page scripts.
+    try {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+    } catch {}
     fetchUser();
   }, []);
 
@@ -49,9 +56,15 @@ export const AuthProvider = ({ children }) => {
     if (data.mfaRequired) {
       return data;
     }
-    localStorage.setItem("accessToken", data.accessToken);
-    localStorage.setItem("refreshToken", data.refreshToken);
     await fetchUser();
+    return data;
+  };
+
+  // Re-reads /auth/me without flipping `loading`, so the screen doesn't
+  // flash "Loading..." (used by the System Use Notice gate).
+  const refreshUser = async () => {
+    const { data } = await api.get("/auth/me");
+    setUser(data);
     return data;
   };
 
@@ -73,8 +86,6 @@ export const AuthProvider = ({ children }) => {
       if (data.mfaRequired) {
         return data;
       }
-      localStorage.setItem("accessToken", data.accessToken);
-      localStorage.setItem("refreshToken", data.refreshToken);
       await fetchUser();
     }
     return data; // returns action ('login' | 'register') and data
@@ -89,8 +100,6 @@ export const AuthProvider = ({ children }) => {
       deviceName,
       publicKey
     });
-    localStorage.setItem("accessToken", data.accessToken);
-    localStorage.setItem("refreshToken", data.refreshToken);
     if (data.mfaDeviceId) {
       localStorage.setItem("mfaDeviceId", data.mfaDeviceId);
     }
@@ -126,6 +135,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         fetchUser,
+        refreshUser,
         continueWithGoogle,
         mfaVerify,
         realUser: user,

@@ -80,7 +80,7 @@ router.patch(
     try {
       const user = await prisma.user.update({
         where: { id: asString(req.params.id) },
-        data: { active: false, revoked: true },
+        data: { active: false, revoked: true, discordUserId: null },
       });
       res.json({
         message: "User registration declined.",
@@ -161,9 +161,11 @@ router.delete(
     }
     try {
       await prisma.$transaction([
+        // Unlinking Discord too: integrations.ts also checks `active`, this
+        // is defense in depth so a deactivated account has no chat identity.
         prisma.user.update({
           where: { id: asString(req.params.id) },
-          data: { active: false, revoked: true },
+          data: { active: false, revoked: true, discordUserId: null },
         }),
         prisma.accessGrant.updateMany({
           where: { userId: asString(req.params.id), active: true },
@@ -203,7 +205,7 @@ router.post(
       await prisma.$transaction([
         prisma.user.updateMany({
           where: { id: { in: userIds } },
-          data: { active: false, revoked: true },
+          data: { active: false, revoked: true, discordUserId: null },
         }),
         prisma.accessGrant.updateMany({
           where: { userId: { in: userIds }, active: true },

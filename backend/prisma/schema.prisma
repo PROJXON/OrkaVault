@@ -35,6 +35,14 @@ model User {
   mfaEnabled       Boolean   @default(false)
   mfaSecret        String?
   mfaDevices       MfaDevice[]
+  // deprecated (Phase 4b): Phase 4's legal acceptance columns. Backfilled
+  // into ContentAcceptance by seedContent() and no longer read. Kept because
+  // dropping columns that hold data fails `prisma db push` on deploy; remove
+  // them in a separate, deliberate step.
+  termsVersionAccepted      String?
+  termsAcceptedAt           DateTime?
+  noticeVersionAcknowledged String?
+  noticeAcknowledgedAt      DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -43,6 +51,61 @@ model User {
   auditLogs        AuditLog[]
   notifications    Notification[]
   managedCollections Collection[] @relation("ManagedCollections")
+  contentAcceptances ContentAcceptance[]
+  contentPublished   ContentVersion[] @relation("ContentPublishedBy")
+  contentDrafts      ContentDraft[]   @relation("ContentDraftUpdatedBy")
+}
+
+// ─── Admin-editable policies and banners (Phase 4b) ─────────────────────
+// Keys are validated against config/contentRegistry.ts in code (not a DB
+// enum), so adding an editable banner needs no schema change.
+
+// A published version. Immutable: no route updates or deletes these rows.
+model ContentVersion {
+  id            String   @id @default(uuid())
+  key           String   // registry key
+  version       String   // ISO-8601 UTC publish timestamp to the second; "2026-10-23" for seeded v1
+  title         String?  // policies only
+  body          String   // Markdown, never HTML
+  bodySha256    String
+  draftBanner   Boolean  @default(false) // show LEGAL_DRAFT_BANNER on this page
+  requiresReacceptance Boolean @default(false) // false = "minor fix" (and always for banners)
+  changeNote    String
+  publishedAt   DateTime @default(now())
+  publishedById String?
+  publishedBy   User?    @relation("ContentPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+  acceptances   ContentAcceptance[]
+
+  @@unique([key, version])
+  @@index([key, publishedAt])
+}
+
+// One draft per key. Every edit lands here; nothing here is visible to users.
+model ContentDraft {
+  key         String   @id
+  title       String?
+  body        String
+  draftBanner Boolean  @default(false)
+  basedOn     String?  // version the draft started from → "someone published since you started" warning
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+  updatedBy   User?    @relation("ContentDraftUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+// Every acceptance, ever: the record behind Profile → "My agreements".
+model ContentAcceptance {
+  id               String         @id @default(uuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentVersionId String
+  contentVersion   ContentVersion @relation(fields: [contentVersionId], references: [id], onDelete: Restrict)
+  key              String         // denormalized for fast "latest per key" lookups
+  acceptedAt       DateTime       @default(now())
+  ipAddress        String?
+  via              String         // "registration" | "gate"
+
+  @@unique([userId, contentVersionId])
+  @@index([userId, key, acceptedAt])
 }
 
 model MfaDevice {

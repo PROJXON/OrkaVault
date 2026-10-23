@@ -37,6 +37,24 @@ export function clientIp(req: Request): string | null {
   return stripV4Mapped(req.ip ?? req.socket?.remoteAddress ?? null);
 }
 
+// Client IP for security decisions (rate limiting). Unlike clientIp(), this
+// takes the RIGHT-most public X-Forwarded-For entry: that's the one Render's
+// proxy appended from the actual TCP peer, so a client can't forge it. A
+// client-sent "X-Forwarded-For: 1.2.3.4" only ever ends up to its left.
+export function trustedClientIp(req: Request): string | null {
+  const header = req.headers["x-forwarded-for"];
+  const chain = Array.isArray(header) ? header.join(",") : header;
+  const parts = (chain ?? "")
+    .split(",")
+    .map((s) => stripV4Mapped(s.trim()))
+    .filter((s): s is string => !!s);
+
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (!isPrivateIp(parts[i])) return parts[i];
+  }
+  return stripV4Mapped(req.socket?.remoteAddress ?? req.ip ?? null);
+}
+
 function stripV4Mapped(ip: string | null): string | null {
   if (!ip) return null;
   return ip.startsWith("::ffff:") ? ip.slice("::ffff:".length) : ip;
