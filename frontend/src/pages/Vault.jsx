@@ -3,20 +3,14 @@ import { useSearchParams } from "react-router-dom";
 import {
   Search, Plus, Edit2, Trash2, Heart, History, RefreshCw, UploadCloud,
   ShieldAlert, Lock, X, Bell, Star, Clock, KeyRound, LayoutGrid, Folder,
-<<<<<<< HEAD
   Copy, Check,
-=======
->>>>>>> origin/main
 } from "lucide-react";
 import api from "../lib/api";
 import { useAuth } from "../lib/authContext";
 import RevealPassword from "../components/RevealPassword";
 import RevealOtp from "../components/RevealOtp";
-<<<<<<< HEAD
 import CustomFieldRow from "../components/CustomFieldRow";
 import useAccountReveal from "../lib/useAccountReveal";
-=======
->>>>>>> origin/main
 import AdminQrModal from "../components/AdminQrModal";
 import RequestModal from "../components/RequestModal";
 import AddEntryModal from "../components/AddEntryModal";
@@ -26,10 +20,7 @@ import QrPendingModal from "../components/QrPendingModal";
 import AccessHistoryModal from "../components/AccessHistoryModal";
 import HealthPill from "../components/HealthPill";
 import { meetsClearance } from "../lib/clearance";
-<<<<<<< HEAD
 import { ENTRY_TYPES, EntryTypeIcon, entryTypeInfo, isNote } from "../lib/entryTypes";
-=======
->>>>>>> origin/main
 
 const formatPlatformType = (type) => {
   const map = { THIRD_PARTY: "Third Party", GOOGLE_WORKSPACE: "Google Workspace" };
@@ -58,10 +49,7 @@ export default function Vault() {
   const [selectedCollection, setSelectedCollection] = useState("");
   const [sortMode, setSortMode] = useState("smart");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-<<<<<<< HEAD
   const [typeFilter, setTypeFilter] = useState(""); // "" = all entry types
-=======
->>>>>>> origin/main
   const [selectedId, setSelectedId] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
@@ -72,7 +60,6 @@ export default function Vault() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [syncingWorkspace, setSyncingWorkspace] = useState(false);
   const [showBulkSelect, setShowBulkSelect] = useState(false);
-<<<<<<< HEAD
   const [usernameCopied, setUsernameCopied] = useState(false);
 
   const handleCopyUsername = async (username) => {
@@ -84,8 +71,6 @@ export default function Vault() {
       console.error("Failed to copy username to clipboard");
     }
   };
-=======
->>>>>>> origin/main
 
   const selectAccount = (id) => {
     setSelectedId(id);
@@ -301,12 +286,8 @@ export default function Vault() {
     const matchesSearch = a.name.toLowerCase().includes(q) || a.username.toLowerCase().includes(q);
     const matchesCollection = selectedCollection ? a.collectionId === selectedCollection : true;
     const matchesFav = favoritesOnly ? favorites.includes(a.id) : true;
-<<<<<<< HEAD
     const matchesType = typeFilter ? (a.entryType || "LOGIN") === typeFilter : true;
     return matchesSearch && matchesCollection && matchesFav && matchesType;
-=======
-    return matchesSearch && matchesCollection && matchesFav;
->>>>>>> origin/main
   });
 
   const sortedAccounts = useMemo(() => {
@@ -327,19 +308,12 @@ export default function Vault() {
     return list;
   }, [filtered, sortMode, favorites]);
 
-<<<<<<< HEAD
   // Secure notes aren't health-scored, so they're left out of the health KPIs.
   const scoredAccounts = accounts.filter((a) => !isNote(a));
   const weakCount = scoredAccounts.filter((a) => a.healthLabel === "WEAK").length;
   const avgHealth = scoredAccounts.length > 0 ? Math.round(scoredAccounts.reduce((sum, a) => sum + a.healthScore, 0) / scoredAccounts.length) : 0;
   const qrPendingAccounts = accounts.filter(
     (a) => !isNote(a) && a.platformType === "GOOGLE_WORKSPACE" && !a.isGoogleSSO && !a.hasTotpQr
-=======
-  const weakCount = accounts.filter((a) => a.healthLabel === "WEAK").length;
-  const avgHealth = accounts.length > 0 ? Math.round(accounts.reduce((sum, a) => sum + a.healthScore, 0) / accounts.length) : 0;
-  const qrPendingAccounts = accounts.filter(
-    (a) => a.platformType === "GOOGLE_WORKSPACE" && !a.isGoogleSSO && !a.hasTotpQr
->>>>>>> origin/main
   );
   const favoriteAccounts = accounts.filter((a) => favorites.includes(a.id));
   const unreadNotifs = notifications.filter((n) => !n.read).slice(0, 5);
@@ -368,7 +342,6 @@ export default function Vault() {
   const selected = accounts.find((a) => a.id === selectedId) || null;
   const selectedEntryCollection = selected?.collectionId ? collectionsById[selected.collectionId] : null;
 
-<<<<<<< HEAD
   // One reveal session for the selected entry, shared by the password pill
   // and its custom field rows (one reveal call, one single-view window).
   const selectedReveal = useAccountReveal(selectedId, {
@@ -376,21 +349,16 @@ export default function Vault() {
     onRevealed: (grantExpiresAt) => handleGrantRevealed(selectedId, grantExpiresAt),
   });
 
-=======
->>>>>>> origin/main
   useEffect(() => {
     if (selectedId && !accounts.some((a) => a.id === selectedId) && !loading) {
       setSelectedId(null);
     }
   }, [accounts, selectedId, loading]);
 
-<<<<<<< HEAD
   useEffect(() => {
     setUsernameCopied(false);
   }, [selectedId]);
 
-=======
->>>>>>> origin/main
   return (
     <div className="-m-6 w-[calc(100%+48px)] h-[calc(100%+48px)] flex flex-col">
       <div className="pane-tabs">
@@ -456,15 +424,12 @@ export default function Vault() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-<<<<<<< HEAD
               <select className="select" style={{ flex: 1 }} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Entry type">
                 <option value="">All Types</option>
                 {Object.entries(ENTRY_TYPES).map(([type, info]) => (
                   <option key={type} value={type}>{info.label}</option>
                 ))}
               </select>
-=======
->>>>>>> origin/main
               <select className="select" style={{ flex: 1 }} value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
                 <option value="smart">Favorites first</option>
                 <option value="health">Weakest first</option>
@@ -557,18 +522,12 @@ export default function Vault() {
                             className="mt-1 shrink-0 rounded-sm border-gray-300 dark:border-[var(--border-default)] text-brand-red focus:ring-brand-red"
                           />
                         )}
-<<<<<<< HEAD
                         <EntryTypeIcon type={account.entryType} style={{ marginTop: 2 }} />
                         <div className="min-w-0">
                           <div className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{account.name}</div>
                           <div className="text-xs truncate" style={{ color: "var(--text-tertiary)" }}>
                             {isNote(account) ? entryTypeInfo(account.entryType).label : account.username}
                           </div>
-=======
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{account.name}</div>
-                          <div className="text-xs truncate" style={{ color: "var(--text-tertiary)" }}>{account.username}</div>
->>>>>>> origin/main
                         </div>
                       </div>
                       <button
@@ -579,11 +538,7 @@ export default function Vault() {
                       </button>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap pt-2" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-<<<<<<< HEAD
                       {!isNote(account) && <HealthPill label={account.healthLabel} />}
-=======
-                      <HealthPill label={account.healthLabel} />
->>>>>>> origin/main
                       <span className="badge-pill">{formatPlatformType(account.platformType)}</span>
                       {account.requiredClearance && <span className="badge-pill">{account.requiredClearance}</span>}
                       {collectionsById[account.collectionId] && (
@@ -618,7 +573,6 @@ export default function Vault() {
                 </button>
               </div>
               <div className="pane-head" style={{ paddingTop: 8 }}>
-<<<<<<< HEAD
                 <span className="pin work">
                   {(() => {
                     const TypeIcon = entryTypeInfo(selected.entryType).icon;
@@ -630,18 +584,11 @@ export default function Vault() {
                   <div className="text-xs text-muted">
                     {isNote(selected) ? entryTypeInfo(selected.entryType).label : selected.username} · {formatPlatformType(selected.platformType)}
                   </div>
-=======
-                <span className="pin work"><KeyRound width={15} height={15} /></span>
-                <div>
-                  <div className="ph-title">{selected.name}</div>
-                  <div className="text-xs text-muted">{selected.username} · {formatPlatformType(selected.platformType)}</div>
->>>>>>> origin/main
                 </div>
               </div>
 
               <div className="pane-scroll scroll-area flex-1">
                 <div className="card p-5 mb-4">
-<<<<<<< HEAD
                   {!isNote(selected) && (
                   <div className="mb-4">
                     <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--text-tertiary)" }}>
@@ -668,10 +615,6 @@ export default function Vault() {
                   )}
                   <div className="flex flex-wrap gap-2 mb-4">
                     {!isNote(selected) && <HealthPill label={selected.healthLabel} />}
-=======
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <HealthPill label={selected.healthLabel} />
->>>>>>> origin/main
                     {selected.requiredClearance && <span className="badge-pill">{selected.requiredClearance}</span>}
                     <span className="badge-pill">
                       Updated {selected.lastUpdatedAt ? new Date(selected.lastUpdatedAt).toLocaleDateString() : new Date(selected.createdAt).toLocaleDateString()}
@@ -699,10 +642,7 @@ export default function Vault() {
                   )}
 
                   <div
-<<<<<<< HEAD
                     ref={selectedReveal.containerRef}
-=======
->>>>>>> origin/main
                     className="vault-protected"
                     onContextMenu={(e) => e.preventDefault()}
                     onCopy={(e) => e.preventDefault()}
@@ -732,11 +672,8 @@ export default function Vault() {
                           <RevealPassword
                             key={`pw-${selected.id}`}
                             accountId={selected.id}
-<<<<<<< HEAD
                             reveal={selectedReveal}
                             entryType={selected.entryType}
-=======
->>>>>>> origin/main
                             isAdmin={hasDirectAccess(selected)}
                             onRequestAccess={() => setRequestModal({ isOpen: true, account: selected })}
                             onGrantExpired={() => handleGrantExpired(selected.id)}
@@ -776,7 +713,6 @@ export default function Vault() {
                         })()}
                       </div>
                     )}
-<<<<<<< HEAD
 
                     {selected.customFields?.length > 0 && (() => {
                       const canReveal = hasSufficientClearance(selected) && (hasDirectAccess(selected) || selected.hasGrant);
@@ -797,8 +733,6 @@ export default function Vault() {
                         </div>
                       );
                     })()}
-=======
->>>>>>> origin/main
                   </div>
                 </div>
 
@@ -810,17 +744,11 @@ export default function Vault() {
                     <button className="btn btn-secondary btn-sm" onClick={() => setEditModal({ isOpen: true, account: selected })}>
                       <Edit2 width={14} height={14} /> Edit Entry
                     </button>
-<<<<<<< HEAD
                     {!isNote(selected) && (
                       <button className="btn btn-secondary btn-sm" onClick={() => handleForceRotate(selected.id)}>
                         <RefreshCw width={14} height={14} /> Force Rotate
                       </button>
                     )}
-=======
-                    <button className="btn btn-secondary btn-sm" onClick={() => handleForceRotate(selected.id)}>
-                      <RefreshCw width={14} height={14} /> Force Rotate
-                    </button>
->>>>>>> origin/main
                     <button className="btn btn-danger btn-sm" onClick={() => handleDeleteAccount(selected.id)}>
                       <Trash2 width={14} height={14} /> Delete
                     </button>
@@ -882,11 +810,7 @@ export default function Vault() {
               ) : (
                 favoriteAccounts.slice(0, 6).map((a) => (
                   <div key={a.id} className="mini-row" style={{ cursor: "pointer" }} onClick={() => selectAccount(a.id)}>
-<<<<<<< HEAD
                     <span className="mr-ic"><EntryTypeIcon type={a.entryType} size={14} style={{ color: "inherit" }} /></span>
-=======
-                    <span className="mr-ic"><KeyRound width={14} height={14} /></span>
->>>>>>> origin/main
                     <div className="mr-main">
                       <div className="mr-t">{a.name}</div>
                       <div className="mr-m">{formatPlatformType(a.platformType)}</div>
