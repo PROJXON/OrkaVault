@@ -335,6 +335,23 @@
     padding: 6px 9px; border-radius: var(--radius-sm); background: var(--bg-inverse); color: var(--text-inverse);
     font-size: var(--fs-xs); white-space: nowrap; box-shadow: var(--shadow-md); z-index: var(--z-tooltip);
   }
+  /* Nested nav items (Phase 4d Documentation → Policies) */
+  .nav-parent { display: flex; align-items: center; position: relative; }
+  .nav-parent > .navitem { flex: 1; min-width: 0; padding-right: 34px; }
+  .nav-toggle {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+    border-radius: var(--radius-xs); color: var(--text-tertiary); transition: background var(--dur-fast), color var(--dur-fast);
+  }
+  .nav-toggle:hover { background: var(--bg-muted); color: var(--text-primary); }
+  .nav-toggle svg { transition: transform var(--dur-fast) var(--ease-out); }
+  .nav-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+  .nav-children { margin-left: 20px; padding-left: 8px; border-left: 1px solid var(--border-subtle); }
+  .nav-children .navitem { font-size: var(--fs-sm); padding: 7px 10px; }
+  .navitem.disabled, .navitem.disabled:hover { cursor: default; color: var(--text-tertiary); background: transparent; }
+  .sidenav.collapsed .nav-children, .sidenav.collapsed .nav-toggle { display: none; }
+  .sidenav.collapsed .nav-parent > .navitem { padding-right: 9px; }
+  .sidenav.collapsed .navitem .tag { display: none; }
   .hamburger { display: none; }
   .mobile-scrim { display: none; }
 
@@ -478,6 +495,10 @@
   .legal-prose .legal-body > p:first-child { font-size: var(--fs-lg); color: var(--text-primary); margin-top: var(--space-4); }
   .legal-prose blockquote { font-size: var(--fs-sm); color: var(--info-text); background: var(--info-subtle); border: 1px solid var(--info-border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); margin: 0 0 var(--space-3); }
   .legal-prose blockquote p:last-child { margin-bottom: 0; }
+  /* Fenced code blocks (Phase 4d REST API docs) */
+  .legal-prose pre { font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 1.6; background: var(--bg-subtle); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-4); overflow-x: auto; }
+  .legal-prose pre code { background: transparent; padding: 0; border-radius: 0; font-size: inherit; overflow-wrap: normal; white-space: pre; }
+  .legal-prose .legal-table-wrap { margin: 0 0 var(--space-4); }
   .legal-diff { font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 1.5; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg-subtle); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
   .legal-diff .d-line { padding: 0 var(--space-2); }
   .legal-diff .d-add { background: var(--success-subtle); color: var(--success-text); }
@@ -558,6 +579,10 @@
   .sidenav.collapsed .nav-grouphead { justify-content: flex-start; padding: 8px 10px; }
   .sidenav.collapsed [data-tip]:hover::after { display: none; }
   .sidenav.collapsed .sidenav-legal { display: flex; }
+  .sidenav.collapsed .nav-children { display: block; }
+  .sidenav.collapsed .nav-toggle { display: inline-flex; }
+  .sidenav.collapsed .nav-parent > .navitem { padding-right: 34px; }
+  .sidenav.collapsed .navitem .tag { display: inline; }
   .sidenav.collapsed .navitem .nav-badge {
     position: static; margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border: 0;
   }

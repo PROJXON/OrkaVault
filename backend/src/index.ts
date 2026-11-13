@@ -24,6 +24,7 @@ import integrationsRoutes from "./routes/integrations";
 import contentRoutes from "./routes/content";
 import apiKeysRoutes from "./routes/apiKeys";
 import externalAuditRoutes from "./routes/externalAudit";
+import docsRoutes from "./routes/docs";
 import { checkApiKeyExpiry, EXTERNAL_API_ENABLED } from "./services/apiKeys";
 import { seedContent } from "./services/content";
 import { notifyAdmins } from "./services/notifications";
@@ -108,6 +109,7 @@ app.use("/api/backups", backupsRoutes);
 app.use("/api/integrations", integrationsRoutes);
 app.use("/api/content", contentRoutes);
 app.use("/api/api-keys", apiKeysRoutes);
+app.use("/api/docs", docsRoutes);
 // Service-key API for OrkaSecurity (Phase 4c). After requireCsrf (so non-GET
 // methods are already 403) and before the /api catch-all router.
 app.use("/api/external/v1/audit", externalAuditRoutes);

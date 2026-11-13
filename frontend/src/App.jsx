@@ -28,6 +28,10 @@ import Profile from "./pages/Profile";
 import Collections from "./pages/Collections";
 import ManagerCollections from "./pages/ManagerCollections";
 import ManageConsole from "./pages/ManageConsole";
+import DocsHome from "./pages/docs/DocsHome";
+import RestApiDocs from "./pages/docs/RestApiDocs";
+import PoliciesIndex from "./pages/docs/PoliciesIndex";
+import PolicyDoc from "./pages/docs/PolicyDoc";
 
 import { useLocation } from "react-router-dom";
 
@@ -84,6 +88,14 @@ const AppRoutes = () => {
         <Route path="vault" element={<Vault />} />
         <Route path="requests" element={<Requests />} />
         <Route path="profile" element={<Profile />} />
+
+        {/* Documentation (Phase 4d). /docs/api is ADMIN only: RestApiDocs shows
+            "Admins only" to other roles (UX, instead of a silent redirect) and
+            the real gate is GET /api/docs/rest-api. */}
+        <Route path="docs" element={<DocsHome />} />
+        <Route path="docs/api" element={<RestApiDocs />} />
+        <Route path="docs/policies" element={<PoliciesIndex />} />
+        <Route path="docs/policies/:page" element={<PolicyDoc />} />
 
         {/* MANAGER & ADMIN routes */}
         <Route

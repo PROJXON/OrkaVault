@@ -30,7 +30,7 @@ const POLICY_MAX = 100 * 1024;
 const BANNER_MAX = 1000;
 
 export const CONTENT_REGISTRY: ContentRegistryEntry[] = [
-  { key: "TERMS", kind: "policy", acceptance: "terms", label: "Terms of Use", defaultTitle: "Terms of Use", maxLength: POLICY_MAX, requiredAnchors: ["monitoring"] },
+  { key: "TERMS", kind: "policy", acceptance: "terms", label: "Terms of Use", defaultTitle: "Terms of Use", maxLength: POLICY_MAX, requiredAnchors: ["monitoring", "api"] },
   { key: "PRIVACY", kind: "policy", acceptance: "privacy", label: "Privacy notice", defaultTitle: "Privacy notice", maxLength: POLICY_MAX, requiredAnchors: ["personal-vault"] },
   { key: "NOTICE", kind: "policy", acceptance: "notice", label: "System Use Notice", defaultTitle: "System Use Notice", maxLength: POLICY_MAX, requiredAnchors: [] },
   { key: "COOKIES", kind: "policy", acceptance: "consent", label: "Cookie and storage notice", defaultTitle: "Cookie and storage notice", maxLength: POLICY_MAX, requiredAnchors: [] },

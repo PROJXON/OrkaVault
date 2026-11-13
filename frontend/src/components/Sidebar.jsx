@@ -11,18 +11,57 @@ import {
   Folder,
   Globe,
   ChevronLeft,
+  ChevronRight,
   LayoutGrid,
+  Code2,
+  ScrollText,
+  HelpCircle,
 } from "lucide-react";
 import { useAuth } from "../lib/authContext";
 import api from "../lib/api";
 import { NAV_BADGES_REFRESH_EVENT } from "../lib/navBadges";
+import { DOC_POLICIES } from "../pages/docs/docsNav";
 import LegalLinks from "./LegalLinks";
 import clsx from "clsx";
+
+const POLICIES_OPEN_KEY = "orka.nav.docsPolicies";
+
+function readStoredOpen(key) {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? null : v === "1";
+  } catch {
+    return null;
+  }
+}
+
+function storeOpen(key, open) {
+  try {
+    localStorage.setItem(key, open ? "1" : "0");
+  } catch {
+    // storage blocked: the toggle still works for this page view
+  }
+}
+
+const isWithin = (pathname, href) => pathname === href || pathname.startsWith(href + "/");
 
 export default function Sidebar({ mobileOpen, onClose }) {
   const { user } = useAuth();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  // Documentation → Policies: open when the current page is inside it,
+  // otherwise whatever the user last chose.
+  const [policiesOpen, setPoliciesOpen] = React.useState(
+    () => isWithin(location.pathname, "/docs/policies") || readStoredOpen(POLICIES_OPEN_KEY) === true,
+  );
+  React.useEffect(() => {
+    if (isWithin(location.pathname, "/docs/policies")) setPoliciesOpen(true);
+  }, [location.pathname]);
+  const togglePolicies = () =>
+    setPoliciesOpen((open) => {
+      storeOpen(POLICIES_OPEN_KEY, !open);
+      return !open;
+    });
   const [pendingUserCount, setPendingUserCount] = React.useState(0);
   const [pendingApprovalCount, setPendingApprovalCount] = React.useState(0);
 
@@ -77,35 +116,99 @@ export default function Sidebar({ mobileOpen, onClose }) {
     { name: "Settings", href: "/settings", icon: Settings, roles: ["ADMIN"] },
   ];
 
+  const ALL_ROLES = ["USER", "MANAGER", "ADMIN"];
+  const docsNav = [
+    // Role gating is UX only: GET /api/docs/rest-api enforces ADMIN.
+    { name: "REST API", href: "/docs/api", icon: Code2, roles: ["ADMIN"] },
+    {
+      name: "Policies",
+      href: "/docs/policies",
+      icon: ScrollText,
+      roles: ALL_ROLES,
+      open: policiesOpen,
+      onToggle: togglePolicies,
+      children: DOC_POLICIES.map((p) => ({ name: p.label, href: `/docs/policies/${p.page}` })),
+    },
+    { name: "FAQs", icon: HelpCircle, roles: ALL_ROLES, disabled: true, comingSoon: true },
+  ];
+
   const allowed = (items) => items.filter((item) => item.roles.includes(user.role));
   const allowedWorkspace = allowed(workspaceNav);
   const allowedManage = allowed(manageNav);
+  const allowedDocs = allowed(docsNav);
+
+  const renderItem = (item) => {
+    if (item.disabled) {
+      return (
+        <div
+          key={item.name}
+          className="navitem disabled"
+          aria-disabled="true"
+          data-tip={item.comingSoon ? `${item.name} (coming soon)` : item.name}
+        >
+          {item.icon && <item.icon width={18} height={18} className="shrink-0" />}
+          <span className="label truncate">{item.name}</span>
+          {item.comingSoon && <span className="tag">Coming soon</span>}
+        </div>
+      );
+    }
+
+    // A parent is "active" on its own page, and on a child page only while
+    // its children aren't visible (closed, or the icon-only rail); otherwise
+    // the child carries the highlight.
+    const isActive = item.children
+      ? location.pathname === item.href ||
+        (isWithin(location.pathname, item.href) && (!item.open || isCollapsed))
+      : isWithin(location.pathname, item.href);
+    const link = (
+      <Link
+        key={item.name}
+        to={item.href}
+        className={clsx("navitem", isActive && "active")}
+        data-tip={item.name}
+        aria-current={isActive ? "page" : undefined}
+        onClick={onClose}
+      >
+        {item.icon && <item.icon width={18} height={18} className="shrink-0" />}
+        <span className="label truncate">{item.name}</span>
+        {item.badge > 0 && (
+          <span className="nav-badge" title={`${item.badge} ${item.badgeTitle}`}>
+            {item.badge > 99 ? "99+" : item.badge}
+          </span>
+        )}
+      </Link>
+    );
+    if (!item.children) return link;
+
+    const childrenId = `nav-children-${item.href.replace(/\W+/g, "-")}`;
+    return (
+      <div key={item.name}>
+        <div className="nav-parent">
+          {link}
+          <button
+            type="button"
+            className="nav-toggle"
+            aria-expanded={item.open}
+            aria-controls={childrenId}
+            aria-label={`${item.open ? "Collapse" : "Expand"} ${item.name}`}
+            onClick={item.onToggle}
+          >
+            <ChevronRight width={15} height={15} />
+          </button>
+        </div>
+        {item.open && (
+          <div id={childrenId} className="nav-children flex flex-col">
+            {item.children.map(renderItem)}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderGroup = (label, items) => (
     <div className="nav-group mb-2">
       <div className="nav-grouphead"><span className="gtxt">{label}</span></div>
-      <div className="flex flex-col">
-        {items.map((item) => {
-          const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + "/");
-          return (
-            <Link
-              key={item.name}
-              to={item.href}
-              className={clsx("navitem", isActive && "active")}
-              data-tip={item.name}
-              onClick={onClose}
-            >
-              <item.icon width={18} height={18} className="shrink-0" />
-              <span className="label truncate">{item.name}</span>
-              {item.badge > 0 && (
-                <span className="nav-badge" title={`${item.badge} ${item.badgeTitle}`}>
-                  {item.badge > 99 ? "99+" : item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </div>
+      <div className="flex flex-col">{items.map(renderItem)}</div>
     </div>
   );
 
@@ -114,6 +217,7 @@ export default function Sidebar({ mobileOpen, onClose }) {
       <div className="sidenav-scroll scroll-area flex-1 overflow-y-auto py-3 px-3">
         {renderGroup("Workspace", allowedWorkspace)}
         {allowedManage.length > 0 && renderGroup("Manage", allowedManage)}
+        {renderGroup("Documentation", allowedDocs)}
       </div>
 
       <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "10px 12px" }}>

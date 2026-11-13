@@ -60,6 +60,12 @@ Run backend and frontend commands from within their own directory.
   material in audit metadata. Take `from` values from the row being
   replaced, not the request body. OrkaSecurity reads this log, so a
   missing row is a monitoring blind spot.
+- **REST API docs (Phase 4d):** the action catalog in
+  `config/auditActions.ts` feeds the in-app REST API page automatically;
+  any change to external API behaviour also updates
+  `backend/src/docs/rest-api.md` and its Changelog (see `ARCHITECTURE.md`
+  §6). That file is served to ADMINs only: no secrets, hostnames or env
+  var names in it.
 - No test suite and no lint config currently exist in this repo — don't
   assume a `test` or `lint` npm script; check `package.json` in the
   relevant app before claiming one runs. If you add meaningful backend

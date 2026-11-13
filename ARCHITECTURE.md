@@ -47,8 +47,11 @@ src/config/contentRegistry.ts The admin-editable content keys (policies TERMS/PR
                             frontend src/lib/contentRegistry.js. See services/content.ts.
 src/config/auditActions.ts  AUDIT_ACTIONS catalog (category, description, metadata keys) — the single source of
                             truth for every AuditLog.action string. `AuditAction = keyof typeof AUDIT_ACTIONS`
-                            types services/audit.ts, so an uncatalogued action fails tsc. Phase 4d's docs page
-                            serves it.
+                            types services/audit.ts, so an uncatalogued action fails tsc. GET /api/docs/rest-api
+                            serves it grouped by category, so the in-app REST API docs can't go stale.
+src/docs/rest-api.md        REST API docs body (Phase 4d), read once at startup by routes/docs.ts (dist/ falls
+                            back to src/docs, tsc doesn't copy .md). ADMIN-only, never in the frontend bundle.
+                            No secrets/hostnames/env var names; `{{AUDIT_BASE_URL}}` is filled in by the frontend.
 src/config/content-seed/    <KEY>.md: v1 text seeded by seedContent() for a key with no published version.
                             Read from the source tree at runtime (tsc doesn't copy .md into dist/).
 src/scripts/                One-off/maintenance scripts run via ts-node, not imported by the app
@@ -91,6 +94,7 @@ prisma.config.ts            CLI-only config (generate/db push/studio) — replac
 | `/api/content` | `routes/content.ts` | Admin-editable policies and banners (Phase 4b, `services/content.ts`). **Public:** GET `/current` (every key's current `{key, version, title, body, draftBanner, publishedAt, requiresReacceptance, changeNote}` + `required: {KEY: version}`, `Cache-Control: max-age=60`, never drafts); GET `/:key/versions`, `/:key/versions/:version` (public for policy keys, ADMIN for banners). Public responses only carry the change note of re-acceptance versions; minor-fix/banner notes are internal. **Authed:** GET `/me/acceptances` (the caller's own `ContentAcceptance` history). **ADMIN:** GET `/admin/summary` (registry + current version + draft info + `activeUsers`), GET `/:key/history` (publisher, internal note, `acceptedBy` count, hash), GET/PUT/DELETE `/:key/draft` (PUT = autosave; creates the draft based on current; returns `staleBase`, `changed`, `warnings`), POST `/:key/publish` `{changeNote, requiresReacceptance, draftBanner?, allowTbd?}` (`requiresReacceptance` required for policies, rejected for banners; writes a `CONTENT_PUBLISHED` AuditLog row with the body hash). Mounted with a 512kb JSON limit. No route updates or deletes `ContentVersion`/`ContentAcceptance`. |
 | `/api/api-keys` | `routes/apiKeys.ts` | All [ADMIN] + CSRF, `Cache-Control: no-store` (Phase 4c, `services/apiKeys.ts`). GET `/` (`?include=all` adds older revoked/expired; default: active + revoked/expired in the last 30 days) → `{keys: [{id, name, last4, scopes, createdAt, createdBy: {name, active}, expiresAt, lastUsedAt, revokedAt, revokedBy, status}], maxActive: 3, activeCount, externalApiEnabled}` — never `keyHash`. POST `/` `{name, expiresInDays: 30\|90\|365\|null, mfaCode}` and POST `/:id/regenerate` `{mfaCode, expiresInDays?}` need a fresh TOTP code (step-up, 90 s replay block, `apiKeyStepUpLimiter`; 403 `STEP_UP_FAILED`) and return the plaintext `key` **once**. Max 3 active keys (409 `KEY_LIMIT`, Serializable tx), name unique among active keys (409 `NAME_TAKEN`). Regenerate revokes the old key (`replacedById`) in the same tx, so it works at 3/3. DELETE `/:id` revokes, no step-up, idempotent. Every create/regenerate/revoke writes an `API_KEY_*` AuditLog row in the same tx and notifies all admins (`API_KEY_ALERT`). Not in `integrations.ts` on purpose (that file is unauthenticated webhooks). |
 | `/api/external/v1/audit` | `routes/externalAudit.ts` | **Service API key only** (`Authorization: Bearer oksec_…`, `middleware/apiKey.ts`) — no JWT, no cookies; OrkaSecurity pulls from here. Answers the ordinary 404 for every path unless `EXTERNAL_AUDIT_API_ENABLED=true`. Not CSRF-exempt, so non-GET → 403. GET `/` `?after=<seq ≥0>&limit=<1–1000, default 500>&action=A,B` (unknown/bad params → 400) → `{items, nextCursor, hasMore, serverTime}`: rows with `seq > after` and `timestamp < now − 30 s` (settle window, so a late-committing tx can't be skipped), ordered by `seq`, explicit select of every AuditLog column + `user {id, name, email, department, role, active}` + `account {id, name}`. GET `/status` → `{oldestSeq, newestSeq, retentionDays, serverTime}` for gap/retention-loss detection. Only write: `ApiKey.lastUsedAt`, at most once a minute per key. No AuditLog row per successful poll. Contract and runbook in `DEVHELP.md`. |
+| `/api/docs` | `routes/docs.ts` | In-app documentation (Phase 4d). `requireAuth` + `Cache-Control: no-store` on the router. GET `/rest-api` [ADMIN] → `{markdown, actions: [{category, actions: [{action, description, metadata}]}], apiVersion: "v1", externalApiEnabled}`; `markdown` is `src/docs/rest-api.md`, `actions` is `config/auditActions.ts`. This route is the real gate for `/docs/api`; the docs text is deliberately not in the public frontend bundle. |
 | `/api` (misc) | `routes/misc.ts` | `/grants/me`, `/grants/:id`, `/notifications`, `/notifications/stream`, `/notifications/read-all`, `/notifications/:id/read`, `/audit`, `/health/scores`, `/health/check/:id`, POST `/csp-report` (public, CSRF-exempt, `cspReportLimiter`, 8kb body; logs browser CSP violation reports) — `/notifications/stream` is a live SSE feed authenticated by the `accessToken` cookie (`EventSource` with `withCredentials: true`, no query token), verified by hand in the route rather than via `requireAuth` so failures are a bare 401 instead of a JSON body. Fed by `services/sseHub.ts`. |
 
 Every protected route uses `requireAuth` then optionally
@@ -195,6 +199,8 @@ src/pages/                   One file per route (see table below)
 src/pages/legal/             LegalLayout.jsx (title/version line/notice slot/TOC from the rendered h2[id]s/back/
                              print/theme; exports LegalDraftBanner), LegalPage.jsx (/legal/:page, current version),
                              LegalVersions.jsx (LegalVersionList, LegalVersionView: "Previous versions")
+src/pages/docs/              Documentation section (Phase 4d): DocsHome, RestApiDocs, PoliciesIndex, PolicyDoc;
+                             docsNav.js (DOC_POLICIES, shared with Sidebar.jsx)
 src/components/              Shared UI: modals, tables, layout chrome
 src/assets/fonts/            Self-hosted Inter (InterVariable.woff2 + OFL license), @font-face in src/index.css
 main.cjs, preload.cjs        Electron main process (desktop shell) — loads Vite dev server in dev, dist/ in prod.
@@ -217,6 +223,10 @@ csp.config.js                CSP single source (buildCsp). vite.config.js's buil
 | `/vault` | `Vault.jsx` | any authenticated user |
 | `/requests` | `Requests.jsx` | any authenticated user |
 | `/profile` | `Profile.jsx` | any authenticated user |
+| `/docs` | `docs/DocsHome.jsx` | any authenticated user (cards: REST API for ADMIN, Policies, FAQs "Coming soon") |
+| `/docs/api` | `docs/RestApiDocs.jsx` | ADMIN. Other roles see "Admins only" (in-page check, no redirect); the real gate is `GET /api/docs/rest-api`. Base URL + Copy, disabled-API banner, TOC, Markdown body, searchable audit action catalog |
+| `/docs/policies` | `docs/PoliciesIndex.jsx` | any authenticated user (the 4 policies + current version) |
+| `/docs/policies/:page` | `docs/PolicyDoc.jsx` | any authenticated user. Same published text as `/legal/:page` (via `LegalDocument`), in the app layout |
 | `/manage` | `ManageConsole.jsx` | MANAGER, ADMIN |
 | `/approvals` | `Approvals.jsx` | MANAGER, ADMIN |
 | `/my-collections` | `ManagerCollections.jsx` | MANAGER |
@@ -231,6 +241,14 @@ csp.config.js                CSP single source (buildCsp). vite.config.js's buil
 `DashboardLayout.jsx` (+ `Sidebar.jsx`, `TopBar.jsx`) wraps all
 authenticated routes. Role gating here is UX convenience only — the real
 enforcement is `requireRole` server-side.
+
+Sidebar groups: **Workspace**, **Manage** (MANAGER/ADMIN), and
+**Documentation** (everyone): REST API (ADMIN), Policies (expandable:
+Terms / Privacy / Cookies / System Use Notice; open state in
+`localStorage` `orka.nav.docsPolicies`, auto-open on a policy page; the
+icon-only rail hides children and Policies links to the index), FAQs
+(greyed "Coming soon", not a link). Items support `children` and
+`disabled`/`comingSoon`.
 
 `Vault.jsx` is a 3-pane workspace (Catalog / Workspace / Dashboard, CSS
 grid in a single route, not 3 separate pages) rather than a table — left
@@ -276,6 +294,7 @@ without per-file changes.
 - `AccessHistoryModal.jsx` — per-account audit trail.
 - `settings/IntegrationsTab.jsx` — Settings → **Integrations** tab (ADMIN, Phase 4c). OrkaSecurity endpoint + Copy, kill-switch notice, key table (Name · `oksec_…last4` · Created/by · Expires · Last used · Status; Regenerate/Revoke on active rows, history toggle), Generate disabled at 3/3. Create/regenerate dialog asks for a TOTP code; the reveal step shows the plaintext once (local state only, cleared on close; Esc/backdrop disabled until "I've stored this key"). `Settings.jsx` also honours `?tab=<key>` (used by `API_KEY_ALERT` notifications).
 - `ContentMarkdown.jsx` — the **only** renderer for admin-authored content (Phase 4b). `react-markdown` + `remark-gfm` + `rehype-slug`, `skipHtml`, images dropped, links: relative → router `Link`, `https:`/`mailto:` → external `rel="noopener noreferrer"`, anything else → plain text. `## Heading {#id}` sets a stable anchor; `[TBD: …]` is highlighted. `variant="page"` (blocks, wrapped in `.legal-body`) or `"inline"` (paragraphs as spans, links open in a new tab) for banners/labels. Never use `dangerouslySetInnerHTML` for this content.
+- `legal/LegalDocument.jsx` — one policy's current published version (Phase 4d): `useContent` load, `VersionMeta` ("Previous versions" → public `/legal/:page/versions`), draft banner, COOKIES "Cookie settings" button, `ContentMarkdown` body. Render prop `({found, title, meta, notice, actions, bodyKey, body}) => …` so `LegalPage` wraps it in `LegalLayout` and `PolicyDoc` in `docs/DocsArticle.jsx` (in-app card + "On this page" TOC + #hash scrolling).
 - `ContentAdmin.jsx` — Settings → **Content** tab (ADMIN). List (Policies / Banners, current version, "Draft — not published" badge), editor (title + "Show DRAFT banner" for policies, Markdown textarea autosaving to the draft, live preview, warnings: stale base / missing anchors / `[TBD` / length, Discard draft), publish dialogs (policies: "Publish & require re-acceptance" — or re-acknowledgment / re-ask cookie consent — and "Publish minor fix" with a soft warning past 10 changed lines or a heading change; banners: "Publish"; each with a required change note and a line diff), and history (View, Compare two versions, Start draft from this version, accepted-by counts).
 - `LineDiff.jsx` — line diff (`diff` package's `diffLines`) with collapsed unchanged runs, + `diffStats()`; used by `ContentAdmin.jsx`.
 - `MyAgreements.jsx` — Profile → "My agreements": the user's accepted versions per policy (`GET /content/me/acceptances`), when and how (at registration / after an update), Current badge, "Minor updates since — view current", View → `/legal/:page/versions/:version`. Shown once MFA is set up.
@@ -363,4 +382,6 @@ client-forgeable.
 - **Notification/email changes**: `backend/src/services/notifications.ts`; new event types need a `NotifType` enum entry in `schema.prisma`.
 - **Change legal/banner text**: Settings → Content (no code change, no deploy, no desktop rebuild). Edits are drafts; the button publishes. Policies: "Publish & require re-acceptance" for real changes, "Publish minor fix" for typos/formatting/links. Never hardcode new legal or notice text in JSX.
 - **Add a new editable banner**: a row in `backend/src/config/contentRegistry.ts` + `frontend/src/lib/contentRegistry.js` (with a `fallback`), a seed file `backend/src/config/content-seed/<KEY>.md`, and render it with `useContent(key)` + `<ContentMarkdown variant="inline">`. No schema change. UI chrome (buttons, form labels, errors) stays in code.
+- **New audit action**: add it to `backend/src/config/auditActions.ts` (name, category, description, metadata) first; `tsc` rejects an uncatalogued action, and the REST API docs page picks it up automatically.
+- **New external API behaviour**: update `backend/src/docs/rest-api.md` and its Changelog in the same change.
 - **Anything that changes what's stored about users** (new User/related field, new integration that receives data, new cookie or browser-storage key, retention change): tell the admin the Privacy notice and/or Cookie notice need updating in Settings → Content (a "require re-acceptance" publish for Privacy). If a heading other screens link to is renamed, keep its `{#id}`.
