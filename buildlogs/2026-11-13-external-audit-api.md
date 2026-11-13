@@ -14,7 +14,11 @@ and similar security events were never audited. Plan:
 
 **Schema** (`schema.prisma` only; prod `db push`, all additive or
 relaxing):
-- `AuditLog`: `seq Int @unique @default(autoincrement())` poll cursor;
+- `AuditLog`: `seq Int @default(autoincrement())` + `@@index([seq])` poll cursor
+  (first deploy used `@unique`; Render's `prisma db push` refused it with
+  a data-loss warning, which Prisma raises for any unique constraint added
+  to an existing table. The DB was untouched. Switched to a plain index:
+  the sequence keeps values distinct and nothing looks rows up by seq);
   `userId` now nullable; both FKs `onDelete: SetNull`; `actorEmail` /
   `accountName` snapshots; `@@index([timestamp])`.
 - New `ApiKey` model (hash + last 4 only), two back-relations on `User`.

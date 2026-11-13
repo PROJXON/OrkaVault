@@ -262,9 +262,14 @@ enum RequestStatus {
 // Phase 4c: audit history survives user/account deletion (SetNull + the
 // actorEmail/accountName snapshots stamped at write time). `seq` is the
 // strictly increasing poll cursor for the external audit API.
+// `seq` has a plain index, NOT @unique: adding a unique constraint to an
+// existing table makes `prisma db push` stop with a data-loss warning, and
+// Render's build runs it without --accept-data-loss. Values come from a
+// Postgres sequence, so they're distinct anyway; nothing looks a row up by
+// seq (only `seq > n ORDER BY seq`), so the index is all that's needed.
 model AuditLog {
   id          String    @id @default(uuid())
-  seq         Int       @unique @default(autoincrement())
+  seq         Int       @default(autoincrement())
   userId      String?
   accountId   String?
   action      String
@@ -277,6 +282,7 @@ model AuditLog {
   user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   account     Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
+  @@index([seq])
   @@index([timestamp])
 }
 
