@@ -9,9 +9,17 @@ import {
   AuthenticatedRequest,
 } from "../middleware/auth";
 import { notifyUser } from "../services/notifications";
-import { asString, clientIp } from "../utils/reqValue";
+import { asString } from "../utils/reqValue";
+import { writeAudit, auditRows } from "../services/audit";
 
 const router = Router();
+
+// The acting admin, for writeAudit()/auditRows().
+const actor = (req: AuthenticatedRequest) => ({
+  userId: req.user!.id,
+  actorEmail: req.user!.email,
+  req,
+});
 
 // GET /api/users — list all users [ADMIN]
 router.get(
@@ -54,6 +62,11 @@ router.patch(
         where: { id: asString(req.params.id) },
         data: { active: true, revoked: false },
       });
+      await writeAudit({
+        action: "USER_APPROVED",
+        ...actor(req),
+        metadata: { targetUserId: user.id, targetEmail: user.email },
+      });
       // Notify the approved user
       notifyUser(
         user.id,
@@ -81,6 +94,11 @@ router.patch(
       const user = await prisma.user.update({
         where: { id: asString(req.params.id) },
         data: { active: false, revoked: true, discordUserId: null },
+      });
+      await writeAudit({
+        action: "USER_DECLINED",
+        ...actor(req),
+        metadata: { targetUserId: user.id, targetEmail: user.email },
       });
       res.json({
         message: "User registration declined.",
@@ -113,10 +131,25 @@ router.patch(
       return;
     }
     try {
+      const before = await prisma.user.findUnique({
+        where: { id: asString(req.params.id) },
+        select: { role: true },
+      });
+      if (!before) {
+        res.status(404).json({ error: "User not found." });
+        return;
+      }
       const user = await prisma.user.update({
         where: { id: asString(req.params.id) },
         data: { role },
       });
+      if (before.role !== user.role) {
+        await writeAudit({
+          action: "USER_ROLE_CHANGED",
+          ...actor(req),
+          metadata: { targetUserId: user.id, targetEmail: user.email, from: before.role, to: user.role },
+        });
+      }
       res.json({
         message: "Role updated.",
         user: { ...user, passwordHash: undefined },
@@ -135,9 +168,26 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     const { endDate } = req.body;
     try {
+      const before = await prisma.user.findUnique({
+        where: { id: asString(req.params.id) },
+        select: { endDate: true },
+      });
+      if (!before) {
+        res.status(404).json({ error: "User not found." });
+        return;
+      }
       const user = await prisma.user.update({
         where: { id: asString(req.params.id) },
         data: { endDate: endDate ? new Date(endDate) : null },
+      });
+      await writeAudit({
+        action: "USER_END_DATE_CHANGED",
+        ...actor(req),
+        metadata: {
+          targetUserId: user.id,
+          from: before.endDate?.toISOString() ?? null,
+          to: user.endDate?.toISOString() ?? null,
+        },
       });
       res.json({
         message: "End date updated.",
@@ -160,18 +210,27 @@ router.delete(
       return;
     }
     try {
-      await prisma.$transaction([
+      const targetId = asString(req.params.id);
+      await prisma.$transaction(async (tx) => {
         // Unlinking Discord too: integrations.ts also checks `active`, this
         // is defense in depth so a deactivated account has no chat identity.
-        prisma.user.update({
-          where: { id: asString(req.params.id) },
+        const target = await tx.user.update({
+          where: { id: targetId },
           data: { active: false, revoked: true, discordUserId: null },
-        }),
-        prisma.accessGrant.updateMany({
-          where: { userId: asString(req.params.id), active: true },
+        });
+        const grants = await tx.accessGrant.updateMany({
+          where: { userId: targetId, active: true },
           data: { active: false },
-        }),
-      ]);
+        });
+        await writeAudit(
+          {
+            action: "USER_DEACTIVATED",
+            ...actor(req),
+            metadata: { targetUserId: target.id, targetEmail: target.email, grantsRevoked: grants.count },
+          },
+          tx,
+        );
+      });
       res.json({ message: "User deactivated and all grants revoked." });
     } catch {
       res.status(404).json({ error: "User not found." });
@@ -212,12 +271,13 @@ router.post(
           data: { active: false },
         }),
         prisma.auditLog.createMany({
-          data: targets.map((t) => ({
-            userId: req.user!.id,
-            action: "USER_BULK_DEACTIVATED",
-            metadata: { targetUserId: t.id, targetName: t.name, targetEmail: t.email },
-            ipAddress: clientIp(req),
-          })),
+          data: auditRows(
+            targets.map((t) => ({
+              action: "USER_BULK_DEACTIVATED" as const,
+              ...actor(req),
+              metadata: { targetUserId: t.id, targetName: t.name, targetEmail: t.email },
+            })),
+          ),
         }),
       ]);
 
@@ -272,6 +332,17 @@ router.patch(
         },
         include: { managedCollections: true },
       });
+      // Field names only, never values.
+      const fields = Object.entries({ department, startDate, clearanceLevel, managedCollectionIds })
+        .filter(([, v]) => v !== undefined)
+        .map(([k]) => k);
+      if (fields.length > 0) {
+        await writeAudit({
+          action: "USER_PROFILE_UPDATED",
+          ...actor(req),
+          metadata: { targetUserId: updated.id, fields },
+        });
+      }
       res.json({ ...updated, passwordHash: undefined });
     } catch (e) {
       console.error("[Profile Update Error]", e);
@@ -351,13 +422,10 @@ router.patch(
         data: { startDate: new Date() },
       });
 
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user!.id,
-          action: "USER_GAP_EXTENDED",
-          metadata: { extendedUserId: updated.id, name: updated.name },
-          ipAddress: clientIp(req),
-        },
+      await writeAudit({
+        action: "USER_GAP_EXTENDED",
+        ...actor(req),
+        metadata: { extendedUserId: updated.id, name: updated.name },
       });
 
       res.json({ message: "User access extended by 6 months." });

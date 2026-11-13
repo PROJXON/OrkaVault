@@ -2,8 +2,27 @@ import { Router, Response } from "express";
 import { prisma } from "../lib/prismaClient";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middleware/auth";
 import { asString } from "../utils/reqValue";
+import { writeAuditSafe } from "../services/audit";
 
 const router = Router();
+
+// Every change writes ORG_POLICY_CHANGED (Phase 4c §3), the
+// AUDIT_LOG_RETENTION_DAYS change in particular: shortening retention is a
+// way to purge history, so it must leave a row. `from` comes from the row
+// being replaced, never from the request body.
+type PolicySnapshot = { name: string; value: string | null; enabled: boolean } | null;
+const snap = (p: { name: string; value: string | null; enabled: boolean } | null): PolicySnapshot =>
+  p ? { name: p.name, value: p.value, enabled: p.enabled } : null;
+
+function auditPolicyChange(req: AuthenticatedRequest, key: string, from: PolicySnapshot, to: PolicySnapshot) {
+  return writeAuditSafe({
+    action: "ORG_POLICY_CHANGED",
+    userId: req.user!.id,
+    actorEmail: req.user!.email,
+    metadata: { key, from, to },
+    req,
+  });
+}
 
 // GET /api/policies - list all policies
 router.get("/", requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
@@ -39,6 +58,7 @@ router.post(
           enabled: enabled ?? true,
         },
       });
+      await auditPolicyChange(req, policy.name, null, snap(policy));
       res.status(201).json(policy);
     } catch (error) {
       res.status(500).json({ error: "Failed to create policy." });
@@ -61,12 +81,16 @@ router.post(
       for (const p of policies) {
         const existing = await prisma.organizationPolicy.findFirst({ where: { name: p.name } });
         if (existing) {
-          await prisma.organizationPolicy.update({
+          const updated = await prisma.organizationPolicy.update({
             where: { id: existing.id },
             data: { value: p.value !== undefined ? String(p.value) : existing.value },
           });
+          // The Settings page saves every field at once; only log real changes.
+          if (updated.value !== existing.value) {
+            await auditPolicyChange(req, existing.name, snap(existing), snap(updated));
+          }
         } else {
-          await prisma.organizationPolicy.create({
+          const created = await prisma.organizationPolicy.create({
             data: {
               name: p.name,
               type: p.type || "SETTING",
@@ -74,6 +98,7 @@ router.post(
               enabled: true,
             },
           });
+          await auditPolicyChange(req, created.name, null, snap(created));
         }
       }
       res.json({ message: "Policies updated." });
@@ -92,6 +117,11 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     const { enabled, name, description, type } = req.body;
     try {
+      const before = await prisma.organizationPolicy.findUnique({ where: { id: asString(req.params.id) } });
+      if (!before) {
+        res.status(404).json({ error: "Policy not found." });
+        return;
+      }
       const policy = await prisma.organizationPolicy.update({
         where: { id: asString(req.params.id) },
         data: {
@@ -102,6 +132,7 @@ router.patch(
           ...(req.body.value !== undefined && { value: req.body.value }),
         },
       });
+      await auditPolicyChange(req, before.name, snap(before), snap(policy));
       res.json(policy);
     } catch (error) {
       res.status(404).json({ error: "Policy not found." });
@@ -116,9 +147,10 @@ router.delete(
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      await prisma.organizationPolicy.delete({
+      const deleted = await prisma.organizationPolicy.delete({
         where: { id: asString(req.params.id) },
       });
+      await auditPolicyChange(req, deleted.name, snap(deleted), null);
       res.json({ message: "Policy deleted successfully." });
     } catch (error) {
       res.status(404).json({ error: "Policy not found." });

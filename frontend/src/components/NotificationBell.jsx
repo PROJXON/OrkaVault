@@ -19,6 +19,8 @@ const getNotifRoute = (type) => {
       return "/health";
     case "OFFBOARDING_ALERT":
       return "/users";
+    case "API_KEY_ALERT":
+      return "/settings?tab=integrations";
     // ROTATION_DUE and REGISTRATION_APPROVED will return null to trigger the popup modal
     default:
       return null;

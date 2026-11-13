@@ -13,6 +13,7 @@ import { meetsClearance } from "../services/clearance";
 import { sendChatAlert } from "../services/webhookAlerts";
 import { approveAccessRequest, denyAccessRequest, RequestActionError } from "../services/accessRequests";
 import { asString, clientIp } from "../utils/reqValue";
+import { writeAudit } from "../services/audit";
 
 const router = Router();
 
@@ -170,13 +171,12 @@ router.post(
         },
       });
 
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user!.id,
-          accountId,
-          action: "ACCESS_REQUESTED",
-          ipAddress: clientIp(req),
-        },
+      await writeAudit({
+        action: "ACCESS_REQUESTED",
+        userId: req.user!.id,
+        actorEmail: req.user!.email,
+        accountId,
+        req,
       });
 
       // Notify managers and admins (account already loaded above)

@@ -50,6 +50,16 @@ Run backend and frontend commands from within their own directory.
   `<ProtectedRoute>` role checks in `App.jsx` are UX only — never treat
   them as the security boundary, and never remove a server-side check
   because "the frontend already hides it."
+- **Audit coverage (Phase 4c):** every state-changing route that an ADMIN
+  or MANAGER can call, and every authentication outcome, writes an
+  AuditLog row. Write it through `backend/src/services/audit.ts`
+  (`writeAudit` inside transactions, `writeAuditSafe` for security events),
+  never `prisma.auditLog.create` directly, and add any new action name to
+  `backend/src/config/auditActions.ts` first (tsc enforces it). Never put
+  secrets, password/OTP values, tokens, custom-field values or key
+  material in audit metadata. Take `from` values from the row being
+  replaced, not the request body. OrkaSecurity reads this log, so a
+  missing row is a monitoring blind spot.
 - No test suite and no lint config currently exist in this repo — don't
   assume a `test` or `lint` npm script; check `package.json` in the
   relevant app before claiming one runs. If you add meaningful backend

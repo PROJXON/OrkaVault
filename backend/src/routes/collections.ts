@@ -2,8 +2,24 @@ import { Router, Response } from "express";
 import { prisma } from "../lib/prismaClient";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middleware/auth";
 import { asString } from "../utils/reqValue";
+import { writeAuditSafe } from "../services/audit";
+import type { AuditAction } from "../config/auditActions";
 
 const router = Router();
+
+const auditCollection = (
+  req: AuthenticatedRequest,
+  action: AuditAction,
+  collection: { id: string; name: string },
+  extra?: Record<string, unknown>,
+) =>
+  writeAuditSafe({
+    action,
+    userId: req.user!.id,
+    actorEmail: req.user!.email,
+    metadata: { collectionId: collection.id, name: collection.name, ...extra },
+    req,
+  });
 
 // GET /api/collections - list all collections
 router.get("/", requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
@@ -48,6 +64,7 @@ router.post(
         data: { name, description },
         include: { _count: { select: { accounts: true } } }
       });
+      await auditCollection(req, "COLLECTION_CREATED", collection);
       res.status(201).json(collection);
     } catch (error) {
       res.status(500).json({ error: "Failed to create collection." });
@@ -80,6 +97,13 @@ router.patch(
           managers: { select: { id: true, name: true, email: true } },
         },
       });
+      const fields = Object.entries({ name, description, managerIds })
+        .filter(([, v]) => v !== undefined)
+        .map(([k]) => k);
+      await auditCollection(req, "COLLECTION_UPDATED", collection, {
+        fields,
+        ...(managerIds !== undefined && { managerIds: collection.managers.map((m) => m.id) }),
+      });
       res.json(collection);
     } catch (error) {
       res.status(404).json({ error: "Collection not found." });
@@ -99,9 +123,10 @@ router.delete(
         where: { collectionId: asString(req.params.id) },
         data: { collectionId: null }
       });
-      await prisma.collection.delete({
+      const deleted = await prisma.collection.delete({
         where: { id: asString(req.params.id) },
       });
+      await auditCollection(req, "COLLECTION_DELETED", deleted);
       res.json({ message: "Collection deleted successfully." });
     } catch (error) {
       res.status(404).json({ error: "Collection not found." });

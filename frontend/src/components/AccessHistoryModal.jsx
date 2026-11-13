@@ -48,7 +48,7 @@ export default function AccessHistoryModal({ isOpen, onClose, accountId, account
                 {logs.map((log) => (
                   <li key={log.id} className="py-3 flex justify-between items-center text-sm" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                     <div>
-                      <span className="font-medium" style={{ color: "var(--text-primary)" }}>{log.user?.name || "System"}</span>
+                      <span className="font-medium" style={{ color: "var(--text-primary)" }}>{log.user?.name || log.actorEmail || "System"}</span>
                       <span className="text-muted mx-2">performed</span>
                       <span className="badge-pill font-mono">{formatAction(log.action)}</span>
                     </div>

@@ -8,6 +8,7 @@ import path from "path";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { writeAuditSafe } from "../services/audit";
 
 const router = Router();
 
@@ -133,6 +134,7 @@ router.patch("/password", requireAuth, async (req: AuthenticatedRequest, res: Re
 
     const valid = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!valid) {
+      await writeAuditSafe({ action: "PASSWORD_CHANGE_FAILED", userId: user.id, actorEmail: user.email, req });
       res.status(401).json({ error: "Incorrect current password." });
       return;
     }
@@ -142,6 +144,7 @@ router.patch("/password", requireAuth, async (req: AuthenticatedRequest, res: Re
       where: { id: user.id },
       data: { passwordHash: newHash },
     });
+    await writeAuditSafe({ action: "PASSWORD_CHANGED", userId: user.id, actorEmail: user.email, req });
 
     res.json({ message: "Password updated successfully." });
   } catch (error) {

@@ -9,6 +9,7 @@ import { prisma, Role } from "../lib/prismaClient";
 import { notifyUser } from "./notifications";
 import { meetsClearance } from "./clearance";
 import { sendChatAlert } from "./webhookAlerts";
+import { writeAudit } from "./audit";
 
 
 export type RequestActor = {
@@ -127,15 +128,17 @@ export async function approveAccessRequest(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
+    await writeAudit(
+      {
+        action: "ACCESS_APPROVED",
         userId: actor.id,
         accountId: request.accountId,
-        action: "ACCESS_APPROVED",
+        accountName: account.name,
         metadata: { requestId, requestType: request.requestType, source },
         ipAddress,
       },
-    });
+      tx,
+    );
 
     return {
       grantId: grant.id,
@@ -206,15 +209,17 @@ export async function denyAccessRequest(
       data: { status: "DENIED", actionedBy: actor.id, actionedAt: new Date() },
     });
 
-    await tx.auditLog.create({
-      data: {
+    await writeAudit(
+      {
+        action: "ACCESS_DENIED",
         userId: actor.id,
         accountId: request.accountId,
-        action: "ACCESS_DENIED",
+        accountName: account.name,
         metadata: { reason, source },
         ipAddress,
       },
-    });
+      tx,
+    );
 
     const requester = await tx.user.findUnique({ where: { id: request.requesterId } });
     return {

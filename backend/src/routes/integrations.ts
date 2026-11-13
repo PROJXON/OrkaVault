@@ -21,6 +21,7 @@ import { approveAccessRequest, denyAccessRequest, RequestActionError, RequestAct
 import { clientIp } from "../utils/reqValue";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { hasPendingAcceptances } from "../services/legalAcceptance";
+import { writeAuditSafe } from "../services/audit";
 
 const router = Router();
 const gchatAuthClient = new OAuth2Client();
@@ -111,6 +112,9 @@ router.post("/discord/interactions", async (req: Request, res: Response) => {
       }
       try {
         await prisma.user.update({ where: { id: userId }, data: { discordUserId } });
+        // No req: the request comes from Discord's servers, so its IP says
+        // nothing about the user.
+        await writeAuditSafe({ action: "DISCORD_LINKED", userId, metadata: { discordUserId } });
         res.json({
           type: DISCORD_CHANNEL_MESSAGE_WITH_SOURCE,
           data: { content: "✅ Discord account linked to your OrkaVault account.", flags: EPHEMERAL },

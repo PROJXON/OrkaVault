@@ -54,6 +54,8 @@ model User {
   contentAcceptances ContentAcceptance[]
   contentPublished   ContentVersion[] @relation("ContentPublishedBy")
   contentDrafts      ContentDraft[]   @relation("ContentDraftUpdatedBy")
+  apiKeysCreated     ApiKey[]         @relation("ApiKeyCreatedBy")
+  apiKeysRevoked     ApiKey[]         @relation("ApiKeyRevokedBy")
 }
 
 // ─── Admin-editable policies and banners (Phase 4b) ─────────────────────
@@ -257,17 +259,50 @@ enum RequestStatus {
   DENIED
 }
 
+// Phase 4c: audit history survives user/account deletion (SetNull + the
+// actorEmail/accountName snapshots stamped at write time). `seq` is the
+// strictly increasing poll cursor for the external audit API.
 model AuditLog {
   id          String    @id @default(uuid())
-  userId      String
+  seq         Int       @unique @default(autoincrement())
+  userId      String?
   accountId   String?
   action      String
   metadata    Json?
   ipAddress   String?
+  actorEmail  String?
+  accountName String?
   timestamp   DateTime  @default(now())
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account     Account?  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  account     Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([timestamp])
+}
+
+// Phase 4c: service API keys for the read-only external audit API
+// (OrkaSecurity). Only the SHA-256 hash of the key is stored; the
+// plaintext is shown once at creation. Rows are never deleted: revoked and
+// expired keys are kept as history.
+model ApiKey {
+  id             String    @id @default(uuid())
+  name           String
+  keyHash        String    @unique
+  keyLast4       String
+  scopes         String[]
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  revokedById    String?
+  replacedById   String?
+  expiryWarnedAt DateTime?
+
+  createdBy      User?     @relation("ApiKeyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  revokedBy      User?     @relation("ApiKeyRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([revokedAt, expiresAt])
 }
 
 model RotationSchedule {
@@ -307,6 +342,7 @@ enum NotifType {
   WORKSPACE_LOGIN_ALLOWLIST_VIOLATION
   WORKSPACE_LOGIN_FAILURE
   ACCESS_APPROVAL_EXPIRED
+  API_KEY_ALERT
 }
 
 model WorkspaceActivityEvent {

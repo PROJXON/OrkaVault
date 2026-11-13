@@ -26,6 +26,62 @@ curl -c jar -b jar -H "X-CSRF-Token: <token>" -H "Content-Type: application/json
 Without the header you get `403 {"code":"CSRF_INVALID"}`. Auth routes are
 rate-limited to 30 requests per 15 min per IP (restart the API to reset).
 
+## External audit API (OrkaSecurity, Phase 4c)
+
+A read-only API that OrkaSecurity polls for OrkaVault's audit log:
+`GET <API base>/api/external/v1/audit` and `/status`. It accepts only a
+service API key (`oksec_…`) in the `Authorization: Bearer` header; user
+cookies don't work on it, and the key doesn't work anywhere else. Full
+route shapes are in `ARCHITECTURE.md` §2.
+
+### Key lifecycle runbook
+
+There's no script and no key hashes in env. The only env var is the switch.
+
+1. **Enable:** set `EXTERNAL_AUDIT_API_ENABLED=true` on Render and redeploy.
+   Until then every path answers a plain 404, and the Integrations tab
+   shows a notice.
+2. **Create:** Settings → Integrations → **Generate key** (name, expiry,
+   current authenticator code) → copy the key → paste it into
+   OrkaSecurity's secret env (e.g. `ORKAVAULT_AUDIT_API_KEY`). The key is
+   shown once. If it's lost, regenerate.
+3. **Zero-downtime rotation:** generate a **second** key → switch
+   OrkaSecurity to it → confirm "Last used" moves to the new key (it
+   updates at most once a minute) → revoke the old one. ("Regenerate" also
+   works, but it kills the old key instantly, so OrkaSecurity fails until
+   it's updated.) Max 3 active keys.
+4. **Leak:** **Revoke** the key in the UI. It takes effect on the next
+   request. If the vault UI itself is in question, set
+   `EXTERNAL_AUDIT_API_ENABLED` to anything else and redeploy; the API then
+   returns 404 for every key.
+5. **Expiry:** admins get a notification 7 days ahead. Rotate as in step 3.
+
+Every create, regenerate and revoke writes an `API_KEY_*` audit row and
+notifies all admins. A key survives its creator being deactivated (it's an
+org integration); revoke it by hand if that's not wanted.
+
+### Contract for OrkaSecurity (the poller isn't built here)
+
+- Run on a schedule (e.g. every 5 min). Keep `cursor` in durable storage,
+  not in function memory.
+- Loop `GET /api/external/v1/audit?after=<cursor>&limit=1000` until
+  `hasMore` is false. Store `nextCursor` only after the batch is safely
+  processed.
+- Dedupe by `id`. Pulls are idempotent, so re-reading from an older cursor
+  after a retry is safe.
+- Rows appear about 30 s after they're written (settle window); that's
+  expected.
+- Each run, call `/status`. Alert if `oldestSeq > cursor + 1`: rows were
+  purged by retention before they were read. Treat a sudden run of
+  missing `seq` values as a signal, **not** proof of tampering, because
+  Postgres sequences also skip on rolled-back transactions.
+- Send the key only in `Authorization: Bearer` over HTTPS, never in a URL.
+  Every auth failure is the same `401 {"error":"Unauthorized."}`; 10 failed
+  attempts per 15 min per IP → 429. Successful calls are limited to 120 per
+  minute per key.
+- Query params are strict: anything other than `after`, `limit`,
+  `action` (comma list) → 400.
+
 ## Frontend (`frontend/`)
 
 ```

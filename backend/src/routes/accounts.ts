@@ -23,7 +23,8 @@ import { parseCsv } from "../services/csvImport";
 import { meetsClearance } from "../services/clearance";
 import { validateTotpQrImage, generateOtpFromQrImage } from "../services/totp";
 import { syncWorkspaceAccountsToVault } from "../services/workspaceAccountSync";
-import { asString, clientIp } from "../utils/reqValue";
+import { asString } from "../utils/reqValue";
+import { writeAudit, auditRows } from "../services/audit";
 import {
   validateCustomFields,
   saveCustomFields,
@@ -373,15 +374,15 @@ router.post(
       }
 
       // Log audit
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user!.id,
-          accountId: account.id,
-          action: isAdmin ? "ACCOUNT_CREATED" : "ACCOUNT_SUBMITTED",
-          // Labels only — custom field values never go in the audit log.
-          metadata: customFieldLabels.length > 0 ? { customFieldLabels } : undefined,
-          ipAddress: clientIp(req),
-        },
+      await writeAudit({
+        action: isAdmin ? "ACCOUNT_CREATED" : "ACCOUNT_SUBMITTED",
+        userId: req.user!.id,
+        actorEmail: req.user!.email,
+        accountId: account.id,
+        accountName: account.name,
+        // Labels only — custom field values never go in the audit log.
+        metadata: customFieldLabels.length > 0 ? { customFieldLabels } : undefined,
+        req,
       });
 
       // Only notify admins for QA if not self-approved
@@ -597,14 +598,14 @@ router.post(
           },
         });
 
-        await prisma.auditLog.create({
-          data: {
-            userId: req.user!.id,
-            accountId: account.id,
-            action: "ACCOUNT_CREATED",
-            metadata: { source: "bulk_import", row: rowNum },
-            ipAddress: clientIp(req),
-          },
+        await writeAudit({
+          action: "ACCOUNT_CREATED",
+          userId: req.user!.id,
+          actorEmail: req.user!.email,
+          accountId: account.id,
+          accountName: account.name,
+          metadata: { source: "bulk_import", row: rowNum },
+          req,
         });
 
         if (!isGoogleSSO && score < 40) {
@@ -708,14 +709,14 @@ router.patch(
           data: { totpQrBase64, notes },
         });
 
-        await prisma.auditLog.create({
-          data: {
-            userId: req.user!.id,
-            accountId,
-            action: "ACCOUNT_UPDATED",
-            metadata: { source: "bulk_qr_upload" },
-            ipAddress: clientIp(req),
-          },
+        await writeAudit({
+          action: "ACCOUNT_UPDATED",
+          userId: req.user!.id,
+          actorEmail: req.user!.email,
+          accountId,
+          accountName: account.name,
+          metadata: { source: "bulk_qr_upload" },
+          req,
         });
 
         results.push({ accountId, status: "updated" });
@@ -791,13 +792,13 @@ router.patch(
         });
       }
 
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user!.id,
-          accountId: asString(req.params.id),
-          action: `QA_${qaStatus}`,
-          ipAddress: clientIp(req),
-        },
+      await writeAudit({
+        action: qaStatus === "APPROVED" ? "QA_APPROVED" : "QA_REJECTED",
+        userId: req.user!.id,
+        actorEmail: req.user!.email,
+        accountId: account.id,
+        accountName: account.name,
+        req,
       });
       res.json({ message: `Account ${qaStatus.toLowerCase()}.` });
     } catch (error) {
@@ -874,13 +875,13 @@ router.post(
       }
 
       // Write audit BEFORE returning secret
-      await prisma.auditLog.create({
-        data: {
-          userId,
-          accountId,
-          action: "PASSWORD_REVEALED",
-          ipAddress: clientIp(req),
-        },
+      await writeAudit({
+        action: "PASSWORD_REVEALED",
+        userId,
+        actorEmail: req.user!.email,
+        accountId,
+        accountName: account.name,
+        req,
       });
 
       const password = account.isGoogleSSO
@@ -958,13 +959,13 @@ router.post(
         return;
       }
 
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user!.id,
-          accountId,
-          action: "QR_CODE_REVEALED",
-          ipAddress: clientIp(req),
-        },
+      await writeAudit({
+        action: "QR_CODE_REVEALED",
+        userId: req.user!.id,
+        actorEmail: req.user!.email,
+        accountId,
+        accountName: account.name,
+        req,
       });
 
       res.json({ qrCodeBase64: account.totpQrBase64, expiresIn: null, grantExpiresAt: null });
@@ -1070,13 +1071,13 @@ router.post(
         select: { id: true },
       });
       if (!recentReveal) {
-        await prisma.auditLog.create({
-          data: {
-            userId,
-            accountId,
-            action: "OTP_REVEALED",
-            ipAddress: clientIp(req),
-          },
+        await writeAudit({
+          action: "OTP_REVEALED",
+          userId,
+          actorEmail: req.user!.email,
+          accountId,
+          accountName: account.name,
+          req,
         });
       }
 
@@ -1307,15 +1308,15 @@ router.patch(
       });
 
       // Log audit
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user!.id,
-          accountId: updated.id,
-          action: "ACCOUNT_UPDATED",
-          // Labels only — custom field values never go in the audit log.
-          metadata: customFieldLabels ? { customFieldLabels } : undefined,
-          ipAddress: clientIp(req),
-        },
+      await writeAudit({
+        action: "ACCOUNT_UPDATED",
+        userId: req.user!.id,
+        actorEmail: req.user!.email,
+        accountId: updated.id,
+        accountName: updated.name,
+        // Labels only — custom field values never go in the audit log.
+        metadata: customFieldLabels ? { customFieldLabels } : undefined,
+        req,
       });
 
       res.json({
@@ -1354,18 +1355,27 @@ router.delete(
       await deleteSecret(account.secretRef);
       await deleteCustomFieldsSecret(account.customFieldsSecretRef);
 
-      await prisma.account.delete({
-        where: { id: asString(req.params.id) },
-      });
-
-      // Log audit
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user!.id,
-          action: "ACCOUNT_DELETED",
-          metadata: { deletedAccount: account.name },
-          ipAddress: clientIp(req),
-        },
+      await prisma.$transaction(async (tx) => {
+        // Legacy rows (pre-Phase 4c) have no accountName snapshot. Fill
+        // only that null column before the FK is nulled by the delete, so
+        // the reveal/access history still names the account. Never touches
+        // action, metadata, timestamp or seq.
+        await tx.auditLog.updateMany({
+          where: { accountId: account.id, accountName: null },
+          data: { accountName: account.name },
+        });
+        await tx.account.delete({ where: { id: account.id } });
+        await writeAudit(
+          {
+            action: "ACCOUNT_DELETED",
+            userId: req.user!.id,
+            actorEmail: req.user!.email,
+            accountName: account.name,
+            metadata: { deletedAccount: account.name, deletedAccountId: account.id },
+            req,
+          },
+          tx,
+        );
       });
 
       res.json({ message: "Account deleted." });
@@ -1397,17 +1407,29 @@ router.post(
       await Promise.all(targets.map((a) => deleteSecret(a.secretRef)));
       await Promise.all(targets.map((a) => deleteCustomFieldsSecret(a.customFieldsSecretRef)));
 
-      await prisma.$transaction([
-        prisma.account.deleteMany({ where: { id: { in: accountIds } } }),
-        prisma.auditLog.createMany({
-          data: targets.map((a) => ({
-            userId: req.user!.id,
-            action: "ACCOUNT_BULK_DELETED",
-            metadata: { deletedAccount: a.name },
-            ipAddress: clientIp(req),
-          })),
-        }),
-      ]);
+      await prisma.$transaction(async (tx) => {
+        // Backfill legacy rows' accountName snapshot before the FK is nulled
+        // (see DELETE /:id).
+        for (const a of targets) {
+          await tx.auditLog.updateMany({
+            where: { accountId: a.id, accountName: null },
+            data: { accountName: a.name },
+          });
+        }
+        await tx.account.deleteMany({ where: { id: { in: targets.map((a) => a.id) } } });
+        await tx.auditLog.createMany({
+          data: auditRows(
+            targets.map((a) => ({
+              action: "ACCOUNT_BULK_DELETED" as const,
+              userId: req.user!.id,
+              actorEmail: req.user!.email,
+              accountName: a.name,
+              metadata: { deletedAccount: a.name, deletedAccountId: a.id },
+              req,
+            })),
+          ),
+        });
+      });
 
       res.json({ message: `${targets.length} account(s) deleted.` });
     } catch (error) {

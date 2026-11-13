@@ -22,6 +22,9 @@ import workspaceActivityRoutes from "./routes/workspaceActivity";
 import backupsRoutes from "./routes/backups";
 import integrationsRoutes from "./routes/integrations";
 import contentRoutes from "./routes/content";
+import apiKeysRoutes from "./routes/apiKeys";
+import externalAuditRoutes from "./routes/externalAudit";
+import { checkApiKeyExpiry, EXTERNAL_API_ENABLED } from "./services/apiKeys";
 import { seedContent } from "./services/content";
 import { notifyAdmins } from "./services/notifications";
 import { ingestWorkspaceActivity, syncConnectedApps, syncWorkspaceDevices, syncWorkspaceRecovery } from "./services/googleWorkspace";
@@ -47,7 +50,11 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
 // Log Events
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
+  // The external audit API is called by a machine with a service key. Log
+  // only its path: a misconfigured caller could put the key in the query
+  // string, and it must never reach the logs.
+  const url = req.path.startsWith("/api/external/") ? req.path : req.url;
+  console.log(`${req.method} ${url}`);
   next();
 });
 
@@ -100,6 +107,10 @@ app.use("/api/workspace-activity", workspaceActivityRoutes);
 app.use("/api/backups", backupsRoutes);
 app.use("/api/integrations", integrationsRoutes);
 app.use("/api/content", contentRoutes);
+app.use("/api/api-keys", apiKeysRoutes);
+// Service-key API for OrkaSecurity (Phase 4c). After requireCsrf (so non-GET
+// methods are already 403) and before the /api catch-all router.
+app.use("/api/external/v1/audit", externalAuditRoutes);
 app.use("/api", miscRoutes);
 
 // Error Handler must be the last middleware
@@ -187,7 +198,7 @@ async function checkRotationDue() {
 /** Audit log retention: backs old rows up to CSV and purges them from Postgres. No-op until configured. */
 async function checkAuditRetention() {
   try {
-    const result = await runAuditRetentionSweep();
+    const result = await runAuditRetentionSweep("cron");
     if (!result.skipped && result.backedUp > 0) {
       console.log(`[Cron] Audit retention: backed up ${result.backedUp} row(s) to ${result.file}.`);
     }
@@ -199,6 +210,7 @@ async function checkAuditRetention() {
 // ─── Start Server ──────────────────────────────────────────────────────
 app.listen(PORT, async () => {
   console.log(`🚀 OrkaVault API running on http://localhost:${PORT}`);
+  console.log(`[ExternalAudit] external audit API is ${EXTERNAL_API_ENABLED ? "ENABLED" : "disabled"}.`);
 
   // One-time (no-op after the first successful run) — see seedDefaultDepartments jsdoc
   await seedDefaultDepartments().catch((error) =>
@@ -214,6 +226,7 @@ app.listen(PORT, async () => {
   await checkOffboarding();
   await checkRotationDue();
   await checkAuditRetention();
+  await checkApiKeyExpiry();
   await ingestWorkspaceActivity();
   await syncConnectedApps();
   await syncWorkspaceDevices();
@@ -226,6 +239,7 @@ app.listen(PORT, async () => {
   setInterval(checkOffboarding, 24 * 60 * 60 * 1000);
   setInterval(checkRotationDue, 24 * 60 * 60 * 1000);
   setInterval(checkAuditRetention, 24 * 60 * 60 * 1000);
+  setInterval(checkApiKeyExpiry, 24 * 60 * 60 * 1000);
   // Workspace activity: 30 min, not 24h — see docs/google-workspace-admin-sdk-monitoring.md §1
   // on Google's own multi-hour ingestion lag (polling faster doesn't help, slower loses freshness).
   setInterval(ingestWorkspaceActivity, 30 * 60 * 1000);

@@ -20,6 +20,7 @@ import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
 import { prisma } from "../lib/prismaClient";
+import { auditRow } from "./audit";
 import {
   CONTENT_REGISTRY,
   ContentRegistryEntry,
@@ -358,6 +359,7 @@ export async function publish(key: string, opts: PublishOptions, adminId: string
   const version = versionLabel(now);
   const bodySha256 = sha256(draft.body);
 
+  const admin = await prisma.user.findUnique({ where: { id: adminId }, select: { email: true } });
   try {
     const [created] = await prisma.$transaction([
       prisma.contentVersion.create({
@@ -377,13 +379,13 @@ export async function publish(key: string, opts: PublishOptions, adminId: string
       }),
       prisma.contentDraft.delete({ where: { key } }),
       prisma.auditLog.create({
-        data: {
-          userId: adminId,
-          accountId: null,
+        data: auditRow({
           action: "CONTENT_PUBLISHED",
+          userId: adminId,
+          actorEmail: admin?.email,
           metadata: { key, version, bodySha256, changeNote, requiresReacceptance },
           ipAddress: ip,
-        },
+        }),
       }),
     ]);
     return created;

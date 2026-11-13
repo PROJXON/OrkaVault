@@ -2,6 +2,12 @@ import { prisma } from "../lib/prismaClient";
 
 
 async function main() {
+  // Dev cleanup only: this hard-deletes users and their audit history.
+  if (process.env.NODE_ENV === "production") {
+    console.error("Refusing to run clearTestUsers with NODE_ENV=production (it deletes audit history).");
+    process.exit(1);
+  }
+
   // Find all non-admin users first
   const testUsers = await prisma.user.findMany({
     where: { email: { not: "admin@projxon.com" } },

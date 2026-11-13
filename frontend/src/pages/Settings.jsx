@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import api from "../lib/api";
 import { Trash2, Edit2, X, Check, Plus } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import ContentTab from "../components/ContentAdmin";
+import IntegrationsTab from "../components/settings/IntegrationsTab";
 
 function PoliciesTab() {
   const [settings, setSettings] = useState({
@@ -738,12 +740,17 @@ function DepartmentsTab() {
   );
 }
 
+const TAB_KEYS = ["policies", "departments", "alerts", "backups", "content", "integrations"];
+
 export default function Settings() {
-  const [tab, setTab] = useState("policies");
+  // ?tab= lets notifications deep-link (e.g. API key alerts → Integrations).
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [tab, setTab] = useState(TAB_KEYS.includes(initialTab) ? initialTab : "policies");
 
   return (
     // The Content tab's editor + live preview sit side by side, so it gets more width.
-    <div className={`${tab === "content" ? "max-w-6xl" : "max-w-4xl"} mx-auto`}>
+    <div className={`${tab === "content" || tab === "integrations" ? "max-w-6xl" : "max-w-4xl"} mx-auto`}>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-[var(--text-primary)]">Global Settings</h1>
         <p className="mt-2 text-sm text-gray-700 dark:text-[var(--text-secondary)]">
@@ -759,6 +766,7 @@ export default function Settings() {
             { key: "alerts", label: "Alerts" },
             { key: "backups", label: "Backups" },
             { key: "content", label: "Content" },
+            { key: "integrations", label: "Integrations" },
           ].map((t) => (
             <button
               key={t.key}
@@ -783,6 +791,8 @@ export default function Settings() {
         <BackupsTab />
       ) : tab === "content" ? (
         <ContentTab />
+      ) : tab === "integrations" ? (
+        <IntegrationsTab />
       ) : (
         <AlertsTab />
       )}

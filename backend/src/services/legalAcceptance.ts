@@ -14,6 +14,7 @@
 import { prisma } from "../lib/prismaClient";
 import { GATED_KEYS } from "../config/contentRegistry";
 import { getCurrent, getState, VersionMeta } from "./content";
+import { auditRows } from "./audit";
 
 export type AcceptanceVia = "registration" | "gate";
 
@@ -92,21 +93,22 @@ export async function recordAcceptances(
   ip: string | null,
   via: AcceptanceVia,
 ): Promise<void> {
+  const actor = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
   await prisma.$transaction([
     prisma.contentAcceptance.createMany({
       data: versions.map((v) => ({ userId, contentVersionId: v.id, key: v.key, ipAddress: ip, via })),
       skipDuplicates: true,
     }),
-    ...versions.map((v) =>
-      prisma.auditLog.create({
-        data: {
+    prisma.auditLog.createMany({
+      data: auditRows(
+        versions.map((v) => ({
+          action: "CONTENT_ACCEPTED" as const,
           userId,
-          accountId: null,
-          action: "CONTENT_ACCEPTED",
+          actorEmail: actor?.email,
           metadata: { key: v.key, version: v.version, bodySha256: v.bodySha256, via },
           ipAddress: ip,
-        },
-      }),
-    ),
+        })),
+      ),
+    }),
   ]);
 }

@@ -15,6 +15,7 @@
  */
 import { prisma } from "../lib/prismaClient";
 import { listActiveWorkspaceUsers } from "./googleWorkspace";
+import { writeAudit } from "./audit";
 
 
 export interface WorkspaceAccountSyncResult {
@@ -61,13 +62,12 @@ export async function syncWorkspaceAccountsToVault(
       },
     });
 
-    await prisma.auditLog.create({
-      data: {
-        userId: triggeredByUserId,
-        accountId: account.id,
-        action: "WORKSPACE_ACCOUNT_AUTO_CREATED",
-        metadata: { email: u.email },
-      },
+    await writeAudit({
+      action: "WORKSPACE_ACCOUNT_AUTO_CREATED",
+      userId: triggeredByUserId,
+      accountId: account.id,
+      accountName: account.name,
+      metadata: { email: u.email },
     });
 
     created++;

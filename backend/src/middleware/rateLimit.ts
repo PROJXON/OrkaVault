@@ -47,6 +47,48 @@ export const cspReportLimiter = rateLimit({
   message: "", // browsers ignore the response body
 });
 
+/**
+ * External audit API, before key auth (Phase 4c): only failed auth (401)
+ * counts. Serverless callers rotate IPs, so this only slows a guesser; the
+ * 256-bit key is the real defence.
+ */
+export const externalAuthFailLimiter = rateLimit({
+  ...common,
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  keyGenerator: ipKey,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: (_req, res) => res.statusCode !== 401,
+  message: { error: "Too many failed attempts. Please wait and try again." },
+});
+
+/** External audit API, after key auth: per key. */
+export const externalAuditLimiter = rateLimit({
+  ...common,
+  windowMs: 60 * 1000,
+  limit: 120,
+  keyGenerator: (req: Request) => {
+    const id = (req as Request & { apiKey?: { id: string } }).apiKey?.id;
+    return id ? `apikey:${id}` : ipKey(req);
+  },
+  message: { error: "Too many requests. Slow down." },
+});
+
+/**
+ * TOTP step-up for creating/regenerating API keys: per user, only failed
+ * codes (403 STEP_UP_FAILED) count. A TOTP code is only 6 digits, so this
+ * cap is what makes guessing it hopeless.
+ */
+export const apiKeyStepUpLimiter = rateLimit({
+  ...common,
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  keyGenerator: userKey,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: (_req, res) => res.statusCode !== 403,
+  message: { error: "Too many verification attempts. Please wait a few minutes and try again." },
+});
+
 /** Personal vault key endpoints (Phase 5): wrapped-key fetch/upload, recovery. */
 export const vaultKeysLimiter = rateLimit({
   ...common,

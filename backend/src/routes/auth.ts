@@ -22,6 +22,8 @@ import { OAuth2Client } from "google-auth-library";
 import { asString, clientIp } from "../utils/reqValue";
 import { issueCsrfToken, clearCsrfCookie } from "../middleware/csrf";
 import { authLimiter } from "../middleware/rateLimit";
+import { writeAuditSafe, attemptedEmail } from "../services/audit";
+import type { AuditAction } from "../config/auditActions";
 import {
   pendingAcceptances,
   recordAcceptances,
@@ -97,6 +99,11 @@ router.post("/register", authLimiter, async (req: Request, res: Response) => {
         return;
       }
       if (req.body.setupToken !== process.env.SETUP_TOKEN) {
+        await writeAuditSafe({
+          action: "ADMIN_SETUP_FAILED",
+          metadata: { attemptedEmail: attemptedEmail(email) },
+          req,
+        });
         res.status(403).json({ error: "Invalid setup token for first-time admin registration." });
         return;
       }
@@ -121,12 +128,23 @@ router.post("/register", authLimiter, async (req: Request, res: Response) => {
             via: "registration",
           })),
         },
+        // Nested create, so the rows can't go through writeAudit(); the
+        // action names are still checked against the catalog via `satisfies`.
         auditLogs: {
-          create: accepted.versions.map((v) => ({
-            action: "CONTENT_ACCEPTED",
-            metadata: { key: v.key, version: v.version, bodySha256: v.bodySha256, via: "registration" },
-            ipAddress: clientIp(req),
-          })),
+          create: [
+            {
+              action: "USER_REGISTERED" satisfies AuditAction,
+              metadata: { pending: !isFirstUser },
+              ipAddress: clientIp(req),
+              actorEmail: email,
+            },
+            ...accepted.versions.map((v) => ({
+              action: "CONTENT_ACCEPTED" satisfies AuditAction,
+              metadata: { key: v.key, version: v.version, bodySha256: v.bodySha256, via: "registration" },
+              ipAddress: clientIp(req),
+              actorEmail: email,
+            })),
+          ],
         },
       },
     });
@@ -164,17 +182,42 @@ router.post("/login", authLimiter, async (req: Request, res: Response) => {
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.passwordHash) {
+      // Both the unknown-email and the bad-password path write a row, so
+      // their timing stays similar (no new enumeration signal).
+      await writeAuditSafe({
+        action: "LOGIN_FAILED",
+        userId: user?.id ?? null,
+        actorEmail: user?.email,
+        metadata: user
+          ? { method: "password", reason: "NO_PASSWORD" }
+          : { method: "password", reason: "UNKNOWN_EMAIL", attemptedEmail: attemptedEmail(email) },
+        req,
+      });
       res.status(401).json({ error: "Invalid credentials." });
       return;
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
+      await writeAuditSafe({
+        action: "LOGIN_FAILED",
+        userId: user.id,
+        actorEmail: user.email,
+        metadata: { method: "password", reason: "BAD_PASSWORD" },
+        req,
+      });
       res.status(401).json({ error: "Invalid credentials." });
       return;
     }
 
     if (!user.active) {
+      await writeAuditSafe({
+        action: "LOGIN_FAILED",
+        userId: user.id,
+        actorEmail: user.email,
+        metadata: { method: "password", reason: "INACTIVE" },
+        req,
+      });
       res
         .status(403)
         .json({ error: "Your account is pending admin approval." });
@@ -200,6 +243,13 @@ router.post("/login", authLimiter, async (req: Request, res: Response) => {
       userId: user.id,
       email: user.email,
       role: user.role,
+    });
+    await writeAuditSafe({
+      action: "LOGIN_SUCCESS",
+      userId: user.id,
+      actorEmail: user.email,
+      metadata: { method: "password" },
+      req,
     });
 
     res.json({
@@ -254,12 +304,29 @@ router.post("/google", authLimiter, async (req: Request, res: Response) => {
   }
 
   try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch (verifyError) {
+      console.error("[Google Auth] Token verification failed:", verifyError);
+      await writeAuditSafe({
+        action: "LOGIN_FAILED",
+        metadata: { method: "google", reason: "BAD_GOOGLE_TOKEN" },
+        req,
+      });
+      res.status(500).json({ error: "Google authentication failed." });
+      return;
+    }
     const payload = ticket.getPayload();
     if (!payload || !payload.email) {
+      await writeAuditSafe({
+        action: "LOGIN_FAILED",
+        metadata: { method: "google", reason: "BAD_GOOGLE_TOKEN" },
+        req,
+      });
       res.status(400).json({ error: "Invalid Google token payload." });
       return;
     }
@@ -282,6 +349,13 @@ router.post("/google", authLimiter, async (req: Request, res: Response) => {
       }
 
       if (!user.active) {
+        await writeAuditSafe({
+          action: "LOGIN_FAILED",
+          userId: user.id,
+          actorEmail: user.email,
+          metadata: { method: "google", reason: "INACTIVE" },
+          req,
+        });
         res.status(403).json({ error: "Your account is pending admin approval." });
         return;
       }
@@ -307,6 +381,13 @@ router.post("/google", authLimiter, async (req: Request, res: Response) => {
         userId: user.id,
         email: user.email,
         role: user.role,
+      });
+      await writeAuditSafe({
+        action: "LOGIN_SUCCESS",
+        userId: user.id,
+        actorEmail: user.email,
+        metadata: { method: "google" },
+        req,
       });
 
       res.json({
@@ -452,6 +533,7 @@ router.post("/mfa/enable", requireAuth, async (req: AuthenticatedRequest, res: R
       where: { id: user.id },
       data: { mfaEnabled: true },
     });
+    await writeAuditSafe({ action: "MFA_ENABLED", userId: user.id, actorEmail: user.email, req });
 
     res.json({ message: "MFA enabled successfully." });
   } catch (error) {
@@ -484,6 +566,7 @@ router.post("/mfa/disable", requireAuth, async (req: AuthenticatedRequest, res: 
     }).valid;
 
     if (!verified) {
+      await writeAuditSafe({ action: "MFA_DISABLE_FAILED", userId: user.id, actorEmail: user.email, req });
       res.status(400).json({ error: "Invalid verification code." });
       return;
     }
@@ -495,6 +578,7 @@ router.post("/mfa/disable", requireAuth, async (req: AuthenticatedRequest, res: 
         data: { mfaEnabled: false, mfaSecret: null },
       }),
     ]);
+    await writeAuditSafe({ action: "MFA_DISABLED", userId: user.id, actorEmail: user.email, req });
 
     res.json({ message: "MFA disabled successfully." });
   } catch (error) {
@@ -513,15 +597,18 @@ router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
   }
 
   try {
+    const method = signature ? "mfa_device" : "mfa_totp";
     let decoded: any;
     try {
       decoded = jwt.verify(tempToken, JWT_SECRET);
     } catch (err) {
+      await writeAuditSafe({ action: "LOGIN_FAILED", metadata: { method, reason: "BAD_TEMP_TOKEN" }, req });
       res.status(401).json({ error: "Invalid or expired temporary MFA token." });
       return;
     }
 
     if (!decoded || decoded.purpose !== "mfa_verification") {
+      await writeAuditSafe({ action: "LOGIN_FAILED", metadata: { method, reason: "BAD_TEMP_TOKEN" }, req });
       res.status(401).json({ error: "Invalid token purpose." });
       return;
     }
@@ -534,9 +621,33 @@ router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
     });
 
     if (!user || !user.active) {
+      await writeAuditSafe({
+        action: "LOGIN_FAILED",
+        userId: user?.id ?? null,
+        actorEmail: user?.email,
+        metadata: { method, reason: "INACTIVE" },
+        req,
+      });
       res.status(401).json({ error: "User not found or deactivated." });
       return;
     }
+
+    const failMfa = (reason: string) =>
+      writeAuditSafe({
+        action: "LOGIN_FAILED",
+        userId: user.id,
+        actorEmail: user.email,
+        metadata: { method, reason },
+        req,
+      });
+    const succeedMfa = () =>
+      writeAuditSafe({
+        action: "LOGIN_SUCCESS",
+        userId: user.id,
+        actorEmail: user.email,
+        metadata: { method },
+        req,
+      });
 
     if (signature) {
       if (!mfaDeviceId) {
@@ -546,6 +657,7 @@ router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
 
       const device = user.mfaDevices.find((d) => d.id === mfaDeviceId);
       if (!device) {
+        await failMfa("DEVICE_NOT_REGISTERED");
         res.status(401).json({ error: "Device not registered." });
         return;
       }
@@ -575,6 +687,7 @@ router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
       }
 
       if (!isValid) {
+        await failMfa("DEVICE_SIG_FAILED");
         res.status(401).json({ error: "Device cryptographic verification failed." });
         return;
       }
@@ -589,6 +702,7 @@ router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
       });
+      await succeedMfa();
 
       res.json({
         user: {
@@ -612,6 +726,7 @@ router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
       }).valid;
 
       if (!verified) {
+        await failMfa("BAD_CODE");
         res.status(401).json({ error: "Invalid verification code." });
         return;
       }
@@ -634,6 +749,7 @@ router.post("/mfa/verify", authLimiter, async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
       });
+      await succeedMfa();
 
       res.json({
         mfaDeviceId: responseDeviceId,
@@ -694,6 +810,13 @@ router.delete("/mfa/devices/:id", requireAuth, async (req: AuthenticatedRequest,
 
     await prisma.mfaDevice.delete({
       where: { id },
+    });
+    await writeAuditSafe({
+      action: "MFA_DEVICE_REMOVED",
+      userId: req.user!.id,
+      actorEmail: req.user!.email,
+      metadata: { deviceId: id },
+      req,
     });
 
     res.json({ message: "Device successfully revoked." });

@@ -16,8 +16,9 @@ import { entryTypeRules } from "../services/entryTypes";
 import { fetchSecret } from "../services/secretManager";
 import { addClient, removeClient } from "../services/sseHub";
 import { hasPendingAcceptances } from "../services/legalAcceptance";
-import { asString, clientIp } from "../utils/reqValue";
+import { asString } from "../utils/reqValue";
 import { cspReportLimiter } from "../middleware/rateLimit";
+import { writeAudit } from "../services/audit";
 
 const router = Router();
 
@@ -71,14 +72,13 @@ router.patch(
       data: { accessType, expiresAt },
     });
 
-    await prisma.auditLog.create({
-      data: {
-        userId: req.user!.id,
-        accountId: grant.accountId,
-        action: "GRANT_UPDATED",
-        metadata: { accessType },
-        ipAddress: clientIp(req),
-      },
+    await writeAudit({
+      action: "GRANT_UPDATED",
+      userId: req.user!.id,
+      actorEmail: req.user!.email,
+      accountId: grant.accountId,
+      metadata: { accessType },
+      req,
     });
 
     res.json({ message: "Grant updated.", grant: updated });
@@ -109,13 +109,12 @@ router.delete(
       where: { id: asString(req.params.id) },
       data: { active: false },
     });
-    await prisma.auditLog.create({
-      data: {
-        userId: req.user!.id,
-        accountId: grant.accountId,
-        action: "GRANT_REVOKED",
-        ipAddress: clientIp(req),
-      },
+    await writeAudit({
+      action: "GRANT_REVOKED",
+      userId: req.user!.id,
+      actorEmail: req.user!.email,
+      accountId: grant.accountId,
+      req,
     });
     res.json({ message: "Grant revoked." });
   },

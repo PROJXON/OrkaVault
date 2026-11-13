@@ -32,9 +32,9 @@ router.get(
 );
 
 // POST /api/backups/run — trigger the retention sweep immediately [ADMIN]
-router.post("/run", requireAuth, requireRole("ADMIN"), async (_req: AuthenticatedRequest, res: Response) => {
+router.post("/run", requireAuth, requireRole("ADMIN"), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const result = await runAuditRetentionSweep();
+    const result = await runAuditRetentionSweep("manual", req.user!, req);
     if (result.skipped) {
       res.json({ message: "Retention is not configured (set a retention window in Settings > Backups first)." });
       return;

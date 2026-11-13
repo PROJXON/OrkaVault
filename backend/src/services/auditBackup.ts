@@ -9,9 +9,11 @@
  *     files beyond this count are deleted after each sweep. Defaults to
  *     10 if unset.
  */
+import type { Request } from "express";
 import { prisma } from "../lib/prismaClient";
 import fs from "fs";
 import path from "path";
+import { writeAuditSafe } from "./audit";
 
 
 export const BACKUPS_DIR = path.join(process.cwd(), "backups");
@@ -65,13 +67,32 @@ function enforceMaxBackups(maxBackups: number): number {
   return toDelete.length;
 }
 
-/** Runs the retention sweep. Safe to call on a schedule or on demand. */
-export async function runAuditRetentionSweep(): Promise<{
-  skipped: boolean;
-  backedUp: number;
-  file: string | null;
-  deletedBackups: number;
-}> {
+type SweepResult = { skipped: boolean; backedUp: number; file: string | null; deletedBackups: number };
+
+/**
+ * Runs the retention sweep. Safe to call on a schedule or on demand.
+ * Writes an AUDIT_BACKUP_RUN row whenever retention is configured (Phase 4c
+ * §3), so OrkaSecurity can tell a purge from tampering.
+ */
+export async function runAuditRetentionSweep(
+  trigger: "manual" | "cron",
+  actor?: { id: string; email: string },
+  req?: Request,
+): Promise<SweepResult> {
+  const result = await sweep();
+  if (!result.skipped) {
+    await writeAuditSafe({
+      action: "AUDIT_BACKUP_RUN",
+      userId: actor?.id ?? null,
+      actorEmail: actor?.email,
+      metadata: { backedUp: result.backedUp, deletedBackups: result.deletedBackups, trigger },
+      req,
+    });
+  }
+  return result;
+}
+
+async function sweep(): Promise<SweepResult> {
   const retentionDays = await getRetentionDays();
   if (retentionDays === null) {
     return { skipped: true, backedUp: 0, file: null, deletedBackups: 0 };
@@ -84,7 +105,7 @@ export async function runAuditRetentionSweep(): Promise<{
       user: { select: { name: true, email: true, department: true } },
       account: { select: { name: true } },
     },
-    orderBy: { timestamp: "asc" },
+    orderBy: { seq: "asc" },
   });
 
   const maxBackups = await getMaxBackups();
@@ -94,15 +115,16 @@ export async function runAuditRetentionSweep(): Promise<{
   }
 
   ensureBackupsDir();
-  const header = ["timestamp", "action", "actorName", "actorEmail", "actorDepartment", "accountName", "ipAddress", "metadata"];
+  const header = ["seq", "timestamp", "action", "actorName", "actorEmail", "actorDepartment", "accountName", "ipAddress", "metadata"];
   const rows = logs.map((l) =>
     [
+      l.seq,
       l.timestamp.toISOString(),
       l.action,
       l.user?.name,
-      l.user?.email,
+      l.user?.email ?? l.actorEmail,
       l.user?.department,
-      l.account?.name,
+      l.account?.name ?? l.accountName,
       l.ipAddress,
       l.metadata,
     ]

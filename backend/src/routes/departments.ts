@@ -8,8 +8,24 @@ import { Router, Request, Response } from "express";
 import { prisma } from "../lib/prismaClient";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middleware/auth";
 import { asString } from "../utils/reqValue";
+import { writeAuditSafe } from "../services/audit";
+import type { AuditAction } from "../config/auditActions";
 
 const router = Router();
+
+const auditDepartment = (
+  req: AuthenticatedRequest,
+  action: AuditAction,
+  department: { id: string; name: string },
+  extra?: Record<string, unknown>,
+) =>
+  writeAuditSafe({
+    action,
+    userId: req.user!.id,
+    actorEmail: req.user!.email,
+    metadata: { departmentId: department.id, name: department.name, ...extra },
+    req,
+  });
 
 // GET /api/departments - list all departments [PUBLIC — Register.jsx needs
 // the list before the user is authenticated, same reasoning as
@@ -54,6 +70,7 @@ router.post(
         return;
       }
       const department = await prisma.department.create({ data: { name: name.trim() } });
+      await auditDepartment(req, "DEPARTMENT_CREATED", department);
       res.status(201).json(department);
     } catch (error) {
       res.status(500).json({ error: "Failed to create department." });
@@ -76,10 +93,16 @@ router.patch(
       return;
     }
     try {
+      const before = await prisma.department.findUnique({ where: { id: asString(req.params.id) } });
+      if (!before) {
+        res.status(404).json({ error: "Department not found." });
+        return;
+      }
       const department = await prisma.department.update({
         where: { id: asString(req.params.id) },
         data: { name: name.trim() },
       });
+      await auditDepartment(req, "DEPARTMENT_UPDATED", department, { from: before.name, to: department.name });
       res.json(department);
     } catch (error) {
       res.status(404).json({ error: "Department not found." });
@@ -126,6 +149,7 @@ router.delete(
       }
 
       await prisma.department.delete({ where: { id: asString(req.params.id) } });
+      await auditDepartment(req, "DEPARTMENT_DELETED", department, { usersReassigned: inUse });
       res.json({ message: "Department deleted successfully." });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete department." });

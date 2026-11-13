@@ -2,6 +2,11 @@ import React, { useState, useEffect, useMemo } from "react";
 import api from "../lib/api";
 import { format } from "date-fns";
 
+// Phase 4c: the user/account FK is nulled when either is deleted, so fall
+// back to the snapshots stamped at write time.
+const actorLabel = (log) => log.user?.name || log.actorEmail || log.metadata?.attemptedEmail || "System";
+const accountLabel = (log) => log.account?.name || log.accountName || "-";
+
 const formatAction = (action) => {
   if (!action) return "-";
   return action
@@ -32,13 +37,13 @@ export default function Audit() {
   }, []);
 
   const uniqueActions = useMemo(() => [...new Set(logs.map((l) => l.action).filter(Boolean))], [logs]);
-  const uniqueUsers = useMemo(() => [...new Set(logs.map((l) => l.user?.name).filter(Boolean))], [logs]);
+  const uniqueUsers = useMemo(() => [...new Set(logs.map(actorLabel).filter(Boolean))], [logs]);
 
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
       let match = true;
       if (filterAction && log.action !== filterAction) match = false;
-      if (filterUser && log.user?.name !== filterUser) match = false;
+      if (filterUser && actorLabel(log) !== filterUser) match = false;
       if (filterDate) {
         const logDateStr = new Date(log.timestamp).toISOString().split("T")[0];
         if (logDateStr !== filterDate) match = false;
@@ -125,7 +130,7 @@ export default function Audit() {
               </div>
               <div className="row-card-field">
                 <span className="rcf-label">Actor</span>
-                <span className="rcf-value">{log.user?.name || "System"}</span>
+                <span className="rcf-value">{actorLabel(log)}</span>
               </div>
               <div className="row-card-field">
                 <span className="rcf-label">Department</span>
@@ -133,7 +138,7 @@ export default function Audit() {
               </div>
               <div className="row-card-field">
                 <span className="rcf-label">Target Account</span>
-                <span className="rcf-value">{log.account?.name || "-"}</span>
+                <span className="rcf-value">{accountLabel(log)}</span>
               </div>
               <div className="row-card-field">
                 <span className="rcf-label">IP Address</span>
@@ -202,13 +207,13 @@ export default function Audit() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-[var(--text-primary)]">
-                    {log.user?.name || "System"}
+                    {actorLabel(log)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
                     {log.user?.department || "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)]">
-                    {log.account?.name || "-"}
+                    {accountLabel(log)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-[var(--text-tertiary)] font-mono">
                     {log.ipAddress || "-"}
