@@ -48,6 +48,15 @@ No schema change.
 
 ## Notes / gotchas
 
+- **Folder names (follow-up fix):** the new folders were first named
+  `pages/docs/`, `components/docs/` and `backend/src/docs/`. The root
+  `.gitignore`'s `docs/` rule (meant for the local reference-notes folder)
+  matches every folder called `docs`, so those 7 files were left out of
+  commit `8812555` and the frontend build couldn't resolve
+  `pages/docs/docsNav`. Renamed to `pages/documentation/`,
+  `components/documentation/` and `backend/src/apiDocs/`; `.gitignore`
+  unchanged. Paths below use the new names.
+
 - **Deviation from the plan:** `/docs/api` is not wrapped in
   `ProtectedRoute allowedRoles={["ADMIN"]}`. That would redirect a USER to
   `/vault`, so the plan's "visiting `/docs/api` → Admins only" check could

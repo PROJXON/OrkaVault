@@ -20,7 +20,7 @@ import {
 import { useAuth } from "../lib/authContext";
 import api from "../lib/api";
 import { NAV_BADGES_REFRESH_EVENT } from "../lib/navBadges";
-import { DOC_POLICIES } from "../pages/docs/docsNav";
+import { DOC_POLICIES } from "../pages/documentation/docsNav";
 import LegalLinks from "./LegalLinks";
 import clsx from "clsx";
 

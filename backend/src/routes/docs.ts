@@ -26,7 +26,8 @@ const API_VERSION = "v1";
 function docsDir(): string {
   // ts-node runs from src/routes; the compiled app from dist/routes, which
   // tsc doesn't copy .md files into, so fall back to the source tree.
-  const candidates = [path.join(__dirname, "../docs"), path.resolve(__dirname, "../../src/docs")];
+  // Not named "docs/": the root .gitignore ignores every docs/ folder.
+  const candidates = [path.join(__dirname, "../apiDocs"), path.resolve(__dirname, "../../src/apiDocs")];
   return candidates.find((d) => fs.existsSync(path.join(d, "rest-api.md"))) ?? candidates[0];
 }
 

@@ -28,10 +28,10 @@ import Profile from "./pages/Profile";
 import Collections from "./pages/Collections";
 import ManagerCollections from "./pages/ManagerCollections";
 import ManageConsole from "./pages/ManageConsole";
-import DocsHome from "./pages/docs/DocsHome";
-import RestApiDocs from "./pages/docs/RestApiDocs";
-import PoliciesIndex from "./pages/docs/PoliciesIndex";
-import PolicyDoc from "./pages/docs/PolicyDoc";
+import DocsHome from "./pages/documentation/DocsHome";
+import RestApiDocs from "./pages/documentation/RestApiDocs";
+import PoliciesIndex from "./pages/documentation/PoliciesIndex";
+import PolicyDoc from "./pages/documentation/PolicyDoc";
 
 import { useLocation } from "react-router-dom";
 

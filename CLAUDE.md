@@ -63,9 +63,13 @@ Run backend and frontend commands from within their own directory.
 - **REST API docs (Phase 4d):** the action catalog in
   `config/auditActions.ts` feeds the in-app REST API page automatically;
   any change to external API behaviour also updates
-  `backend/src/docs/rest-api.md` and its Changelog (see `ARCHITECTURE.md`
+  `backend/src/apiDocs/rest-api.md` and its Changelog (see `ARCHITECTURE.md`
   §6). That file is served to ADMINs only: no secrets, hostnames or env
   var names in it.
+- **Never name a source folder `docs/`.** The root `.gitignore` ignores
+  every `docs/` folder (the root one holds local reference notes), so
+  files in e.g. `src/pages/docs/` silently never get committed. Use
+  `documentation/` or `apiDocs/`.
 - No test suite and no lint config currently exist in this repo — don't
   assume a `test` or `lint` npm script; check `package.json` in the
   relevant app before claiming one runs. If you add meaningful backend

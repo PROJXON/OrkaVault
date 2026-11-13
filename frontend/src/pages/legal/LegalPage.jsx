@@ -5,7 +5,7 @@ import LegalDocument from "../../components/legal/LegalDocument";
 
 // /legal/terms, /legal/privacy, /legal/cookies, /legal/notice (Phase 4b):
 // the current published version of a policy, edited in Settings → Content.
-// Public: works signed in or out. The in-app copy is pages/docs/PolicyDoc.jsx.
+// Public: works signed in or out. The in-app copy is pages/documentation/PolicyDoc.jsx.
 export default function LegalPage() {
   const { page } = useParams();
 
